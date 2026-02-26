@@ -14,7 +14,7 @@ export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
         </h1>
 
         <p className="text-muted-foreground mt-6 max-w-3xl text-xl font-light md:text-2xl">
-          A presentation built with PowerVibe
+          A presentation built with PromptSlide
         </p>
 
         <div className="text-muted-foreground mt-16 text-sm">

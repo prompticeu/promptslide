@@ -1,14 +1,14 @@
-# PowerVibe
+# PromptSlide
 
 Vibe-code beautiful slide decks using your favorite coding agent.
 
-PowerVibe is a local-first slide framework built with React, Tailwind CSS, and Framer Motion. Open your coding agent (Claude Code, Cursor, Windsurf, etc.), describe the slides you want in natural language, and watch them appear in real-time via Vite's hot module replacement.
+PromptSlide is a local-first slide framework built with React, Tailwind CSS, and Framer Motion. Open your coding agent (Claude Code, Cursor, Windsurf, etc.), describe the slides you want in natural language, and watch them appear in real-time via Vite's hot module replacement.
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/prompticeu/powervibe.git
-cd powervibe
+git clone https://github.com/prompticeu/promptslide.git
+cd promptslide
 npm install
 npm run dev
 ```

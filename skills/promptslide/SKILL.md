@@ -1,29 +1,29 @@
 ---
-name: powervibe
+name: promptslide
 description: >-
-  Creates and authors slide deck presentations using the PowerVibe framework
+  Creates and authors slide deck presentations using the PromptSlide framework
   (Vite + React 19 + Tailwind v4 + Framer Motion). Use when the user wants to
   create a new slide deck, add or edit slides, customize themes or branding,
   or work with slide animations and transitions. Triggers on mentions of slides,
-  decks, presentations, PowerVibe, or slide-related tasks.
+  decks, presentations, PromptSlide, or slide-related tasks.
 metadata:
   author: prompticeu
   version: "1.0"
 ---
 
-# PowerVibe
+# PromptSlide
 
 Create beautiful slide decks with AI coding agents. Each slide is a React component styled with Tailwind CSS, with built-in animations, presentation mode, and PDF export.
 
 ## Detect Mode
 
-Check if a PowerVibe project already exists in the current directory:
+Check if a PromptSlide project already exists in the current directory:
 
 ```bash
 ls src/framework/types.ts 2>/dev/null
 ```
 
-- **File exists** → This is an existing PowerVibe project. Go to [Authoring Slides](#authoring-slides).
+- **File exists** → This is an existing PromptSlide project. Go to [Authoring Slides](#authoring-slides).
 - **File does not exist** → No project yet. Go to [Creating a New Deck](#creating-a-new-deck).
 
 ---
@@ -33,7 +33,7 @@ ls src/framework/types.ts 2>/dev/null
 ### Step 1: Scaffold the project
 
 ```bash
-git clone https://github.com/prompticeu/powervibe.git my-deck
+git clone https://github.com/prompticeu/promptslide.git my-deck
 cd my-deck
 rm -rf .git
 npm install
