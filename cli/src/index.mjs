@@ -4,6 +4,7 @@ import { existsSync, cpSync, readFileSync, writeFileSync } from "node:fs"
 import { join, resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createInterface } from "node:readline"
+import { execSync } from "node:child_process"
 
 // ---------------------------------------------------------------------------
 // ANSI helpers
@@ -38,6 +39,19 @@ function prompt(question, defaultValue) {
     rl.question(`  ${question}${suffix}`, (answer) => {
       rl.close()
       resolve(answer.trim() || defaultValue || "")
+    })
+  })
+}
+
+function confirm(question, defaultYes = true) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  return new Promise((resolve) => {
+    const hint = defaultYes ? "Y/n" : "y/N"
+    rl.question(`  ${question} ${dim(`(${hint})`)} `, (answer) => {
+      rl.close()
+      const a = answer.trim().toLowerCase()
+      if (!a) return resolve(defaultYes)
+      resolve(a === "y" || a === "yes")
     })
   })
 }
@@ -137,7 +151,28 @@ async function main() {
     replaceInFile(path, values)
   }
 
-  // 5. Success output
+  // 5. Install PowerVibe agent skill
+  const installSkill = await confirm("Install PowerVibe agent skill?")
+
+  if (installSkill) {
+    console.log()
+    console.log(`  ${dim("Running: npx skills add prompticeu/powervibe")}`)
+    try {
+      execSync("npx skills add prompticeu/powervibe", {
+        cwd: targetDir,
+        stdio: "inherit"
+      })
+      console.log(`  ${green("✓")} PowerVibe skill installed`)
+    } catch {
+      console.log(
+        `  ${red("⚠")} Skill installation failed. You can install it later with:`
+      )
+      console.log(`    npx skills add prompticeu/powervibe`)
+    }
+  }
+
+  // 6. Success output
+  console.log()
   console.log(`  ${green("✓")} Created ${bold(projectName)} in ${cyan(dirName)}/`)
   console.log()
   console.log(`  ${bold("Next steps:")}`)
