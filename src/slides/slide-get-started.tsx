@@ -28,10 +28,10 @@ export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
             <div className="mb-6 w-full max-w-md rounded-xl border border-border bg-card p-4">
               <div className="space-y-1 text-left font-mono text-xs">
                 <p className="text-muted-foreground">
-                  $ git clone https://github.com/prompticeu/powervibe
+                  $ git clone https://github.com/prompticeu/promptslide
                 </p>
                 <p className="text-muted-foreground">
-                  $ cd powervibe && npm install && npm run dev
+                  $ cd promptslide && npm install && npm run dev
                 </p>
                 <p className="mt-1 text-green-400">
                   VITE ready on http://localhost:5173
@@ -42,7 +42,7 @@ export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
             <div className="flex items-center justify-center gap-3">
               <Github className="h-5 w-5 text-muted-foreground" />
               <span className="text-lg font-medium text-primary">
-                github.com/prompticeu/powervibe
+                github.com/prompticeu/promptslide
               </span>
             </div>
 

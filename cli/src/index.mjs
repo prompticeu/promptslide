@@ -128,7 +128,7 @@ async function main() {
   if (dirName === "--help" || dirName === "-h") {
     console.log(`  ${bold("Usage:")} npx create-slides ${dim("<project-directory>")}`)
     console.log()
-    console.log(`  Scaffolds a new PowerVibe slide deck project.`)
+    console.log(`  Scaffolds a new PromptSlide slide deck project.`)
     console.log()
     console.log(`  ${bold("Example:")}`)
     console.log(`    npx create-slides my-pitch-deck`)
@@ -218,23 +218,23 @@ async function main() {
     replaceInFile(path, values)
   }
 
-  // 6. Install PowerVibe agent skill
-  const installSkill = await confirm("Install PowerVibe agent skill?")
+  // 6. Install PromptSlide agent skill
+  const installSkill = await confirm("Install PromptSlide agent skill?")
 
   if (installSkill) {
     console.log()
-    console.log(`  ${dim("Running: npx skills add prompticeu/powervibe")}`)
+    console.log(`  ${dim("Running: npx skills add prompticeu/promptslide")}`)
     try {
-      execSync("npx skills add prompticeu/powervibe", {
+      execSync("npx skills add prompticeu/promptslide", {
         cwd: targetDir,
         stdio: "inherit"
       })
-      console.log(`  ${green("✓")} PowerVibe skill installed`)
+      console.log(`  ${green("✓")} PromptSlide skill installed`)
     } catch {
       console.log(
         `  ${red("⚠")} Skill installation failed. You can install it later with:`
       )
-      console.log(`    npx skills add prompticeu/powervibe`)
+      console.log(`    npx skills add prompticeu/promptslide`)
     }
   }
 

@@ -1,4 +1,4 @@
-# PowerVibe — Agent Documentation
+# PromptSlide — Agent Documentation
 
 This file documents the slide presentation framework for coding agents (Claude Code, Cursor, Windsurf, etc.). Read this before creating or modifying slides.
 
