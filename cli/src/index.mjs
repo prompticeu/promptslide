@@ -56,6 +56,56 @@ function confirm(question, defaultYes = true) {
   })
 }
 
+// ---------------------------------------------------------------------------
+// Hex → OKLCH conversion (pure math, zero dependencies)
+// ---------------------------------------------------------------------------
+function hexToOklch(hex) {
+  hex = hex.replace("#", "")
+  const r = parseInt(hex.slice(0, 2), 16) / 255
+  const g = parseInt(hex.slice(2, 4), 16) / 255
+  const b = parseInt(hex.slice(4, 6), 16) / 255
+
+  // sRGB → linear RGB
+  const toLinear = (c) =>
+    c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  const lr = toLinear(r)
+  const lg = toLinear(g)
+  const lb = toLinear(b)
+
+  // Linear RGB → LMS
+  const l = 0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb
+  const m = 0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb
+  const s = 0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb
+
+  // LMS → OKLAB
+  const l_ = Math.cbrt(l)
+  const m_ = Math.cbrt(m)
+  const s_ = Math.cbrt(s)
+  const L = 0.2104542553 * l_ + 0.793617785 * m_ - 0.0040720468 * s_
+  const a = 1.9779984951 * l_ - 2.428592205 * m_ + 0.4505937099 * s_
+  const bv = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.808675766 * s_
+
+  // OKLAB → OKLCH
+  const C = Math.sqrt(a * a + bv * bv)
+  let H = Math.atan2(bv, a) * (180 / Math.PI)
+  if (H < 0) H += 360
+
+  const round = (n, d = 3) => +n.toFixed(d)
+  return `oklch(${round(L)} ${round(C)} ${round(H)})`
+}
+
+function hexToOklchDark(hex) {
+  // Slightly lighter variant for dark mode (bump lightness by ~0.05)
+  const oklch = hexToOklch(hex)
+  const match = oklch.match(/oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)/)
+  const L = Math.min(1, parseFloat(match[1]) + 0.05)
+  return `oklch(${+L.toFixed(3)} ${match[2]} ${match[3]})`
+}
+
+function isValidHex(hex) {
+  return /^#?[0-9a-fA-F]{6}$/.test(hex)
+}
+
 function replaceInFile(filePath, replacements) {
   let content = readFileSync(filePath, "utf-8")
   for (const [placeholder, value] of Object.entries(replacements)) {
@@ -113,9 +163,16 @@ async function main() {
   const defaultName = titleCase(dirName)
   const projectName = await prompt("Project name:", defaultName)
 
+  // 3. Ask for primary brand color (optional)
+  let primaryHex = await prompt("Primary brand color (hex):", "#3B82F6")
+  if (!isValidHex(primaryHex)) {
+    console.log(`  ${dim("Invalid hex color, using default #3B82F6")}`)
+    primaryHex = "#3B82F6"
+  }
+
   console.log()
 
-  // 3. Copy template
+  // 4. Copy template
   if (!existsSync(TEMPLATE_DIR)) {
     console.error(`  ${red("Error:")} Template directory not found at ${TEMPLATE_DIR}`)
     process.exit(1)
@@ -123,7 +180,10 @@ async function main() {
 
   cpSync(TEMPLATE_DIR, targetDir, { recursive: true })
 
-  // 4. Replace placeholders
+  // 5. Replace placeholders
+  const primaryOklch = hexToOklch(primaryHex)
+  const primaryOklchDark = hexToOklchDark(primaryHex)
+
   const replacements = [
     {
       path: join(targetDir, "package.json"),
@@ -144,6 +204,13 @@ async function main() {
     {
       path: join(targetDir, "README.md"),
       values: { "{{PROJECT_NAME}}": projectName }
+    },
+    {
+      path: join(targetDir, "src", "globals.css"),
+      values: {
+        "{{PRIMARY_COLOR}}": primaryOklch,
+        "{{PRIMARY_COLOR_DARK}}": primaryOklchDark
+      }
     }
   ]
 
@@ -151,7 +218,7 @@ async function main() {
     replaceInFile(path, values)
   }
 
-  // 5. Install PowerVibe agent skill
+  // 6. Install PowerVibe agent skill
   const installSkill = await confirm("Install PowerVibe agent skill?")
 
   if (installSkill) {
@@ -171,7 +238,7 @@ async function main() {
     }
   }
 
-  // 6. Success output
+  // 7. Success output
   console.log()
   console.log(`  ${green("✓")} Created ${bold(projectName)} in ${cyan(dirName)}/`)
   console.log()
