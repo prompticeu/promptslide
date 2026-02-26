@@ -344,38 +344,42 @@ Use semantic color classes from the theme:
 - `bg-card` — card backgrounds
 - `border-border` — borders
 
-### Common patterns
+### Visual Variety Checklist
 
-**Two-column layout:**
-```tsx
-<div className="grid h-full grid-cols-2 gap-8">
-  <div>{/* Left column */}</div>
-  <div>{/* Right column */}</div>
-</div>
-```
+Before generating a multi-slide deck, plan visual diversity. Aim for:
 
-**Stat cards:**
-```tsx
-<div className="grid grid-cols-3 gap-6">
-  <div className="rounded-xl border border-border bg-card p-6">
-    <div className="text-3xl font-bold text-primary">$10M</div>
-    <div className="text-sm text-muted-foreground">Revenue</div>
-  </div>
-</div>
-```
+- At least 2 different background treatments across the deck (plain, gradient mesh, split solid, spotlight)
+- At least 2 different card/panel styles (not all `rounded-xl border border-border bg-card`)
+- At least 3 different animation types used (not all `slide-up`)
+- At least 1 slide using `AnimatedGroup` instead of manual `Animated` stagger
+- At least 1 asymmetric layout (not all equal-column grids)
+- At least 1 typography-driven slide (where text IS the visual, no cards)
+- No two consecutive slides using the same layout pattern
 
-**Icon + text list:**
-```tsx
-<div className="space-y-4">
-  <div className="flex items-start gap-4">
-    <CheckCircle className="mt-1 h-5 w-5 text-primary" />
-    <div>
-      <div className="font-semibold">Feature Name</div>
-      <div className="text-muted-foreground">Description</div>
-    </div>
-  </div>
-</div>
-```
+### Layout & Card Recipes
+
+Refer to `references/slide-patterns.md` for ready-to-use recipes including:
+- **Backgrounds:** Gradient mesh, split screen, spotlight vignette
+- **Card styles:** Glass (`backdrop-blur-md`), gradient, elevated (shadow), accent-border
+- **Layouts:** Bento grid, vertical timeline, comparison/before-after, asymmetric columns
+- **Data viz:** Big numbers + progress bars, CSS bar charts, SVG donut rings
+- **Typography:** Large quotes, headline-only with accent word
+
+### Animation Selection Guide
+
+Match animation types to layout styles:
+
+| Layout | Animation | Why |
+|--------|----------|-----|
+| Hero/Title | `scale` or `fade` | Dramatic, non-directional |
+| Split Screen | `slide-right` + `slide-left` | Panels enter from edges |
+| Card Grids | `AnimatedGroup` + `scale` | Uniform pop-in |
+| Timeline | `fade` | Clean, no movement |
+| Comparison | `slide-right` + `slide-left` | Opposing directions |
+| Metrics | `slide-up` | Vertical reveal |
+| Quote | `fade` | Let words speak |
+
+**Prefer `AnimatedGroup`** over manually wrapping each child in `<Animated>` for grids and collections — it's cleaner and produces better stagger timing.
 
 ---
 

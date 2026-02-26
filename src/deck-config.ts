@@ -8,11 +8,11 @@ import { SlideTechStack } from "@/slides/slide-tech-stack"
 import { SlideGetStarted } from "@/slides/slide-get-started"
 
 export const slides: SlideConfig[] = [
-  { component: SlideTitle, steps: 0 },
-  { component: SlideProblem, steps: 3 },
-  { component: SlideSolution, steps: 3 },
+  { component: SlideTitle, steps: 1 },
+  { component: SlideProblem, steps: 2 },
+  { component: SlideSolution, steps: 2 },
   { component: SlideHowItWorks, steps: 4 },
-  { component: SlideFeatures, steps: 2 },
+  { component: SlideFeatures, steps: 1 },
   { component: SlideTechStack, steps: 1 },
-  { component: SlideGetStarted, steps: 0 },
+  { component: SlideGetStarted, steps: 1 },
 ]
