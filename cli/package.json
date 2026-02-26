@@ -1,10 +1,10 @@
 {
-  "name": "create-powervibe",
+  "name": "create-slides",
   "version": "0.1.0",
-  "description": "Scaffold a new PowerVibe slide deck project",
+  "description": "Scaffold a new slide deck project powered by React, Tailwind, and Framer Motion",
   "type": "module",
   "bin": {
-    "create-powervibe": "./src/index.mjs"
+    "create-slides": "./src/index.mjs"
   },
   "files": [
     "src/",

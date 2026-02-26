@@ -55,19 +55,19 @@ function replaceInFile(filePath, replacements) {
 // ---------------------------------------------------------------------------
 async function main() {
   console.log()
-  console.log(`  ${bold("create-powervibe")} ${dim("v0.1.0")}`)
+  console.log(`  ${bold("create-slides")} ${dim("v0.1.0")}`)
   console.log()
 
   // 1. Parse directory name from argv or prompt
   let dirName = process.argv[2]
 
   if (dirName === "--help" || dirName === "-h") {
-    console.log(`  ${bold("Usage:")} npx create-powervibe ${dim("<project-directory>")}`)
+    console.log(`  ${bold("Usage:")} npx create-slides ${dim("<project-directory>")}`)
     console.log()
     console.log(`  Scaffolds a new PowerVibe slide deck project.`)
     console.log()
     console.log(`  ${bold("Example:")}`)
-    console.log(`    npx create-powervibe my-pitch-deck`)
+    console.log(`    npx create-slides my-pitch-deck`)
     console.log()
     process.exit(0)
   }
