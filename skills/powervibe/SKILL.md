@@ -238,6 +238,36 @@ Options: `fade` (default), `slide-left`, `slide-right`, `slide-up`, `slide-down`
 
 For layout patterns and design recipes, see [references/slide-patterns.md](references/slide-patterns.md).
 
+### Visual Diversity Guidelines
+
+When creating a deck with multiple slides, **vary the visual treatment across slides**. Do not repeat the same layout pattern on consecutive slides.
+
+**Rotate backgrounds:** Not every slide needs a plain `bg-background`. Use:
+- Gradient mesh backgrounds (layered blurred gradient orbs)
+- Split backgrounds (solid primary on one side, content on the other)
+- Subtle radial spotlights
+
+**Vary card styles:** Do NOT use `rounded-xl border border-border bg-card` on every slide. Alternate between:
+- Glass panels: `rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md`
+- Gradient cards: `bg-gradient-to-br from-primary/15 to-transparent border border-primary/10`
+- Elevated cards: `shadow-xl shadow-primary/10` (shadow instead of border)
+- Accent-border cards: `border-l-4 border-l-primary`
+- No cards at all — use large typography, progress bars, or data visualizations directly
+
+**Use different animations on different slides:**
+- `fade` for quotes, images, subtle reveals
+- `slide-left` / `slide-right` for split-screen content entering from edges
+- `scale` for hero elements and card grids
+- `slide-up` for sequential list items or stat metrics
+- `AnimatedGroup` for grids/collections (preferred over manual stagger delays)
+
+**Layout variety:** Do not make every slide a 3-column equal grid. Use:
+- Asymmetric splits (`grid-cols-5` with `col-span-2` + `col-span-3`)
+- Bento grids with mixed tile sizes (`col-span-2`, `row-span-2`)
+- Vertical timelines with alternating left/right content
+- Full-width typography-driven layouts (where text IS the visual)
+- Side-by-side comparisons with contrasting panel styles
+
 ### Keyboard Shortcuts
 
 | Key | Action |
@@ -256,7 +286,12 @@ For layout patterns and design recipes, see [references/slide-patterns.md](refer
 
 ### Slide Templates
 
-Reference templates are available in `assets/templates/` for common patterns:
-- `slide-basic.tsx` — Minimal slide, no animations
-- `slide-animated.tsx` — 3-column card grid with step animations
-- `slide-title.tsx` — Centered hero/title slide
+Reference templates are available in `assets/templates/` — each demonstrates a distinct visual style:
+- `slide-hero-gradient.tsx` — Gradient mesh background with glow orbs, large title, accent line (`scale` + `fade`)
+- `slide-split-screen.tsx` — Asymmetric 2/5 + 3/5 split with solid primary panel (`slide-right` + `slide-left`)
+- `slide-glassmorphism.tsx` — Frosted glass cards on gradient background (`AnimatedGroup` + `scale`)
+- `slide-big-number.tsx` — Large metrics with gradient progress bars (`slide-up` per metric)
+- `slide-timeline-vertical.tsx` — Vertical timeline with center line, alternating sides (`fade`)
+- `slide-comparison.tsx` — Before/After contrasting panels with VS badge (`slide-right` + `slide-left`)
+- `slide-bento-grid.tsx` — Mixed-size tiles in a CSS grid (`AnimatedGroup` + `slide-down`)
+- `slide-quote.tsx` — Large decorative quotation mark with attribution (`fade`)

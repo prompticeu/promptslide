@@ -1,201 +1,374 @@
 # Slide Layout Patterns
 
-Reusable patterns extracted from the PowerVibe demo slides. Copy and adapt these for your own decks.
+Reusable patterns for visually diverse slide decks. **Do not use the same pattern on consecutive slides** — mix and match to keep the deck visually engaging.
 
 ---
 
-## Two-Column Layout
+## Background Treatments
 
-Left content + right visual (from `slide-solution.tsx`):
+### Gradient Mesh Background
+
+Layered blurred gradient orbs create a rich, ambient backdrop. Place behind content with `relative z-10` on the content layer.
 
 ```tsx
-<div className="flex h-full items-center">
-  <div className="grid w-full grid-cols-2 gap-12">
-    <div className="flex flex-col justify-center space-y-8">
-      {/* Left: text content */}
-      <Animated step={1} animation="slide-up">
-        <div className="flex items-start gap-4">
-          <div className="bg-primary/10 rounded-lg p-3">
-            <Icon className="text-primary h-6 w-6" />
-          </div>
-          <div>
-            <h3 className="text-foreground mb-1 text-lg font-semibold">Feature</h3>
-            <p className="text-muted-foreground">Description text</p>
-          </div>
-        </div>
-      </Animated>
-    </div>
+{/* Place inside SlideLayout's content area */}
+<div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
+<div className="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+<div className="absolute bottom-1/4 right-10 h-64 w-64 rounded-full bg-primary/5 blur-2xl" />
 
-    <Animated step={1} animation="fade">
-      {/* Right: visual (image, mockup, chart) */}
-      <div className="flex items-center justify-center">
-        <div className="w-full rounded-xl border border-border bg-card p-6">
-          Visual content here
-        </div>
-      </div>
-    </Animated>
+{/* Content above */}
+<div className="relative z-10">Your content here</div>
+```
+
+### Split Background
+
+Asymmetric split with solid primary on one side. Use `hideFooter` on `SlideLayout` for edge-to-edge effect.
+
+```tsx
+<div className="-mx-12 -mt-12 -mb-6 grid h-[calc(100%+4.5rem)] grid-cols-5">
+  <div className="col-span-2 flex flex-col justify-center bg-primary p-12">
+    <h2 className="text-5xl font-bold text-primary-foreground">Statement</h2>
   </div>
+  <div className="col-span-3 flex flex-col justify-center p-12">
+    {/* Right content */}
+  </div>
+</div>
+```
+
+### Spotlight / Vignette
+
+A subtle radial glow that draws focus to the center.
+
+```tsx
+<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
+<div className="relative z-10">Your content here</div>
+```
+
+---
+
+## Card Styles
+
+Avoid using the same card style across the entire deck. Alternate between these:
+
+### Glass Card
+
+Frosted glass effect — requires a gradient or visual background behind it. Best in dark mode.
+
+```tsx
+<div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-lg shadow-primary/5 backdrop-blur-md">
+  <h3 className="text-lg font-semibold text-foreground">Title</h3>
+  <p className="text-sm text-muted-foreground">Description</p>
+</div>
+```
+
+### Gradient Card
+
+Soft gradient fill with a subtle tinted border.
+
+```tsx
+<div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/15 to-transparent p-8">
+  <h3 className="text-lg font-semibold text-foreground">Title</h3>
+  <p className="text-sm text-muted-foreground">Description</p>
+</div>
+```
+
+### Elevated Card
+
+No border — uses shadow for depth. Glow tinted with brand color.
+
+```tsx
+<div className="rounded-2xl bg-card p-8 shadow-xl shadow-primary/10">
+  <h3 className="text-lg font-semibold text-foreground">Title</h3>
+  <p className="text-sm text-muted-foreground">Description</p>
+</div>
+```
+
+### Accent-Border Card
+
+Thick left accent line for visual emphasis.
+
+```tsx
+<div className="rounded-2xl border border-border border-l-4 border-l-primary bg-card p-8">
+  <h3 className="text-lg font-semibold text-foreground">Title</h3>
+  <p className="text-sm text-muted-foreground">Description</p>
 </div>
 ```
 
 ---
 
-## Three-Column Card Grid
+## Layout Recipes
 
-The most common animated pattern (from `slide-problem.tsx`):
+### Bento Grid
+
+Mixed-size tiles create visual interest. Uses CSS grid with spanning.
 
 ```tsx
-<div className="flex h-full items-center">
-  <div className="grid w-full grid-cols-3 gap-8">
-    <Animated step={1} animation="slide-up">
-      <div className="rounded-xl border border-border bg-card p-8">
-        <Icon className="text-primary mb-4 h-10 w-10" />
-        <h3 className="text-foreground mb-2 text-xl font-semibold">Title</h3>
-        <p className="text-muted-foreground">Description</p>
-      </div>
-    </Animated>
+<div className="grid h-full grid-cols-3 grid-rows-2 gap-4">
+  {/* Wide tile — top, spans 2 cols */}
+  <div className="col-span-2 rounded-2xl bg-gradient-to-br from-primary/15 to-transparent p-8">
+    <h3 className="text-xl font-semibold text-foreground">Primary Feature</h3>
+    <p className="mt-2 text-muted-foreground">Description</p>
+  </div>
 
-    <Animated step={2} animation="slide-up" delay={0.05}>
-      <div className="rounded-xl border border-border bg-card p-8">
-        <Icon className="text-primary mb-4 h-10 w-10" />
-        <h3 className="text-foreground mb-2 text-xl font-semibold">Title</h3>
-        <p className="text-muted-foreground">Description</p>
-      </div>
-    </Animated>
+  {/* Tall tile — right, spans 2 rows */}
+  <div className="row-span-2 rounded-2xl border border-border bg-card p-6">
+    <h3 className="font-semibold text-foreground">Tall Feature</h3>
+  </div>
 
-    <Animated step={3} animation="slide-up" delay={0.1}>
-      <div className="rounded-xl border border-border bg-card p-8">
-        <Icon className="text-primary mb-4 h-10 w-10" />
-        <h3 className="text-foreground mb-2 text-xl font-semibold">Title</h3>
-        <p className="text-muted-foreground">Description</p>
-      </div>
-    </Animated>
+  {/* Small tile */}
+  <div className="rounded-2xl bg-muted/30 p-6">
+    <h3 className="font-semibold text-foreground">Quick Feature</h3>
+  </div>
+
+  {/* Accent tile — solid primary bg */}
+  <div className="rounded-2xl bg-primary p-6">
+    <h3 className="font-semibold text-primary-foreground">Highlight</h3>
   </div>
 </div>
 ```
 
-Steps: 3 (one per card)
+Steps: 1 (use `AnimatedGroup` with `slide-down`)
 
----
+### Vertical Timeline
 
-## Stat Cards
-
-```tsx
-<div className="grid grid-cols-3 gap-6">
-  <div className="rounded-xl border border-border bg-card p-6">
-    <div className="text-3xl font-bold text-primary">$10M</div>
-    <div className="text-sm text-muted-foreground">Revenue</div>
-  </div>
-  <div className="rounded-xl border border-border bg-card p-6">
-    <div className="text-3xl font-bold text-primary">50K</div>
-    <div className="text-sm text-muted-foreground">Users</div>
-  </div>
-  <div className="rounded-xl border border-border bg-card p-6">
-    <div className="text-3xl font-bold text-primary">99%</div>
-    <div className="text-sm text-muted-foreground">Uptime</div>
-  </div>
-</div>
-```
-
----
-
-## Icon + Text List
-
-Vertical list with icon accents (from `slide-solution.tsx`):
-
-```tsx
-<div className="space-y-8">
-  <Animated step={1} animation="slide-up">
-    <div className="flex items-start gap-4">
-      <div className="bg-primary/10 rounded-lg p-3">
-        <CheckCircle className="text-primary h-6 w-6" />
-      </div>
-      <div>
-        <h3 className="text-foreground mb-1 text-lg font-semibold">Feature Name</h3>
-        <p className="text-muted-foreground">Feature description goes here</p>
-      </div>
-    </div>
-  </Animated>
-</div>
-```
-
----
-
-## Timeline / Numbered Steps
-
-Horizontal process flow with arrows (from `slide-how-it-works.tsx`):
+Zigzag flow along a center line. Items alternate left and right.
 
 ```tsx
 const steps = [
-  { number: "1", title: "Step One", description: "Do this first" },
-  { number: "2", title: "Step Two", description: "Then do this" },
-  { number: "3", title: "Step Three", description: "Finally this" },
+  { title: "Step One", description: "..." },
+  { title: "Step Two", description: "..." },
+  { title: "Step Three", description: "..." },
 ]
 
-<div className="flex h-full items-center">
-  <div className="flex w-full items-center justify-between gap-4">
-    {steps.map((step, index) => (
-      <Animated key={step.number} step={index + 1} animation="slide-up" delay={index * 0.05}>
-        <div className="flex items-center gap-4">
-          <div className="rounded-xl border border-border bg-card p-6 w-[280px]">
-            <div className="text-primary mb-3 text-3xl font-bold">{step.number}</div>
-            <h3 className="text-foreground mb-2 text-lg font-semibold">{step.title}</h3>
-            <p className="text-muted-foreground text-sm">{step.description}</p>
+<div className="relative flex h-full items-center justify-center">
+  {/* Center line */}
+  <div className="absolute left-1/2 top-4 bottom-4 w-px -translate-x-1/2 bg-border" />
+
+  <div className="relative w-full max-w-4xl space-y-8">
+    {steps.map((step, index) => {
+      const isLeft = index % 2 === 0
+      return (
+        <Animated key={step.title} step={index + 1} animation="fade">
+          <div className="relative flex items-center">
+            <div className="absolute left-1/2 h-4 w-4 -translate-x-1/2 rounded-full bg-primary ring-4 ring-background" />
+            {isLeft ? (
+              <>
+                <div className="w-1/2 pr-12 text-right">
+                  <div className="text-xs font-mono text-primary/60 mb-1">0{index + 1}</div>
+                  <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
+                  <p className="text-sm text-muted-foreground">{step.description}</p>
+                </div>
+                <div className="w-1/2" />
+              </>
+            ) : (
+              <>
+                <div className="w-1/2" />
+                <div className="w-1/2 pl-12">
+                  <div className="text-xs font-mono text-primary/60 mb-1">0{index + 1}</div>
+                  <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
+                  <p className="text-sm text-muted-foreground">{step.description}</p>
+                </div>
+              </>
+            )}
           </div>
-          {index < steps.length - 1 && (
-            <ArrowRight className="text-muted-foreground h-5 w-5 shrink-0" />
-          )}
-        </div>
-      </Animated>
-    ))}
+        </Animated>
+      )
+    })}
   </div>
 </div>
 ```
 
-Steps: equals number of items (one per step card)
+Steps: equals number of items (one per timeline node)
+
+### Comparison / Before-After
+
+Contrasting panels with a central VS badge.
+
+```tsx
+<div className="relative flex h-full items-center">
+  <div className="grid w-full grid-cols-2 gap-8">
+    <Animated step={1} animation="slide-right">
+      <div className="rounded-2xl border border-border bg-muted/30 p-8">
+        <h3 className="mb-6 text-lg font-semibold text-muted-foreground">The Old Way</h3>
+        <ul className="space-y-4">
+          <li className="flex items-start gap-3">
+            <X className="mt-0.5 h-4 w-4 text-muted-foreground/60" />
+            <span className="text-muted-foreground line-through">Negative point</span>
+          </li>
+        </ul>
+      </div>
+    </Animated>
+
+    <Animated step={2} animation="slide-left">
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8 shadow-lg shadow-primary/10">
+        <h3 className="mb-6 text-lg font-semibold text-primary">The New Way</h3>
+        <ul className="space-y-4">
+          <li className="flex items-start gap-3">
+            <Check className="mt-0.5 h-4 w-4 text-primary" />
+            <span className="text-foreground">Positive point</span>
+          </li>
+        </ul>
+      </div>
+    </Animated>
+  </div>
+
+  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background px-3 py-1 text-xs font-bold text-muted-foreground">
+    VS
+  </div>
+</div>
+```
+
+Steps: 2
+
+### Asymmetric Two-Column
+
+Not everything needs to be 50/50. Use `grid-cols-5` for 2/5 + 3/5 splits.
+
+```tsx
+<div className="grid h-full grid-cols-5 gap-12 items-center">
+  <div className="col-span-3">
+    {/* Larger content area */}
+  </div>
+  <div className="col-span-2">
+    {/* Smaller supporting content */}
+  </div>
+</div>
+```
 
 ---
 
-## Title / Hero Slide
+## Data Visualization
 
-Centered content with no footer (from `slide-title.tsx`):
+### Big Number with Progress Bar
+
+Large metrics with gradient accent bars. No card wrapper needed.
+
+```tsx
+<div className="grid grid-cols-3 gap-10">
+  <div>
+    <div className="text-6xl font-bold tracking-tight text-primary">$10M</div>
+    <div className="mt-4 h-1 w-4/5 rounded-full bg-gradient-to-r from-primary to-primary/30" />
+    <div className="mt-3 text-lg font-semibold text-foreground">Revenue</div>
+    <div className="text-sm text-muted-foreground">Annual recurring</div>
+  </div>
+</div>
+```
+
+### CSS Bar Chart
+
+Vertical bars using flexbox. Vary heights for visual data representation.
+
+```tsx
+<div className="flex h-48 items-end gap-4">
+  <div className="flex w-16 flex-col items-center gap-2">
+    <div className="w-full rounded-t-lg bg-primary/80" style={{ height: "80%" }} />
+    <span className="text-xs text-muted-foreground">Q1</span>
+  </div>
+  <div className="flex w-16 flex-col items-center gap-2">
+    <div className="w-full rounded-t-lg bg-primary/60" style={{ height: "55%" }} />
+    <span className="text-xs text-muted-foreground">Q2</span>
+  </div>
+  <div className="flex w-16 flex-col items-center gap-2">
+    <div className="w-full rounded-t-lg bg-primary" style={{ height: "95%" }} />
+    <span className="text-xs text-muted-foreground">Q3</span>
+  </div>
+</div>
+```
+
+### SVG Donut Ring
+
+Simple percentage ring using two SVG circles.
+
+```tsx
+<svg className="h-32 w-32 -rotate-90" viewBox="0 0 120 120">
+  {/* Track */}
+  <circle cx="60" cy="60" r="50" fill="none" strokeWidth="10"
+    className="stroke-border" />
+  {/* Fill — adjust strokeDashoffset for percentage (314 = full circle) */}
+  <circle cx="60" cy="60" r="50" fill="none" strokeWidth="10"
+    strokeDasharray="314" strokeDashoffset="78" strokeLinecap="round"
+    className="stroke-primary" />
+</svg>
+<div className="text-3xl font-bold text-primary">75%</div>
+```
+
+---
+
+## Typography-Driven Layouts
+
+### Large Quote
+
+The quote itself is the visual element. No cards needed.
+
+```tsx
+<div className="flex h-full flex-col items-center justify-center text-center">
+  <span className="block font-serif text-[120px] leading-none text-primary/20">&ldquo;</span>
+  <p className="-mt-10 max-w-4xl text-3xl font-light leading-relaxed italic text-foreground">
+    The quote text goes here.
+  </p>
+  <div className="mx-auto mt-8 mb-6 h-px w-16 bg-primary/40" />
+  <div className="text-lg font-semibold text-foreground">Speaker Name</div>
+  <div className="text-sm text-muted-foreground">Title, Company</div>
+</div>
+```
+
+Steps: 1 (use `fade`)
+
+### Headline-Only Slide
+
+Large typography as the hero. Use `<span className="text-primary">` to highlight a key word.
+
+```tsx
+<div className="flex h-full flex-col items-center justify-center text-center">
+  <h1 className="max-w-5xl text-6xl font-bold leading-tight text-foreground">
+    We don't just build products.
+    <br />
+    We build <span className="text-primary">movements</span>.
+  </h1>
+</div>
+```
+
+Steps: 0
+
+---
+
+## Hero / Title Slide
+
+Gradient mesh background with accent line. Use for opening slides.
 
 ```tsx
 <SlideLayout slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
-  <div className="flex h-full w-full flex-col items-center justify-center text-center">
-    <Icon className="text-primary mb-6 h-16 w-16" />
-    <h1 className="text-foreground max-w-5xl text-5xl font-bold tracking-tight md:text-7xl">
-      Presentation Title
+  <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
+  <div className="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+  <div className="absolute bottom-1/4 right-10 h-64 w-64 rounded-full bg-primary/5 blur-2xl" />
+
+  <div className="relative z-10 flex h-full flex-col items-center justify-center text-center">
+    <h1 className="max-w-5xl text-7xl font-bold tracking-tight text-foreground">
+      Title
     </h1>
-    <p className="text-muted-foreground mt-6 max-w-3xl text-xl font-light">
-      Subtitle or tagline
-    </p>
-    <div className="text-muted-foreground mt-16 text-sm">
-      Additional context
-    </div>
+    <p className="mt-6 max-w-2xl text-xl font-light text-muted-foreground">Tagline</p>
+    <div className="mt-8 h-1 w-24 rounded-full bg-primary" />
   </div>
 </SlideLayout>
 ```
 
-Steps: 0
+Steps: 0 or 1 (use `scale` + `fade`)
 
 ---
 
 ## CTA / Closing Slide
 
-Call-to-action with terminal mockup (from `slide-get-started.tsx`):
+Combine a strong statement with an action. Can use the quote pattern or a terminal mockup.
 
 ```tsx
 <SlideLayout slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
-  <div className="flex h-full w-full flex-col items-center justify-center text-center">
-    <h1 className="text-foreground mb-8 text-5xl font-bold tracking-tight">
-      Call to Action
+  <div className="flex h-full flex-col items-center justify-center text-center">
+    <h1 className="text-5xl font-bold tracking-tight text-foreground">
+      Ready to Get Started?
     </h1>
-    <div className="mb-12 w-full max-w-lg rounded-xl border border-border bg-card p-6">
-      {/* Content: terminal, code snippet, signup form, etc. */}
-    </div>
-    <p className="text-muted-foreground mt-6 text-sm">
-      Supporting text
+    <div className="mt-8 h-1 w-16 rounded-full bg-primary" />
+    <p className="mt-6 text-lg text-muted-foreground">
+      github.com/your-org/your-repo
     </p>
   </div>
 </SlideLayout>
@@ -205,120 +378,44 @@ Steps: 0
 
 ---
 
-## Terminal Mockup
+## Animation Variety Guide
 
-Fake terminal window with colored dots:
+Match animation types to layout styles for maximum impact:
 
-```tsx
-<div className="rounded-xl border border-border bg-card p-6">
-  <div className="mb-3 flex items-center gap-2">
-    <div className="h-3 w-3 rounded-full bg-red-500/60" />
-    <div className="h-3 w-3 rounded-full bg-yellow-500/60" />
-    <div className="h-3 w-3 rounded-full bg-green-500/60" />
-    <span className="text-muted-foreground ml-2 text-xs font-mono">terminal</span>
-  </div>
-  <div className="space-y-2 font-mono text-sm">
-    <p className="text-muted-foreground">$ npm run dev</p>
-    <p className="text-green-400">VITE v6.4 ready in 400ms</p>
-  </div>
-</div>
-```
+| Layout | Recommended Animation | Why |
+|--------|----------------------|-----|
+| Hero / Title | `scale` or `fade` | Dramatic entrance without directional bias |
+| Split Screen | `slide-right` (left panel) + `slide-left` (right) | Panels enter from their edges |
+| Card Grid / Bento | `AnimatedGroup` with `scale` or `slide-down` | Uniform pop-in effect |
+| Timeline items | `fade` | Clean appearance without movement |
+| Comparison | `slide-right` + `slide-left` | Opposing directions emphasize contrast |
+| Big Numbers | `slide-up` per metric | Vertical reveal suits vertical stacks |
+| Quote | `fade` | Let the words speak |
+| Data/Charts | `scale` | Drawing attention to the visual element |
 
 ---
 
-## Tech Stack / Data List
+## Anti-Patterns
 
-Horizontal rows with fixed-width columns (from `slide-tech-stack.tsx`):
+Avoid these common mistakes that make every slide look the same:
 
-```tsx
-const items = [
-  { name: "React 19", role: "UI", description: "Component-based slides" },
-  { name: "Tailwind 4", role: "Styling", description: "Utility-first CSS" },
-]
-
-<div className="w-full space-y-4">
-  {items.map((item, index) => (
-    <Animated key={item.name} step={1} animation="slide-up" delay={index * 0.05}>
-      <div className="flex items-center gap-6 rounded-lg border border-border bg-card px-6 py-4">
-        <div className="text-primary w-40 shrink-0 text-lg font-bold">{item.name}</div>
-        <div className="text-foreground w-32 shrink-0 text-sm font-medium uppercase tracking-wider opacity-60">
-          {item.role}
-        </div>
-        <div className="text-muted-foreground text-sm">{item.description}</div>
-      </div>
-    </Animated>
-  ))}
-</div>
-```
-
-Steps: 1 (all items appear together with stagger)
-
----
-
-## Data-Driven Feature Grid
-
-Map an array to a 3x2 grid, grouped by row (from `slide-features.tsx`):
-
-```tsx
-const features = [
-  { icon: Sparkles, title: "Feature 1", description: "..." },
-  { icon: Shield, title: "Feature 2", description: "..." },
-  // ... 6 items total
-]
-
-<div className="flex h-full items-center">
-  <div className="grid w-full grid-cols-3 gap-6">
-    {features.map((feature, index) => (
-      <Animated
-        key={feature.title}
-        step={index < 3 ? 1 : 2}
-        animation="slide-up"
-        delay={(index % 3) * 0.05}
-      >
-        <div className="rounded-xl border border-border bg-card p-6">
-          <feature.icon className="text-primary mb-3 h-8 w-8" />
-          <h3 className="text-foreground mb-1 font-semibold">{feature.title}</h3>
-          <p className="text-muted-foreground text-sm">{feature.description}</p>
-        </div>
-      </Animated>
-    ))}
-  </div>
-</div>
-```
-
-Steps: 2 (top row on click 1, bottom row on click 2)
-
----
-
-## Layout Tip: Animated className
-
-Always pass layout classes to `<Animated className>` to preserve flex/grid behavior:
-
-```tsx
-// BAD — animation wrapper breaks flex centering
-<div className="flex justify-center">
-  <Animated step={1}>
-    <Content />
-  </Animated>
-</div>
-
-// GOOD — pass layout classes to Animated
-<Animated step={1} className="flex justify-center">
-  <Content />
-</Animated>
-```
+- **Same card style everywhere**: Do not use `rounded-xl border border-border bg-card p-8` on every slide. Alternate between glass, gradient, elevated, accent-border, or no card at all.
+- **`slide-up` on everything**: Vary animation types. Use `scale` for grids, `fade` for quotes, `slide-left`/`slide-right` for split layouts.
+- **All equal-width columns**: Not every grid needs `grid-cols-3` with identical tiles. Use asymmetric splits (`grid-cols-5` with `col-span-2` + `col-span-3`) and bento grids.
+- **Icon above text in every card**: Try icons inline with text, large numbers as the visual element, or no icons at all.
+- **Two consecutive slides with the same layout**: If slide 3 is a card grid, slide 4 should be something different (split, timeline, quote, data viz).
 
 ---
 
 ## Recommended Pitch Deck Order
 
-1. **Title** — Company name, tagline, hero visual
-2. **Problem** — What pain point you solve
-3. **Solution** — Your product/approach
-4. **How It Works** — Process or workflow steps
-5. **Features** — Key capabilities
-6. **Market** — TAM/SAM, market size
-7. **Traction** — Metrics, users, revenue
-8. **Team** — Key people
-9. **Business Model** — Pricing, revenue streams
-10. **Ask / CTA** — Fundraising ask or call-to-action
+1. **Title** — Hero gradient with large typography
+2. **Problem** — Comparison layout (old way vs new way)
+3. **Solution** — Split screen with bold statement + demo
+4. **How It Works** — Vertical timeline or numbered process
+5. **Features** — Bento grid with mixed tile sizes
+6. **Market** — Big numbers with progress bars
+7. **Traction** — Data visualization (charts, rings)
+8. **Team** — Glass cards on gradient mesh
+9. **Business Model** — Accent-border cards or split layout
+10. **Ask / CTA** — Quote-style closing or headline-only
