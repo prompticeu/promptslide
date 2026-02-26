@@ -1,34 +1,24 @@
-import { ArrowRight } from "lucide-react"
-
 import { Animated } from "@/framework/animated"
 import { SlideLayout } from "@/framework/slide-layout"
 import type { SlideProps } from "@/framework/types"
 
 const steps = [
   {
-    number: "1",
     title: "Clone & Install",
-    description: "git clone, npm install, npm run dev",
-    color: "from-blue-500/20 to-blue-600/5"
+    description: "git clone, npm install, npm run dev — up and running in seconds",
   },
   {
-    number: "2",
     title: "Open Your Agent",
-    description: "Claude Code, Cursor, Windsurf — any agent works",
-    color: "from-violet-500/20 to-violet-600/5"
+    description: "Claude Code, Cursor, Windsurf — any AI coding agent works",
   },
   {
-    number: "3",
     title: "Describe Your Deck",
-    description: '"Create a 10-slide deck about our product"',
-    color: "from-pink-500/20 to-pink-600/5"
+    description: '"Create a 10-slide pitch deck for my fintech startup"',
   },
   {
-    number: "4",
     title: "Present & Export",
-    description: "Fullscreen mode, grid view, or PDF download",
-    color: "from-emerald-500/20 to-emerald-600/5"
-  }
+    description: "Fullscreen presentation mode, grid view, or one-click PDF download",
+  },
 ]
 
 export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
@@ -39,28 +29,54 @@ export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
       eyebrow="HOW IT WORKS"
       title="From Zero to Presentation in Minutes"
     >
-      <div className="flex h-full items-center">
-        <div className="flex w-full items-center justify-between gap-4">
-          {steps.map((step, index) => (
-            <Animated key={step.number} step={index + 1} animation="slide-up" delay={index * 0.05}>
-              <div className="flex items-center gap-4">
-                <div className={`rounded-xl border border-border bg-gradient-to-b ${step.color} p-6 w-[240px]`}>
-                  <div className="text-primary mb-3 text-3xl font-bold">
-                    {step.number}
-                  </div>
-                  <h3 className="text-foreground mb-2 text-lg font-semibold">
-                    {step.title}
-                  </h3>
-                  <p className="text-muted-foreground text-sm">
-                    {step.description}
-                  </p>
+      <div className="relative flex h-full items-center justify-center">
+        {/* Center line */}
+        <div className="absolute left-1/2 top-4 bottom-4 w-px -translate-x-1/2 bg-border" />
+
+        <div className="relative w-full max-w-4xl space-y-8">
+          {steps.map((step, index) => {
+            const isLeft = index % 2 === 0
+            return (
+              <Animated key={step.title} step={index + 1} animation="fade">
+                <div className="relative flex items-center">
+                  {/* Dot on center line */}
+                  <div className="absolute left-1/2 h-4 w-4 -translate-x-1/2 rounded-full bg-primary ring-4 ring-background" />
+
+                  {isLeft ? (
+                    <>
+                      <div className="w-1/2 pr-12 text-right">
+                        <div className="mb-1 text-xs font-mono text-primary/60">
+                          0{index + 1}
+                        </div>
+                        <h3 className="text-lg font-semibold text-foreground">
+                          {step.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {step.description}
+                        </p>
+                      </div>
+                      <div className="w-1/2" />
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-1/2" />
+                      <div className="w-1/2 pl-12">
+                        <div className="mb-1 text-xs font-mono text-primary/60">
+                          0{index + 1}
+                        </div>
+                        <h3 className="text-lg font-semibold text-foreground">
+                          {step.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {step.description}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
-                {index < steps.length - 1 && (
-                  <ArrowRight className="text-muted-foreground h-5 w-5 shrink-0" />
-                )}
-              </div>
-            </Animated>
-          ))}
+              </Animated>
+            )
+          })}
         </div>
       </div>
     </SlideLayout>
