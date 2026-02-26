@@ -1,0 +1,36 @@
+{
+  "name": "create-slides",
+  "version": "0.1.0",
+  "description": "Scaffold a new slide deck project powered by React, Tailwind, and Framer Motion",
+  "type": "module",
+  "bin": {
+    "create-slides": "./src/index.mjs"
+  },
+  "files": [
+    "src/",
+    "templates/"
+  ],
+  "scripts": {
+    "sync": "bash sync-template.sh"
+  },
+  "keywords": [
+    "slides",
+    "presentation",
+    "react",
+    "vite",
+    "tailwind",
+    "framer-motion",
+    "scaffold",
+    "cli",
+    "coding-agent"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.7.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/prompticeu/powervibe.git",
+    "directory": "cli"
+  }
+}
