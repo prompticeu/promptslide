@@ -17,7 +17,7 @@ export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
         <Animated step={1} animation="scale">
           <Presentation className="mx-auto mb-6 h-14 w-14 text-primary" />
           <h1 className="text-foreground max-w-5xl text-7xl font-bold tracking-tight">
-            PowerVibe
+            PromptSlide
           </h1>
         </Animated>
 

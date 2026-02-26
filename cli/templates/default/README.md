@@ -1,6 +1,6 @@
 # {{PROJECT_NAME}}
 
-A slide deck built with [PowerVibe](https://github.com/prompticeu/powervibe) — React + Tailwind + Framer Motion.
+A slide deck built with [PromptSlide](https://github.com/prompticeu/promptslide) — React + Tailwind + Framer Motion.
 
 ## Getting Started
 
