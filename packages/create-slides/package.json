@@ -1,0 +1,31 @@
+{
+  "name": "create-slides",
+  "version": "0.1.0",
+  "description": "Scaffold a new slide deck project powered by PowerVibe",
+  "type": "module",
+  "bin": {
+    "create-slides": "./src/index.mjs"
+  },
+  "files": [
+    "src/",
+    "templates/"
+  ],
+  "keywords": [
+    "slides",
+    "presentation",
+    "react",
+    "powervibe",
+    "scaffold",
+    "cli",
+    "coding-agent"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=16.7.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/prompticeu/powervibe.git",
+    "directory": "packages/create-slides"
+  }
+}
