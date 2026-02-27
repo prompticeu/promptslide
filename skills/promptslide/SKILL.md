@@ -307,15 +307,3 @@ When creating a deck with multiple slides, **vary the visual treatment across sl
 2. **Grid view**: Thumbnail overview — click any slide to jump to it
 3. **List view**: Vertical scroll — optimized for PDF export via browser print
 
-### Slide Templates
-
-Reference templates are available in `assets/templates/` — each demonstrates a distinct visual style:
-
-- `slide-hero-gradient.tsx` — Gradient mesh background with glow orbs, large title, accent line (`scale` + `fade`)
-- `slide-split-screen.tsx` — Asymmetric 2/5 + 3/5 split with solid primary panel (`slide-right` + `slide-left`)
-- `slide-glassmorphism.tsx` — Frosted glass cards on gradient background (`AnimatedGroup` + `scale`)
-- `slide-big-number.tsx` — Large metrics with gradient progress bars (`slide-up` per metric)
-- `slide-timeline-vertical.tsx` — Vertical timeline with center line, alternating sides (`fade`)
-- `slide-comparison.tsx` — Before/After contrasting panels with VS badge (`slide-right` + `slide-left`)
-- `slide-bento-grid.tsx` — Mixed-size tiles in a CSS grid (`AnimatedGroup` + `slide-down`)
-- `slide-quote.tsx` — Large decorative quotation mark with attribution (`fade`)
