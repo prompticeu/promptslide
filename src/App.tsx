@@ -1,4 +1,4 @@
-import { SlideBrandingProvider, SlideDeck } from "@promptslide/core"
+import { SlideBrandingProvider, SlideDeck } from "promptslide"
 
 import { slides } from "@/deck-config"
 

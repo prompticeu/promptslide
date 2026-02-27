@@ -9,8 +9,22 @@
     "index.mjs"
   ],
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prompticeu/promptslide.git",
+    "directory": "packages/create-slides"
+  },
+  "author": "prompticeu",
+  "keywords": [
+    "slides",
+    "presentations",
+    "scaffolding",
+    "promptslide",
+    "create"
+  ],
   "dependencies": {
-    "promptslide": "*"
+    "promptslide": "^0.2.0"
   },
   "engines": {
     "node": ">=18.0.0"

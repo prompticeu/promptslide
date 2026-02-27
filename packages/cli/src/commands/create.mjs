@@ -21,14 +21,12 @@ const TEMPLATE_DIR = join(CLI_ROOT, "templates", "default")
 function getLocalPackagePaths() {
   try {
     const monoRoot = resolve(CLI_ROOT, "..", "..")
-    const corePkg = join(monoRoot, "packages", "core", "package.json")
     const cliPkg = join(monoRoot, "packages", "cli", "package.json")
 
-    if (existsSync(corePkg) && existsSync(cliPkg)) {
+    if (existsSync(cliPkg)) {
       const pkg = JSON.parse(readFileSync(cliPkg, "utf-8"))
       if (pkg.name === "promptslide") {
         return {
-          core: resolve(monoRoot, "packages", "core"),
           cli: resolve(monoRoot, "packages", "cli")
         }
       }
@@ -155,8 +153,7 @@ export async function create(args) {
   if (localPaths) {
     const pkgPath = join(targetDir, "package.json")
     const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"))
-    pkg.dependencies["@promptslide/core"] = `file:${localPaths.core}`
-    pkg.devDependencies["promptslide"] = `file:${localPaths.cli}`
+    pkg.dependencies["promptslide"] = `file:${localPaths.cli}`
     writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8")
     console.log(`  ${dim("Local dev detected — using file: paths for packages")}`)
   }

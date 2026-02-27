@@ -14,7 +14,7 @@
     "format": "oxfmt --write ."
   },
   "dependencies": {
-    "@promptslide/core": "*",
+    "promptslide": "*",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.22",
     "lucide-react": "^0.552.0",
@@ -30,7 +30,6 @@
     "cz-conventional-changelog": "^3.3.0",
     "oxfmt": "^0.35.0",
     "oxlint": "^1.50.0",
-    "promptslide": "*",
     "typescript": "^5.9.2"
   },
   "config": {

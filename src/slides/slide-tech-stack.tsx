@@ -1,6 +1,6 @@
-import type { SlideProps } from "@promptslide/core"
+import type { SlideProps } from "promptslide"
 
-import { AnimatedGroup } from "@promptslide/core"
+import { AnimatedGroup } from "promptslide"
 
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
