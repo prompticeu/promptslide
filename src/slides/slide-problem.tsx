@@ -1,23 +1,10 @@
+import { Clock, Frown, MousePointerClick } from "lucide-react"
+
 import type { SlideProps } from "promptslide"
 
 import { Animated } from "promptslide"
-import { Check, X } from "lucide-react"
 
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
-
-const oldWay = [
-  "Drag-and-drop busywork for hours",
-  "Rigid templates that fight your content",
-  "20+ hours per deck, every single time",
-  "Non-designers get inconsistent results"
-]
-
-const newWay = [
-  "Describe your deck in plain language",
-  "Fully customizable React components",
-  "Generated in minutes with live preview",
-  "Consistent, polished design every time"
-]
 
 export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
   return (
@@ -27,50 +14,46 @@ export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
       eyebrow="THE PROBLEM"
       title="Slide Tools Weren't Built for the AI Era"
     >
-      <div className="relative flex h-full items-center">
-        <div className="grid w-full grid-cols-2 gap-8">
-          {/* Left — the old way */}
-          <Animated step={1} animation="slide-right">
-            <div className="rounded-2xl border border-border bg-muted/30 p-8">
-              <div className="mb-6 flex items-center gap-3">
-                <X className="h-6 w-6 text-muted-foreground" />
-                <h3 className="text-lg font-semibold text-muted-foreground">Traditional Tools</h3>
-              </div>
-              <ul className="space-y-4">
-                {oldWay.map(item => (
-                  <li key={item} className="flex items-start gap-3">
-                    <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60" />
-                    <span className="text-muted-foreground line-through decoration-muted-foreground/40">
-                      {item}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+      <div className="flex h-full items-center">
+        <div className="grid w-full grid-cols-3 gap-8">
+          <Animated step={1} animation="slide-up">
+            <div className="rounded-xl border border-border bg-card p-8">
+              <MousePointerClick className="text-primary mb-4 h-10 w-10" />
+              <h3 className="text-foreground mb-2 text-xl font-semibold">
+                Drag & Drop Busywork
+              </h3>
+              <p className="text-muted-foreground">
+                Traditional tools like PowerPoint and Google Slides require
+                hours of manual dragging, aligning, and formatting.
+              </p>
             </div>
           </Animated>
 
-          {/* Right — the new way */}
-          <Animated step={2} animation="slide-left">
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8 shadow-lg shadow-primary/10">
-              <div className="mb-6 flex items-center gap-3">
-                <Check className="h-6 w-6 text-primary" />
-                <h3 className="text-lg font-semibold text-primary">AI-Powered Slides</h3>
-              </div>
-              <ul className="space-y-4">
-                {newWay.map(item => (
-                  <li key={item} className="flex items-start gap-3">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <span className="text-foreground">{item}</span>
-                  </li>
-                ))}
-              </ul>
+          <Animated step={2} animation="slide-up" delay={0.05}>
+            <div className="rounded-xl border border-border bg-card p-8">
+              <Frown className="text-primary mb-4 h-10 w-10" />
+              <h3 className="text-foreground mb-2 text-xl font-semibold">
+                Design Inconsistency
+              </h3>
+              <p className="text-muted-foreground">
+                Non-designers struggle to create polished, consistent slides.
+                Templates are rigid and hard to customize.
+              </p>
             </div>
           </Animated>
-        </div>
 
-        {/* VS badge */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground">
-          VS
+          <Animated step={3} animation="slide-up" delay={0.1}>
+            <div className="rounded-xl border border-border bg-card p-8">
+              <Clock className="text-primary mb-4 h-10 w-10" />
+              <h3 className="text-foreground mb-2 text-xl font-semibold">
+                Time Sink
+              </h3>
+              <p className="text-muted-foreground">
+                The average pitch deck takes 20+ hours to create. That's time
+                better spent building your product.
+              </p>
+            </div>
+          </Animated>
         </div>
       </div>
     </SlideLayoutCentered>
