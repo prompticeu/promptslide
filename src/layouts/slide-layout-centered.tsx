@@ -1,4 +1,4 @@
-import { useBranding } from "promptslide"
+import { useTheme, SlideFooter } from "promptslide"
 
 // =============================================================================
 // SLIDE LAYOUT — CENTERED
@@ -23,7 +23,10 @@ export function SlideLayoutCentered({
   eyebrow,
   hideFooter = false
 }: SlideLayoutCenteredProps) {
-  const branding = useBranding()
+  const theme = useTheme()
+  const headingFont = theme?.fonts?.heading
+    ? { fontFamily: theme.fonts.heading }
+    : undefined
 
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden bg-background px-12 pt-10 pb-6 text-foreground">
@@ -35,7 +38,11 @@ export function SlideLayoutCentered({
               {eyebrow}
             </div>
           )}
-          {title && <h2 className="text-4xl font-bold tracking-tight text-foreground">{title}</h2>}
+          {title && (
+            <h2 className="text-4xl font-bold tracking-tight text-foreground" style={headingFont}>
+              {title}
+            </h2>
+          )}
           {subtitle && <p className="mt-2 max-w-4xl text-lg text-muted-foreground">{subtitle}</p>}
         </div>
       )}
@@ -45,17 +52,7 @@ export function SlideLayoutCentered({
 
       {/* Footer */}
       {!hideFooter && (
-        <div className="mt-4 flex shrink-0 items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center gap-3 font-semibold tracking-tight text-foreground">
-            {branding?.logoUrl && (
-              <img src={branding.logoUrl} alt={`${branding.name} Logo`} className="h-8 w-auto" />
-            )}
-            {branding?.name && <span className="text-lg">{branding.name}</span>}
-          </div>
-          <div className="font-mono">
-            {slideNumber} / {totalSlides}
-          </div>
-        </div>
+        <SlideFooter slideNumber={slideNumber} totalSlides={totalSlides} />
       )}
     </div>
   )

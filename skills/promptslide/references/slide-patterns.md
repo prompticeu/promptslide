@@ -1,6 +1,45 @@
-# Slide Layout Patterns
+# Slide & Layout Patterns
 
 Reusable patterns for visually diverse slide decks. **Do not use the same pattern on consecutive slides** — mix and match to keep the deck visually engaging.
+
+---
+
+## Creating Custom Layouts
+
+Create layout files in `src/layouts/` to build a "master theme." Each layout is a React component that reads brand identity from `useTheme()` and uses `SlideFooter` for consistent footers.
+
+```tsx
+import type { SlideProps } from "@promptslide/core"
+import { useTheme, SlideFooter, cn } from "@promptslide/core"
+
+interface MyLayoutProps extends SlideProps {
+  children?: React.ReactNode
+  title?: string
+  hideFooter?: boolean
+}
+
+export function MyLayout({ children, slideNumber, totalSlides, title, hideFooter }: MyLayoutProps) {
+  const theme = useTheme()
+  // theme.name, theme.logo, theme.fonts, theme.assets, theme.colors
+
+  return (
+    <div className="bg-background text-foreground relative flex h-full w-full flex-col overflow-hidden px-12 pt-10 pb-6">
+      {title && <h2 className="text-4xl font-bold tracking-tight">{title}</h2>}
+      <div className="min-h-0 flex-1">{children}</div>
+      {!hideFooter && <SlideFooter slideNumber={slideNumber} totalSlides={totalSlides} />}
+    </div>
+  )
+}
+```
+
+**Key building blocks:**
+- `useTheme()` — returns `ThemeConfig` with `name`, `logo`, `colors`, `fonts`, `assets`
+- `SlideFooter` — logo + company name + slide number. Pass `variant="light"` for dark backgrounds
+- `cn()` — Tailwind class merge utility
+- Use `theme.fonts.heading` via `style={{ fontFamily: theme.fonts.heading }}` on headings
+- Use `theme.logo.fullLight` and `SlideFooter variant="light"` for dark-background layouts
+
+The layouts ARE the master theme. Change a layout, every slide using it updates.
 
 ---
 

@@ -43,10 +43,15 @@ Edit `src/globals.css` and change `--primary`:
 
 ### Company Branding
 
-Edit `src/App.tsx`:
+Edit `src/theme.ts`:
 
-```tsx
-<SlideBrandingProvider branding={{ name: "Your Company", logoUrl: "/logo.svg" }}>
+```ts
+import type { ThemeConfig } from "@promptslide/core"
+
+export const theme: ThemeConfig = {
+  name: "Your Company",
+  logo: { full: "/logo.svg" },
+}
 ```
 
 Replace `public/logo.svg` with your own logo.

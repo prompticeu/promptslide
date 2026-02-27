@@ -39,7 +39,7 @@ import { SlideMarket } from "@/slides/slide-market"
 
 export const slides: SlideConfig[] = [
   { component: SlideTitle, steps: 0 },
-  { component: SlideMarket, steps: 0 }
+  { component: SlideMarket, steps: 0 },
 ]
 ```
 
@@ -51,14 +51,15 @@ Vite will hot-reload — the new slide appears instantly in the browser.
 
 ```
 src/
-├── layouts/                      # Slide layouts (customizable)
-│   └── slide-layout-centered.tsx # Base centered layout with header/footer
+├── layouts/                      # Slide layouts (your "master theme" — add/edit/delete freely)
+│   └── slide-layout-centered.tsx # Default layout with header + footer
 │
 ├── slides/                       # YOUR SLIDES GO HERE
 │   └── slide-title.tsx           # Example starter slide
 │
+├── theme.ts                      # Theme config (brand name, logo, colors, fonts)
 ├── deck-config.ts                # Slide order + step counts (modify this)
-├── App.tsx                       # Root component (branding config)
+├── App.tsx                       # Root component (theme provider)
 └── globals.css                   # Theme colors (customize here)
 
 promptslide (CLI runtime)         # Dev server, build, preview
@@ -66,9 +67,10 @@ promptslide (npm package)   # Slide engine — stable, upgradeable
 ├── Animated, AnimatedGroup       # Step animations (click-to-reveal)
 ├── Morph, MorphGroup, MorphItem  # Shared element transitions
 ├── SlideDeck                     # Presentation viewer/controller
-├── SlideBrandingProvider         # Branding context
+├── SlideThemeProvider, useTheme  # Theme context (brand identity)
+├── SlideFooter                   # Footer with logo + slide number
 ├── useSlideNavigation            # Navigation state machine
-└── SlideProps, SlideConfig       # TypeScript types
+└── SlideProps, SlideConfig, etc. # TypeScript types
 ```
 
 **Key principle**: The presentation engine lives in `promptslide` (stable, upgradeable via npm). Layouts and slides are local files you customize freely.
@@ -93,13 +95,14 @@ Every slide should use `SlideLayoutCentered` as its wrapper. It provides consist
 
 ```tsx
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
-;<SlideLayoutCentered
+
+<SlideLayoutCentered
   slideNumber={slideNumber}
   totalSlides={totalSlides}
-  eyebrow="CATEGORY" // Optional small label above title
-  title="Slide Title" // Optional main heading
-  subtitle="Description" // Optional subtitle
-  hideFooter // Optional: hide footer with logo + slide number
+  eyebrow="CATEGORY"        // Optional small label above title
+  title="Slide Title"       // Optional main heading
+  subtitle="Description"    // Optional subtitle
+  hideFooter               // Optional: hide footer with logo + slide number
 >
   {/* Your slide content */}
 </SlideLayoutCentered>
@@ -145,7 +148,8 @@ import { Animated } from "promptslide"
 
 ```tsx
 import { AnimatedGroup } from "promptslide"
-;<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
+
+<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
   <Card>First</Card>
   <Card>Second</Card>
   <Card>Third</Card>
@@ -192,13 +196,10 @@ import { Morph, MorphText } from "promptslide"
 
 ```tsx
 import { MorphGroup, MorphItem } from "promptslide"
-;<MorphGroup groupId="card">
-  <MorphItem id="icon">
-    <Icon />
-  </MorphItem>
-  <MorphItem id="title">
-    <h2>Title</h2>
-  </MorphItem>
+
+<MorphGroup groupId="card">
+  <MorphItem id="icon"><Icon /></MorphItem>
+  <MorphItem id="title"><h2>Title</h2></MorphItem>
 </MorphGroup>
 // Generates layoutIds: "card-icon", "card-title"
 ```
@@ -217,8 +218,8 @@ import { SlideSolution } from "@/slides/slide-solution"
 
 export const slides: SlideConfig[] = [
   { component: SlideTitle, steps: 0 },
-  { component: SlideProblem, steps: 2 }, // Has 2 click-to-reveal steps
-  { component: SlideSolution, steps: 0 }
+  { component: SlideProblem, steps: 2 },    // Has 2 click-to-reveal steps
+  { component: SlideSolution, steps: 0 },
 ]
 ```
 
@@ -269,25 +270,91 @@ Colors use OKLCH format in CSS variables. Edit `src/globals.css` to change the t
 ```
 
 OKLCH format: `oklch(lightness chroma hue)`
-
 - **Lightness**: 0 (black) to 1 (white)
 - **Chroma**: 0 (gray) to ~0.4 (vivid)
 - **Hue**: 0–360 (color wheel: 0=red, 120=green, 250=blue)
 
 ---
 
-## 6. Branding (`App.tsx`)
+## 6. Theme & Branding (`theme.ts`)
 
-Set your company name and logo in `src/App.tsx`:
+Configure your brand identity in `src/theme.ts`:
 
-```tsx
-import { SlideBrandingProvider, SlideDeck } from "promptslide"
-;<SlideBrandingProvider branding={{ name: "Acme Inc", logoUrl: "/logo.svg" }}>
-  <SlideDeck slides={slides} />
-</SlideBrandingProvider>
+```ts
+import type { ThemeConfig } from "promptslide"
+
+export const theme: ThemeConfig = {
+  name: "Acme Inc",
+  tagline: "Building the future",
+  logo: {
+    full: "/logo.svg",            // Footer logo
+    icon: "/icon.svg",            // Compact variant (title slides)
+    fullLight: "/logo-white.svg", // For dark backgrounds
+  },
+  colors: {
+    primary: "oklch(0.55 0.2 250)",     // Override --primary
+    secondary: "oklch(0.6 0.15 200)",   // Override --secondary
+    accent: "oklch(0.7 0.2 50)",        // Override --accent
+  },
+  assets: {
+    backgroundImage: "/brand/hero-bg.jpg",  // Used by TitleLayout
+    patternImage: "/brand/pattern.svg",
+  },
+  fonts: {
+    heading: "Inter",   // Load via <link> in index.html
+    body: "Inter",
+  },
+}
 ```
 
-Replace `public/logo.svg` with your own logo file. The logo appears in the footer of each slide (unless `hideFooter` is set).
+Everything is optional except `name`. Omitted values fall back to `globals.css` defaults. Colors use OKLCH format and are injected as CSS variable overrides at runtime.
+
+Logo files go in `public/`. The logo appears in the footer of each slide (unless `hideFooter` is set).
+
+---
+
+## 6b. Custom Layouts
+
+Layouts live in `src/layouts/`. Create new layout files to build a "master theme" for the deck. Each layout is a React component that uses `useTheme()` for brand identity and `SlideFooter` for consistent footers.
+
+### Creating a Layout
+
+```tsx
+// src/layouts/my-custom-layout.tsx
+import { useTheme, SlideFooter, cn } from "promptslide"
+import type { SlideProps } from "promptslide"
+
+interface MyLayoutProps extends SlideProps {
+  children?: React.ReactNode
+  title?: string
+  hideFooter?: boolean
+}
+
+export function MyCustomLayout({ children, slideNumber, totalSlides, title, hideFooter }: MyLayoutProps) {
+  const theme = useTheme()
+
+  return (
+    <div className="bg-background text-foreground relative flex h-full w-full flex-col overflow-hidden px-12 pt-10 pb-6">
+      {title && <h2 className="text-4xl font-bold tracking-tight">{title}</h2>}
+      <div className="min-h-0 flex-1">{children}</div>
+      {!hideFooter && <SlideFooter slideNumber={slideNumber} totalSlides={totalSlides} />}
+    </div>
+  )
+}
+```
+
+### Key building blocks
+
+- **`useTheme()`** — returns `ThemeConfig` with `name`, `logo`, `colors`, `fonts`, `assets`
+- **`SlideFooter`** — renders logo + name + slide number. Pass `variant="light"` for dark backgrounds
+- **`cn()`** — Tailwind class merge utility
+
+### Tips
+
+- Read `theme.ts` to understand the brand identity, then create layouts that reflect it
+- Use `theme.logo`, `theme.fonts`, `theme.assets.backgroundImage` to incorporate brand elements
+- For dark backgrounds, use `<SlideFooter variant="light" />` and `theme.logo.fullLight`
+- Layouts go in `src/layouts/`, slides go in `src/slides/` — keep them separate
 
 ---
 
@@ -298,8 +365,8 @@ The `SlideDeck` component accepts a `transition` prop:
 ```tsx
 <SlideDeck
   slides={slides}
-  transition="slide-left" // Transition type
-  directionalTransition={true} // Reverse on back navigation
+  transition="slide-left"            // Transition type
+  directionalTransition={true}       // Reverse on back navigation
 />
 ```
 
@@ -311,13 +378,13 @@ Per-slide transitions can also be set in `deck-config.ts` via the `transition` f
 
 ## 8. Keyboard Shortcuts
 
-| Key            | Action                                    |
-| -------------- | ----------------------------------------- |
-| `→` or `Space` | Advance (next step or next slide)         |
-| `←`            | Go back (previous step or previous slide) |
-| `F`            | Toggle fullscreen presentation mode       |
-| `G`            | Toggle grid view                          |
-| `Escape`       | Exit fullscreen                           |
+| Key | Action |
+|-----|--------|
+| `→` or `Space` | Advance (next step or next slide) |
+| `←` | Go back (previous step or previous slide) |
+| `F` | Toggle fullscreen presentation mode |
+| `G` | Toggle grid view |
+| `Escape` | Exit fullscreen |
 
 ---
 
@@ -356,7 +423,6 @@ Per-slide transitions can also be set in `deck-config.ts` via the `transition` f
 ### Color classes
 
 Use semantic color classes from the theme:
-
 - `text-foreground` — primary text
 - `text-muted-foreground` — secondary text
 - `text-primary` — brand color text
@@ -379,7 +445,6 @@ Before generating a multi-slide deck, plan visual diversity. Aim for:
 ### Layout & Card Recipes
 
 Refer to `references/slide-patterns.md` for ready-to-use recipes including:
-
 - **Backgrounds:** Gradient mesh, split screen, spotlight vignette
 - **Card styles:** Glass (`backdrop-blur-md`), gradient, elevated (shadow), accent-border
 - **Layouts:** Bento grid, vertical timeline, comparison/before-after, asymmetric columns
@@ -390,15 +455,15 @@ Refer to `references/slide-patterns.md` for ready-to-use recipes including:
 
 Match animation types to layout styles:
 
-| Layout       | Animation                    | Why                       |
-| ------------ | ---------------------------- | ------------------------- |
-| Hero/Title   | `scale` or `fade`            | Dramatic, non-directional |
-| Split Screen | `slide-right` + `slide-left` | Panels enter from edges   |
-| Card Grids   | `AnimatedGroup` + `scale`    | Uniform pop-in            |
-| Timeline     | `fade`                       | Clean, no movement        |
-| Comparison   | `slide-right` + `slide-left` | Opposing directions       |
-| Metrics      | `slide-up`                   | Vertical reveal           |
-| Quote        | `fade`                       | Let words speak           |
+| Layout | Animation | Why |
+|--------|----------|-----|
+| Hero/Title | `scale` or `fade` | Dramatic, non-directional |
+| Split Screen | `slide-right` + `slide-left` | Panels enter from edges |
+| Card Grids | `AnimatedGroup` + `scale` | Uniform pop-in |
+| Timeline | `fade` | Clean, no movement |
+| Comparison | `slide-right` + `slide-left` | Opposing directions |
+| Metrics | `slide-up` | Vertical reveal |
+| Quote | `fade` | Let words speak |
 
 **Prefer `AnimatedGroup`** over manually wrapping each child in `<Animated>` for grids and collections — it's cleaner and produces better stagger timing.
 
@@ -409,10 +474,10 @@ Match animation types to layout styles:
 From `promptslide`:
 
 ```ts
-SLIDE_TRANSITION_DURATION = 0.3 // Between slides
-MORPH_DURATION = 0.8 // Layout morphs
-STEP_ANIMATION_DURATION = 0.4 // Within-slide steps
-STAGGER_DELAY = 0.1 // Group stagger
+SLIDE_TRANSITION_DURATION = 0.3  // Between slides
+MORPH_DURATION = 0.8             // Layout morphs
+STEP_ANIMATION_DURATION = 0.4    // Within-slide steps
+STAGGER_DELAY = 0.1              // Group stagger
 
 SPRING_SNAPPY = { stiffness: 300, damping: 30 }
 SPRING_SMOOTH = { stiffness: 200, damping: 25 }
@@ -429,5 +494,6 @@ SLIDE_DIMENSIONS = { width: 1280, height: 720 }
 
 ```tsx
 import { ArrowRight, CheckCircle, TrendingUp } from "lucide-react"
-;<TrendingUp className="h-6 w-6 text-primary" />
+
+<TrendingUp className="h-6 w-6 text-primary" />
 ```

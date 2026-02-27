@@ -48,13 +48,15 @@ This runs `promptslide studio` — the development server starts at http://local
 
 ### Step 3: Configure branding
 
-Edit `src/App.tsx`:
+Edit `src/theme.ts`:
 
-```tsx
-import { SlideBrandingProvider, SlideDeck } from "promptslide"
-;<SlideBrandingProvider branding={{ name: "Your Company", logoUrl: "/logo.svg" }}>
-  <SlideDeck slides={slides} />
-</SlideBrandingProvider>
+```ts
+import type { ThemeConfig } from "promptslide"
+
+export const theme: ThemeConfig = {
+  name: "Your Company",
+  logo: { full: "/logo.svg" },
+}
 ```
 
 Replace `public/logo.svg` with your company logo file.
@@ -125,11 +127,12 @@ Vite hot-reloads — the new slide appears instantly in the browser.
 
 ```
 src/
-├── layouts/                      # Slide layouts (customizable)
-│   └── slide-layout-centered.tsx # Base centered layout with header/footer
+├── layouts/                      # Slide layouts (your "master theme" — create freely)
+│   └── slide-layout-centered.tsx # Default layout with header + footer
 ├── slides/            # YOUR SLIDES GO HERE
+├── theme.ts           # Theme config (brand name, logo, colors, fonts)
 ├── deck-config.ts     # Slide order + step counts (modify this)
-├── App.tsx            # Branding config
+├── App.tsx            # Theme provider
 └── globals.css        # Theme colors
 
 promptslide (CLI)      # Dev server, build, preview (owns Vite config)
@@ -252,7 +255,7 @@ Per-slide transitions can be set via the `transition` field on individual slide 
 - Semantic color classes: `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border`
 - Icons: Import from `lucide-react` — 1000+ icons available (e.g., `import { ArrowRight, CheckCircle } from "lucide-react"`)
 
-For layout patterns and design recipes, see [references/slide-patterns.md](references/slide-patterns.md).
+For layout patterns, design recipes, and creating custom layouts (master themes), see [references/slide-patterns.md](references/slide-patterns.md).
 
 ### Visual Diversity Guidelines
 

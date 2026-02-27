@@ -1,5 +1,10 @@
 // Types
-export type { SlideProps, SlideComponent, SlideConfig, NavigationDirection } from "./types"
+export type {
+  SlideProps,
+  SlideComponent,
+  SlideConfig,
+  NavigationDirection
+} from "./types"
 
 // Animation Config
 export {
@@ -46,11 +51,17 @@ export { Morph, MorphGroup, MorphItem, MorphText } from "./morph"
 
 // Navigation Hook
 export { useSlideNavigation } from "./use-slide-navigation"
-export type { UseSlideNavigationOptions, UseSlideNavigationReturn } from "./use-slide-navigation"
+export type {
+  UseSlideNavigationOptions,
+  UseSlideNavigationReturn
+} from "./use-slide-navigation"
 
-// Branding
-export { SlideBrandingProvider, useBranding } from "./branding"
-export type { SlideBranding } from "./branding"
+// Theme
+export { SlideThemeProvider, useTheme } from "./theme-context"
+export type { ThemeConfig } from "./types"
+
+// Shared Footer
+export { SlideFooter } from "./layouts/shared-footer"
 
 // SlideDeck
 export { SlideDeck } from "./slide-deck"
