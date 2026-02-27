@@ -1,9 +1,10 @@
 import { preview as vitePreview } from "vite"
+
 import { bold, dim } from "../utils/ansi.mjs"
 
 export async function preview(args) {
   const cwd = process.cwd()
-  const portArg = args.find((a) => a.startsWith("--port="))
+  const portArg = args.find(a => a.startsWith("--port="))
   const port = portArg ? parseInt(portArg.split("=")[1], 10) : 4173
 
   console.log()
@@ -14,8 +15,8 @@ export async function preview(args) {
     root: cwd,
     preview: {
       port,
-      strictPort: false,
-    },
+      strictPort: false
+    }
   })
   server.printUrls()
 }

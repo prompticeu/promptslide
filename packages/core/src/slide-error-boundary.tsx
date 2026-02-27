@@ -36,12 +36,10 @@ export class SlideErrorBoundary extends React.Component<
           <div className="mb-4 text-lg font-semibold text-red-400">
             Slide {this.props.slideIndex + 1} Error
             {this.props.slideTitle && (
-              <span className="ml-2 font-normal text-red-400/70">
-                ({this.props.slideTitle})
-              </span>
+              <span className="ml-2 font-normal text-red-400/70">({this.props.slideTitle})</span>
             )}
           </div>
-          <div className="max-w-2xl break-words text-center font-mono text-sm text-red-300/80">
+          <div className="max-w-2xl text-center font-mono text-sm break-words text-red-300/80">
             {this.state.error?.message ?? "Unknown error"}
           </div>
         </div>

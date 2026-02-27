@@ -1,8 +1,9 @@
 import { Sparkles, Zap, Shield, TrendingUp } from "lucide-react"
 
+import type { SlideProps } from "@/framework/types"
+
 import { AnimatedGroup } from "@/framework/animated"
 import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
 
 export function SlideBentoGrid({ slideNumber, totalSlides }: SlideProps) {
   return (

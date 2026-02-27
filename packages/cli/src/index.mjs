@@ -3,6 +3,7 @@
 import { readFileSync } from "node:fs"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
+
 import { bold, dim, red } from "./utils/ansi.mjs"
 
 const __filename = fileURLToPath(import.meta.url)

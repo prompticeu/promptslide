@@ -1,29 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react"
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion"
-import {
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Grid3X3,
-  List,
-  Maximize,
-  Monitor
-} from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Grid3X3, List, Maximize, Monitor } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { SlideTransitionType } from "./transitions"
 import type { SlideConfig } from "./types"
-import { cn } from "./utils"
-import {
-  SLIDE_DIMENSIONS,
-  SLIDE_TRANSITION
-} from "./animation-config"
+
+import { SLIDE_DIMENSIONS, SLIDE_TRANSITION } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
-import {
-  DEFAULT_SLIDE_TRANSITION,
-  getSlideVariants
-} from "./transitions"
-import { useSlideNavigation } from "./use-slide-navigation"
 import { SlideErrorBoundary } from "./slide-error-boundary"
+import { DEFAULT_SLIDE_TRANSITION, getSlideVariants } from "./transitions"
+import { useSlideNavigation } from "./use-slide-navigation"
+import { cn } from "./utils"
 
 // =============================================================================
 // TYPES
@@ -41,11 +28,7 @@ interface SlideDeckProps {
 // COMPONENT
 // =============================================================================
 
-export function SlideDeck({
-  slides,
-  transition,
-  directionalTransition
-}: SlideDeckProps) {
+export function SlideDeck({ slides, transition, directionalTransition }: SlideDeckProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("slide")
   const [isPresentationMode, setIsPresentationMode] = useState(false)
   const [scale, setScale] = useState(1)
@@ -79,8 +62,7 @@ export function SlideDeck({
       setIsPresentationMode(!!document.fullscreenElement)
     }
     document.addEventListener("fullscreenchange", handleFullscreenChange)
-    return () =>
-      document.removeEventListener("fullscreenchange", handleFullscreenChange)
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
   }, [])
 
   // Calculate scale factor for presentation mode
@@ -158,7 +140,7 @@ export function SlideDeck({
   const CurrentSlideComponent = slides[currentSlide]!.component
 
   return (
-    <div className="text-foreground min-h-screen w-full bg-neutral-950">
+    <div className="min-h-screen w-full bg-neutral-950 text-foreground">
       <style>{`
         @media print {
           @page {
@@ -241,11 +223,20 @@ export function SlideDeck({
       {viewMode === "slide" && (
         <div
           ref={containerRef}
+          role="presentation"
+          tabIndex={isPresentationMode ? 0 : undefined}
           className={cn(
             "flex h-screen w-full flex-col items-center justify-center overflow-hidden print:hidden",
             isPresentationMode ? "bg-black p-0" : "p-4 md:p-8"
           )}
           onClick={isPresentationMode ? advance : undefined}
+          onKeyDown={
+            isPresentationMode
+              ? e => {
+                  if (e.key === "Enter" || e.key === " ") advance()
+                }
+              : undefined
+          }
         >
           <LayoutGroup id="slide-deck">
             {isPresentationMode ? (
@@ -278,7 +269,10 @@ export function SlideDeck({
                       totalSteps={totalSteps}
                       showAllAnimations={showAllAnimations}
                     >
-                      <SlideErrorBoundary slideIndex={currentSlide} slideTitle={slides[currentSlide]?.title}>
+                      <SlideErrorBoundary
+                        slideIndex={currentSlide}
+                        slideTitle={slides[currentSlide]?.title}
+                      >
                         <CurrentSlideComponent
                           slideNumber={currentSlide + 1}
                           totalSlides={slides.length}
@@ -310,7 +304,10 @@ export function SlideDeck({
                       totalSteps={totalSteps}
                       showAllAnimations={showAllAnimations}
                     >
-                      <SlideErrorBoundary slideIndex={currentSlide} slideTitle={slides[currentSlide]?.title}>
+                      <SlideErrorBoundary
+                        slideIndex={currentSlide}
+                        slideTitle={slides[currentSlide]?.title}
+                      >
                         <CurrentSlideComponent
                           slideNumber={currentSlide + 1}
                           totalSlides={slides.length}
@@ -365,7 +362,7 @@ export function SlideDeck({
               return (
                 <div key={index} className={showSectionHeader ? "col-span-full" : undefined}>
                   {showSectionHeader && (
-                    <h3 className="mb-3 mt-4 text-xs font-bold tracking-[0.2em] uppercase text-neutral-500 first:mt-0">
+                    <h3 className="mt-4 mb-3 text-xs font-bold tracking-[0.2em] text-neutral-500 uppercase first:mt-0">
                       {slideConfig.section}
                     </h3>
                   )}
@@ -374,17 +371,14 @@ export function SlideDeck({
                       goToSlide(index)
                       setViewMode("slide")
                     }}
-                    className="group hover:border-primary hover:shadow-primary/10 relative aspect-video w-full overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-sm transition-all hover:shadow-lg"
+                    className="group relative aspect-video w-full overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-sm transition-all hover:border-primary hover:shadow-lg hover:shadow-primary/10"
                   >
                     <div
                       className="h-full w-full origin-top-left scale-[0.25]"
                       style={{ width: "400%", height: "400%" }}
                     >
                       <SlideErrorBoundary slideIndex={index} slideTitle={slideConfig.title}>
-                        <SlideComponent
-                          slideNumber={index + 1}
-                          totalSlides={slides.length}
-                        />
+                        <SlideComponent slideNumber={index + 1} totalSlides={slides.length} />
                       </SlideErrorBoundary>
                     </div>
                     <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
@@ -422,10 +416,7 @@ export function SlideDeck({
                     showAllAnimations={true}
                   >
                     <SlideErrorBoundary slideIndex={index} slideTitle={slideConfig.title}>
-                      <SlideComponent
-                        slideNumber={index + 1}
-                        totalSlides={slides.length}
-                      />
+                      <SlideComponent slideNumber={index + 1} totalSlides={slides.length} />
                     </SlideErrorBoundary>
                   </AnimationProvider>
                 </div>

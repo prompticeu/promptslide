@@ -5,8 +5,7 @@ export function hexToOklch(hex) {
   const b = parseInt(hex.slice(4, 6), 16) / 255
 
   // sRGB → linear RGB
-  const toLinear = (c) =>
-    c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  const toLinear = c => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))
   const lr = toLinear(r)
   const lg = toLinear(g)
   const lb = toLinear(b)

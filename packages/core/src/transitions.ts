@@ -130,9 +130,7 @@ export const SLIDE_VARIANTS: Record<SlideTransitionType, Variants> = {
 // DIRECTIONAL VARIANTS (based on navigation direction)
 // =============================================================================
 
-export function createDirectionalVariants(
-  axis: "x" | "y" = "x"
-): (direction: number) => Variants {
+export function createDirectionalVariants(axis: "x" | "y" = "x"): (direction: number) => Variants {
   return (direction: number) => ({
     enter: {
       [axis]: direction > 0 ? SLIDE_DISTANCE : -SLIDE_DISTANCE,
@@ -177,20 +175,17 @@ export function getSlideVariants(
   return SLIDE_VARIANTS[type]
 }
 
-export function getSlideTransition(
-  config?: SlideTransitionConfig | SlideTransitionType
-): { duration: number; ease: typeof SLIDE_TRANSITION.ease } {
+export function getSlideTransition(config?: SlideTransitionConfig | SlideTransitionType): {
+  duration: number
+  ease: typeof SLIDE_TRANSITION.ease
+} {
   if (!config) return SLIDE_TRANSITION
 
   const type = typeof config === "string" ? config : config.type
 
-  const defaultDuration =
-    type === "morph" ? MORPH_DURATION : SLIDE_TRANSITION_DURATION
+  const defaultDuration = type === "morph" ? MORPH_DURATION : SLIDE_TRANSITION_DURATION
 
-  const duration =
-    typeof config === "object" && config.duration
-      ? config.duration
-      : defaultDuration
+  const duration = typeof config === "object" && config.duration ? config.duration : defaultDuration
 
   return {
     ...SLIDE_TRANSITION,

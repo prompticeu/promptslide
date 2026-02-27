@@ -39,7 +39,7 @@ import { SlideMarket } from "@/slides/slide-market"
 
 export const slides: SlideConfig[] = [
   { component: SlideTitle, steps: 0 },
-  { component: SlideMarket, steps: 0 },
+  { component: SlideMarket, steps: 0 }
 ]
 ```
 
@@ -79,11 +79,11 @@ promptslide (CLI runtime)         # Dev server, build, preview
 
 The framework provides three types of animations:
 
-| Type | Purpose | Import |
-|------|---------|--------|
-| **Slide Transitions** | Animations between slides (fade, slide, zoom) | `@promptslide/core` |
-| **Step Animations** | Within-slide reveal animations (click to reveal) | `Animated` from `@promptslide/core` |
-| **Morph Animations** | Shared element transitions across slides | `Morph` from `@promptslide/core` |
+| Type                  | Purpose                                          | Import                              |
+| --------------------- | ------------------------------------------------ | ----------------------------------- |
+| **Slide Transitions** | Animations between slides (fade, slide, zoom)    | `@promptslide/core`                 |
+| **Step Animations**   | Within-slide reveal animations (click to reveal) | `Animated` from `@promptslide/core` |
+| **Morph Animations**  | Shared element transitions across slides         | `Morph` from `@promptslide/core`    |
 
 ---
 
@@ -93,14 +93,13 @@ Every slide should use `SlideLayoutCentered` as its wrapper. It provides consist
 
 ```tsx
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
-
-<SlideLayoutCentered
+;<SlideLayoutCentered
   slideNumber={slideNumber}
   totalSlides={totalSlides}
-  eyebrow="CATEGORY"        // Optional small label above title
-  title="Slide Title"       // Optional main heading
-  subtitle="Description"    // Optional subtitle
-  hideFooter               // Optional: hide footer with logo + slide number
+  eyebrow="CATEGORY" // Optional small label above title
+  title="Slide Title" // Optional main heading
+  subtitle="Description" // Optional subtitle
+  hideFooter // Optional: hide footer with logo + slide number
 >
   {/* Your slide content */}
 </SlideLayoutCentered>
@@ -146,8 +145,7 @@ import { Animated } from "@promptslide/core"
 
 ```tsx
 import { AnimatedGroup } from "@promptslide/core"
-
-<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
+;<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
   <Card>First</Card>
   <Card>Second</Card>
   <Card>Third</Card>
@@ -194,10 +192,13 @@ import { Morph, MorphText } from "@promptslide/core"
 
 ```tsx
 import { MorphGroup, MorphItem } from "@promptslide/core"
-
-<MorphGroup groupId="card">
-  <MorphItem id="icon"><Icon /></MorphItem>
-  <MorphItem id="title"><h2>Title</h2></MorphItem>
+;<MorphGroup groupId="card">
+  <MorphItem id="icon">
+    <Icon />
+  </MorphItem>
+  <MorphItem id="title">
+    <h2>Title</h2>
+  </MorphItem>
 </MorphGroup>
 // Generates layoutIds: "card-icon", "card-title"
 ```
@@ -216,8 +217,8 @@ import { SlideSolution } from "@/slides/slide-solution"
 
 export const slides: SlideConfig[] = [
   { component: SlideTitle, steps: 0 },
-  { component: SlideProblem, steps: 2 },    // Has 2 click-to-reveal steps
-  { component: SlideSolution, steps: 0 },
+  { component: SlideProblem, steps: 2 }, // Has 2 click-to-reveal steps
+  { component: SlideSolution, steps: 0 }
 ]
 ```
 
@@ -268,6 +269,7 @@ Colors use OKLCH format in CSS variables. Edit `src/globals.css` to change the t
 ```
 
 OKLCH format: `oklch(lightness chroma hue)`
+
 - **Lightness**: 0 (black) to 1 (white)
 - **Chroma**: 0 (gray) to ~0.4 (vivid)
 - **Hue**: 0–360 (color wheel: 0=red, 120=green, 250=blue)
@@ -280,8 +282,7 @@ Set your company name and logo in `src/App.tsx`:
 
 ```tsx
 import { SlideBrandingProvider, SlideDeck } from "@promptslide/core"
-
-<SlideBrandingProvider branding={{ name: "Acme Inc", logoUrl: "/logo.svg" }}>
+;<SlideBrandingProvider branding={{ name: "Acme Inc", logoUrl: "/logo.svg" }}>
   <SlideDeck slides={slides} />
 </SlideBrandingProvider>
 ```
@@ -297,8 +298,8 @@ The `SlideDeck` component accepts a `transition` prop:
 ```tsx
 <SlideDeck
   slides={slides}
-  transition="slide-left"            // Transition type
-  directionalTransition={true}       // Reverse on back navigation
+  transition="slide-left" // Transition type
+  directionalTransition={true} // Reverse on back navigation
 />
 ```
 
@@ -310,13 +311,13 @@ Per-slide transitions can also be set in `deck-config.ts` via the `transition` f
 
 ## 8. Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `→` or `Space` | Advance (next step or next slide) |
-| `←` | Go back (previous step or previous slide) |
-| `F` | Toggle fullscreen presentation mode |
-| `G` | Toggle grid view |
-| `Escape` | Exit fullscreen |
+| Key            | Action                                    |
+| -------------- | ----------------------------------------- |
+| `→` or `Space` | Advance (next step or next slide)         |
+| `←`            | Go back (previous step or previous slide) |
+| `F`            | Toggle fullscreen presentation mode       |
+| `G`            | Toggle grid view                          |
+| `Escape`       | Exit fullscreen                           |
 
 ---
 
@@ -355,6 +356,7 @@ Per-slide transitions can also be set in `deck-config.ts` via the `transition` f
 ### Color classes
 
 Use semantic color classes from the theme:
+
 - `text-foreground` — primary text
 - `text-muted-foreground` — secondary text
 - `text-primary` — brand color text
@@ -377,6 +379,7 @@ Before generating a multi-slide deck, plan visual diversity. Aim for:
 ### Layout & Card Recipes
 
 Refer to `references/slide-patterns.md` for ready-to-use recipes including:
+
 - **Backgrounds:** Gradient mesh, split screen, spotlight vignette
 - **Card styles:** Glass (`backdrop-blur-md`), gradient, elevated (shadow), accent-border
 - **Layouts:** Bento grid, vertical timeline, comparison/before-after, asymmetric columns
@@ -387,15 +390,15 @@ Refer to `references/slide-patterns.md` for ready-to-use recipes including:
 
 Match animation types to layout styles:
 
-| Layout | Animation | Why |
-|--------|----------|-----|
-| Hero/Title | `scale` or `fade` | Dramatic, non-directional |
-| Split Screen | `slide-right` + `slide-left` | Panels enter from edges |
-| Card Grids | `AnimatedGroup` + `scale` | Uniform pop-in |
-| Timeline | `fade` | Clean, no movement |
-| Comparison | `slide-right` + `slide-left` | Opposing directions |
-| Metrics | `slide-up` | Vertical reveal |
-| Quote | `fade` | Let words speak |
+| Layout       | Animation                    | Why                       |
+| ------------ | ---------------------------- | ------------------------- |
+| Hero/Title   | `scale` or `fade`            | Dramatic, non-directional |
+| Split Screen | `slide-right` + `slide-left` | Panels enter from edges   |
+| Card Grids   | `AnimatedGroup` + `scale`    | Uniform pop-in            |
+| Timeline     | `fade`                       | Clean, no movement        |
+| Comparison   | `slide-right` + `slide-left` | Opposing directions       |
+| Metrics      | `slide-up`                   | Vertical reveal           |
+| Quote        | `fade`                       | Let words speak           |
 
 **Prefer `AnimatedGroup`** over manually wrapping each child in `<Animated>` for grids and collections — it's cleaner and produces better stagger timing.
 
@@ -406,10 +409,10 @@ Match animation types to layout styles:
 From `@promptslide/core`:
 
 ```ts
-SLIDE_TRANSITION_DURATION = 0.3  // Between slides
-MORPH_DURATION = 0.8             // Layout morphs
-STEP_ANIMATION_DURATION = 0.4    // Within-slide steps
-STAGGER_DELAY = 0.1              // Group stagger
+SLIDE_TRANSITION_DURATION = 0.3 // Between slides
+MORPH_DURATION = 0.8 // Layout morphs
+STEP_ANIMATION_DURATION = 0.4 // Within-slide steps
+STAGGER_DELAY = 0.1 // Group stagger
 
 SPRING_SNAPPY = { stiffness: 300, damping: 30 }
 SPRING_SMOOTH = { stiffness: 200, damping: 25 }
@@ -426,6 +429,5 @@ SLIDE_DIMENSIONS = { width: 1280, height: 720 }
 
 ```tsx
 import { ArrowRight, CheckCircle, TrendingUp } from "lucide-react"
-
-<TrendingUp className="h-6 w-6 text-primary" />
+;<TrendingUp className="h-6 w-6 text-primary" />
 ```

@@ -1,19 +1,20 @@
 import { Check, X } from "lucide-react"
 
+import type { SlideProps } from "@/framework/types"
+
 import { Animated } from "@/framework/animated"
 import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
 
 const negatives = [
   "Manual drag-and-drop formatting",
   "Rigid, hard-to-customize templates",
-  "Hours of tedious alignment work",
+  "Hours of tedious alignment work"
 ]
 
 const positives = [
   "Describe what you need in plain language",
   "Fully customizable React components",
-  "Generated in minutes, not hours",
+  "Generated in minutes, not hours"
 ]
 
 export function SlideComparison({ slideNumber, totalSlides }: SlideProps) {
@@ -34,7 +35,7 @@ export function SlideComparison({ slideNumber, totalSlides }: SlideProps) {
                 <h3 className="text-lg font-semibold text-muted-foreground">The Old Way</h3>
               </div>
               <ul className="space-y-4">
-                {negatives.map((item) => (
+                {negatives.map(item => (
                   <li key={item} className="flex items-start gap-3">
                     <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60" />
                     <span className="text-muted-foreground line-through decoration-muted-foreground/40">
@@ -54,7 +55,7 @@ export function SlideComparison({ slideNumber, totalSlides }: SlideProps) {
                 <h3 className="text-lg font-semibold text-primary">The New Way</h3>
               </div>
               <ul className="space-y-4">
-                {positives.map((item) => (
+                {positives.map(item => (
                   <li key={item} className="flex items-start gap-3">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     <span className="text-foreground">{item}</span>
@@ -66,7 +67,7 @@ export function SlideComparison({ slideNumber, totalSlides }: SlideProps) {
         </div>
 
         {/* VS badge */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background px-3 py-1 text-xs font-bold text-muted-foreground">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background px-3 py-1 text-xs font-bold text-muted-foreground">
           VS
         </div>
       </div>

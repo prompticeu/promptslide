@@ -1,11 +1,12 @@
 import { createServer } from "vite"
-import { createViteConfig } from "../vite/config.mjs"
-import { ensureTsConfig } from "../utils/tsconfig.mjs"
+
 import { bold, dim } from "../utils/ansi.mjs"
+import { ensureTsConfig } from "../utils/tsconfig.mjs"
+import { createViteConfig } from "../vite/config.mjs"
 
 export async function studio(args) {
   const cwd = process.cwd()
-  const portArg = args.find((a) => a.startsWith("--port="))
+  const portArg = args.find(a => a.startsWith("--port="))
   const port = portArg ? parseInt(portArg.split("=")[1], 10) : 5173
 
   ensureTsConfig(cwd)
@@ -17,7 +18,7 @@ export async function studio(args) {
   const config = createViteConfig({ cwd, mode: "development" })
   const server = await createServer({
     ...config,
-    server: { port, strictPort: false },
+    server: { port, strictPort: false }
   })
 
   await server.listen()

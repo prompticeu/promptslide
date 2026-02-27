@@ -1,9 +1,11 @@
-import { resolve, join } from "node:path"
 import { mkdirSync, writeFileSync, rmSync } from "node:fs"
+import { resolve, join } from "node:path"
+
 import { build as viteBuild } from "vite"
-import { createViteConfig } from "../vite/config.mjs"
-import { ensureTsConfig } from "../utils/tsconfig.mjs"
+
 import { bold, green, dim } from "../utils/ansi.mjs"
+import { ensureTsConfig } from "../utils/tsconfig.mjs"
+import { createViteConfig } from "../vite/config.mjs"
 
 function getBuildHtml() {
   return `<!doctype html>
@@ -59,8 +61,8 @@ export async function build(args) {
       publicDir: resolve(cwd, "public"),
       build: {
         outDir: resolve(cwd, "dist"),
-        emptyOutDir: true,
-      },
+        emptyOutDir: true
+      }
     })
     console.log()
     console.log(`  ${green("✓")} Built to ${dim("dist/")}`)

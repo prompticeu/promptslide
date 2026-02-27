@@ -35,13 +35,13 @@ grep -q '"@promptslide/core"' package.json 2>/dev/null
 ```bash
 npx promptslide create my-deck
 cd my-deck
-npm install
+bun install
 ```
 
 ### Step 2: Start the dev server
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 This runs `promptslide studio` — the development server starts at http://localhost:5173 with hot module replacement. Slides update instantly as files are saved.
@@ -52,8 +52,7 @@ Edit `src/App.tsx`:
 
 ```tsx
 import { SlideBrandingProvider, SlideDeck } from "@promptslide/core"
-
-<SlideBrandingProvider branding={{ name: "Your Company", logoUrl: "/logo.svg" }}>
+;<SlideBrandingProvider branding={{ name: "Your Company", logoUrl: "/logo.svg" }}>
   <SlideDeck slides={slides} />
 </SlideBrandingProvider>
 ```
@@ -66,7 +65,7 @@ Edit `src/globals.css` and change `--primary`:
 
 ```css
 :root {
-  --primary: oklch(0.55 0.2 250);  /* Change hue for your brand */
+  --primary: oklch(0.55 0.2 250); /* Change hue for your brand */
 }
 .dark {
   --primary: oklch(0.6 0.2 250);
@@ -117,9 +116,7 @@ export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
 import type { SlideConfig } from "@promptslide/core"
 import { SlideMarket } from "@/slides/slide-market"
 
-export const slides: SlideConfig[] = [
-  { component: SlideMarket, steps: 0 },
-]
+export const slides: SlideConfig[] = [{ component: SlideMarket, steps: 0 }]
 ```
 
 Vite hot-reloads — the new slide appears instantly in the browser.
@@ -145,14 +142,13 @@ Every slide wraps its content in `SlideLayoutCentered`:
 
 ```tsx
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
-
-<SlideLayoutCentered
+;<SlideLayoutCentered
   slideNumber={slideNumber}
   totalSlides={totalSlides}
-  eyebrow="CATEGORY"       // Optional: small label above title
-  title="Slide Title"      // Optional: main heading
-  subtitle="Description"   // Optional: subtitle text
-  hideFooter               // Optional: hide footer with logo + slide number
+  eyebrow="CATEGORY" // Optional: small label above title
+  title="Slide Title" // Optional: main heading
+  subtitle="Description" // Optional: subtitle text
+  hideFooter // Optional: hide footer with logo + slide number
 >
   {/* Your slide content */}
 </SlideLayoutCentered>
@@ -187,8 +183,7 @@ import { Animated } from "@promptslide/core"
 
 ```tsx
 import { AnimatedGroup } from "@promptslide/core"
-
-<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
+;<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
   <Card>First</Card>
   <Card>Second</Card>
   <Card>Third</Card>
@@ -217,7 +212,7 @@ import type { SlideConfig } from "@promptslide/core"
 export const slides: SlideConfig[] = [
   { component: SlideTitle, steps: 0 },
   { component: SlideProblem, steps: 3 },
-  { component: SlideSolution, steps: 0 },
+  { component: SlideSolution, steps: 0 }
 ]
 ```
 
@@ -264,11 +259,13 @@ For layout patterns and design recipes, see [references/slide-patterns.md](refer
 When creating a deck with multiple slides, **vary the visual treatment across slides**. Do not repeat the same layout pattern on consecutive slides.
 
 **Rotate backgrounds:** Not every slide needs a plain `bg-background`. Use:
+
 - Gradient mesh backgrounds (layered blurred gradient orbs)
 - Split backgrounds (solid primary on one side, content on the other)
 - Subtle radial spotlights
 
 **Vary card styles:** Do NOT use `rounded-xl border border-border bg-card` on every slide. Alternate between:
+
 - Glass panels: `rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md`
 - Gradient cards: `bg-gradient-to-br from-primary/15 to-transparent border border-primary/10`
 - Elevated cards: `shadow-xl shadow-primary/10` (shadow instead of border)
@@ -276,6 +273,7 @@ When creating a deck with multiple slides, **vary the visual treatment across sl
 - No cards at all — use large typography, progress bars, or data visualizations directly
 
 **Use different animations on different slides:**
+
 - `fade` for quotes, images, subtle reveals
 - `slide-left` / `slide-right` for split-screen content entering from edges
 - `scale` for hero elements and card grids
@@ -283,6 +281,7 @@ When creating a deck with multiple slides, **vary the visual treatment across sl
 - `AnimatedGroup` for grids/collections (preferred over manual stagger delays)
 
 **Layout variety:** Do not make every slide a 3-column equal grid. Use:
+
 - Asymmetric splits (`grid-cols-5` with `col-span-2` + `col-span-3`)
 - Bento grids with mixed tile sizes (`col-span-2`, `row-span-2`)
 - Vertical timelines with alternating left/right content
@@ -291,13 +290,13 @@ When creating a deck with multiple slides, **vary the visual treatment across sl
 
 ### Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `→` or `Space` | Advance (next step or next slide) |
-| `←` | Go back (previous step or previous slide) |
-| `F` | Toggle fullscreen presentation mode |
-| `G` | Toggle grid view |
-| `Escape` | Exit fullscreen |
+| Key            | Action                                    |
+| -------------- | ----------------------------------------- |
+| `→` or `Space` | Advance (next step or next slide)         |
+| `←`            | Go back (previous step or previous slide) |
+| `F`            | Toggle fullscreen presentation mode       |
+| `G`            | Toggle grid view                          |
+| `Escape`       | Exit fullscreen                           |
 
 ### View Modes
 
@@ -308,6 +307,7 @@ When creating a deck with multiple slides, **vary the visual treatment across sl
 ### Slide Templates
 
 Reference templates are available in `assets/templates/` — each demonstrates a distinct visual style:
+
 - `slide-hero-gradient.tsx` — Gradient mesh background with glow orbs, large title, accent line (`scale` + `fade`)
 - `slide-split-screen.tsx` — Asymmetric 2/5 + 3/5 split with solid primary panel (`slide-right` + `slide-left`)
 - `slide-glassmorphism.tsx` — Frosted glass cards on gradient background (`AnimatedGroup` + `scale`)

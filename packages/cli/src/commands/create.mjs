@@ -1,7 +1,8 @@
+import { execSync } from "node:child_process"
 import { existsSync, cpSync, readFileSync, writeFileSync } from "node:fs"
 import { join, resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
-import { execSync } from "node:child_process"
+
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { hexToOklch, hexToOklchDark, isValidHex } from "../utils/colors.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
@@ -28,7 +29,7 @@ function getLocalPackagePaths() {
       if (pkg.name === "promptslide") {
         return {
           core: resolve(monoRoot, "packages", "core"),
-          cli: resolve(monoRoot, "packages", "cli"),
+          cli: resolve(monoRoot, "packages", "cli")
         }
       }
     }
@@ -37,9 +38,7 @@ function getLocalPackagePaths() {
 }
 
 function titleCase(slug) {
-  return slug
-    .replace(/[-_]/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+  return slug.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
 }
 
 function isValidDirName(name) {
@@ -124,27 +123,27 @@ export async function create(args) {
   const replacements = [
     {
       path: join(targetDir, "package.json"),
-      values: { "{{PROJECT_SLUG}}": dirName, "{{PROJECT_NAME}}": projectName },
+      values: { "{{PROJECT_SLUG}}": dirName, "{{PROJECT_NAME}}": projectName }
     },
     {
       path: join(targetDir, "src", "App.tsx"),
-      values: { "{{PROJECT_NAME}}": projectName },
+      values: { "{{PROJECT_NAME}}": projectName }
     },
     {
       path: join(targetDir, "src", "slides", "slide-title.tsx"),
-      values: { "{{PROJECT_NAME}}": projectName },
+      values: { "{{PROJECT_NAME}}": projectName }
     },
     {
       path: join(targetDir, "README.md"),
-      values: { "{{PROJECT_NAME}}": projectName },
+      values: { "{{PROJECT_NAME}}": projectName }
     },
     {
       path: join(targetDir, "src", "globals.css"),
       values: {
         "{{PRIMARY_COLOR}}": primaryOklch,
-        "{{PRIMARY_COLOR_DARK}}": primaryOklchDark,
-      },
-    },
+        "{{PRIMARY_COLOR_DARK}}": primaryOklchDark
+      }
+    }
   ]
 
   for (const { path, values } of replacements) {
@@ -174,13 +173,11 @@ export async function create(args) {
     try {
       execSync("npx skills add prompticeu/promptslide", {
         cwd: targetDir,
-        stdio: "inherit",
+        stdio: "inherit"
       })
       console.log(`  ${green("✓")} PromptSlide skill installed`)
     } catch {
-      console.log(
-        `  ${red("⚠")} Skill installation failed. You can install it later with:`
-      )
+      console.log(`  ${red("⚠")} Skill installation failed. You can install it later with:`)
       console.log(`    npx skills add prompticeu/promptslide`)
     }
   }
@@ -196,9 +193,7 @@ export async function create(args) {
   console.log(`    npm run dev`)
   console.log()
   console.log(`  Then open your coding agent and start building slides!`)
-  console.log(
-    `  The agent will read ${cyan("AGENTS.md")} to understand the framework.`
-  )
+  console.log(`  The agent will read ${cyan("AGENTS.md")} to understand the framework.`)
   console.log()
 
   closePrompts()

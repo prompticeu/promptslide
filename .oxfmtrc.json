@@ -1,0 +1,28 @@
+{
+  "semi": false,
+  "singleQuote": false,
+  "arrowParens": "avoid",
+  "tabWidth": 2,
+  "trailingComma": "none",
+  "useTabs": false,
+  "endOfLine": "lf",
+  "printWidth": 100,
+  "ignorePatterns": ["packages/cli/templates/**"],
+  "experimentalSortImports": {
+    "groups": [
+      ["value-builtin", "type-builtin"],
+      ["type-external"],
+      ["value-external"],
+      ["type-internal"],
+      ["value-internal"],
+      ["type-parent", "type-sibling", "type-index"],
+      ["value-parent", "value-sibling", "value-index"]
+    ],
+    "newlinesBetween": true
+  },
+  "experimentalTailwindcss": {
+    "stylesheet": "./src/globals.css",
+    "attributes": ["class", "className"],
+    "functions": ["cn", "cva", "clsx"]
+  }
+}

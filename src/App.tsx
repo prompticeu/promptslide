@@ -1,4 +1,5 @@
 import { SlideBrandingProvider, SlideDeck } from "@promptslide/core"
+
 import { slides } from "@/deck-config"
 
 export default function App() {

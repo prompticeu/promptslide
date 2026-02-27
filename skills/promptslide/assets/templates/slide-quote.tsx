@@ -1,6 +1,7 @@
+import type { SlideProps } from "@/framework/types"
+
 import { Animated } from "@/framework/animated"
 import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
 
 export function SlideQuote({ slideNumber, totalSlides }: SlideProps) {
   return (
@@ -13,7 +14,7 @@ export function SlideQuote({ slideNumber, totalSlides }: SlideProps) {
               &ldquo;
             </span>
 
-            <p className="-mt-10 max-w-4xl text-3xl font-light leading-relaxed italic text-foreground">
+            <p className="-mt-10 max-w-4xl text-3xl leading-relaxed font-light text-foreground italic">
               The best presentation is the one you didn't spend twenty hours making.
             </p>
           </div>

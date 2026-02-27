@@ -1,6 +1,6 @@
-import { motion } from "framer-motion"
-
 import type { Transition } from "framer-motion"
+
+import { motion } from "framer-motion"
 
 import { MORPH_TRANSITION } from "./animation-config"
 

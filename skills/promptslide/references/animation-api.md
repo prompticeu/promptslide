@@ -6,32 +6,31 @@ Reveals content at a specific animation step (click-to-reveal).
 
 ```tsx
 import { Animated } from "@/framework/animated"
-
-<Animated step={1} animation="slide-up" duration={0.4} delay={0.05} className="flex">
+;<Animated step={1} animation="slide-up" duration={0.4} delay={0.05} className="flex">
   <p>Content</p>
 </Animated>
 ```
 
 ### Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `step` | `number` | required | Which click reveals this content (1-indexed) |
-| `animation` | `AnimationType` | `"slide-up"` | Animation style |
-| `duration` | `number` | `0.4` | Duration in seconds |
-| `delay` | `number` | `0` | Delay after trigger in seconds |
-| `className` | `string` | — | Additional CSS classes (use for layout preservation) |
+| Prop        | Type            | Default      | Description                                          |
+| ----------- | --------------- | ------------ | ---------------------------------------------------- |
+| `step`      | `number`        | required     | Which click reveals this content (1-indexed)         |
+| `animation` | `AnimationType` | `"slide-up"` | Animation style                                      |
+| `duration`  | `number`        | `0.4`        | Duration in seconds                                  |
+| `delay`     | `number`        | `0`          | Delay after trigger in seconds                       |
+| `className` | `string`        | —            | Additional CSS classes (use for layout preservation) |
 
 ### AnimationType Values
 
-| Type | Effect |
-|------|--------|
-| `fade` | Fade in (opacity only) |
-| `slide-up` | Slide up + fade in |
-| `slide-down` | Slide down + fade in |
-| `slide-left` | Slide from right + fade in |
-| `slide-right` | Slide from left + fade in |
-| `scale` | Scale up from 0.8 + fade in |
+| Type          | Effect                      |
+| ------------- | --------------------------- |
+| `fade`        | Fade in (opacity only)      |
+| `slide-up`    | Slide up + fade in          |
+| `slide-down`  | Slide down + fade in        |
+| `slide-left`  | Slide from right + fade in  |
+| `slide-right` | Slide from left + fade in   |
+| `scale`       | Scale up from 0.8 + fade in |
 
 ---
 
@@ -41,8 +40,12 @@ Staggers multiple children with sequential delays, all triggered by a single ste
 
 ```tsx
 import { AnimatedGroup } from "@/framework/animated"
-
-<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1} className="grid grid-cols-3 gap-6">
+;<AnimatedGroup
+  startStep={1}
+  animation="slide-up"
+  staggerDelay={0.1}
+  className="grid grid-cols-3 gap-6"
+>
   <Card>First</Card>
   <Card>Second</Card>
   <Card>Third</Card>
@@ -51,12 +54,12 @@ import { AnimatedGroup } from "@/framework/animated"
 
 ### Props
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `startStep` | `number` | required | Which click reveals the group (1-indexed) |
-| `animation` | `AnimationType` | `"slide-up"` | Animation style for all children |
-| `staggerDelay` | `number` | `0.1` | Delay between each child in seconds |
-| `className` | `string` | — | Additional CSS classes |
+| Prop           | Type            | Default      | Description                               |
+| -------------- | --------------- | ------------ | ----------------------------------------- |
+| `startStep`    | `number`        | required     | Which click reveals the group (1-indexed) |
+| `animation`    | `AnimationType` | `"slide-up"` | Animation style for all children          |
+| `staggerDelay` | `number`        | `0.1`        | Delay between each child in seconds       |
+| `className`    | `string`        | —            | Additional CSS classes                    |
 
 ---
 
@@ -78,6 +81,7 @@ import { AnimatedGroup } from "@/framework/animated"
 ### Common Patterns
 
 **Sequential cards** — each card gets its own step:
+
 ```tsx
 <Animated step={1} animation="slide-up"><Card>A</Card></Animated>
 <Animated step={2} animation="slide-up" delay={0.05}><Card>B</Card></Animated>
@@ -86,27 +90,33 @@ import { AnimatedGroup } from "@/framework/animated"
 ```
 
 **Grouped by row** — top row on step 1, bottom row on step 2:
+
 ```tsx
-{items.map((item, index) => (
-  <Animated
-    key={item.title}
-    step={index < 3 ? 1 : 2}
-    animation="slide-up"
-    delay={(index % 3) * 0.05}
-  >
-    <Card>{item.title}</Card>
-  </Animated>
-))}
+{
+  items.map((item, index) => (
+    <Animated
+      key={item.title}
+      step={index < 3 ? 1 : 2}
+      animation="slide-up"
+      delay={(index % 3) * 0.05}
+    >
+      <Card>{item.title}</Card>
+    </Animated>
+  ))
+}
 // deck-config: steps: 2
 ```
 
 **All at once with stagger** — single step, visual stagger via delay:
+
 ```tsx
-{items.map((item, index) => (
-  <Animated key={item.name} step={1} animation="slide-up" delay={index * 0.05}>
-    <Row>{item.name}</Row>
-  </Animated>
-))}
+{
+  items.map((item, index) => (
+    <Animated key={item.name} step={1} animation="slide-up" delay={index * 0.05}>
+      <Row>{item.name}</Row>
+    </Animated>
+  ))
+}
 // deck-config: steps: 1
 ```
 
@@ -134,11 +144,11 @@ import { Morph } from "@/framework/morph"
 </Morph>
 ```
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `layoutId` | `string` | required | Shared ID between slides (must match) |
-| `transition` | `Transition` | `MORPH_TRANSITION` | Custom Framer Motion transition |
-| `className` | `string` | — | Additional CSS classes |
+| Prop         | Type         | Default            | Description                           |
+| ------------ | ------------ | ------------------ | ------------------------------------- |
+| `layoutId`   | `string`     | required           | Shared ID between slides (must match) |
+| `transition` | `Transition` | `MORPH_TRANSITION` | Custom Framer Motion transition       |
+| `className`  | `string`     | —                  | Additional CSS classes                |
 
 ### MorphGroup + MorphItem
 
@@ -146,10 +156,13 @@ Group multiple morph elements together:
 
 ```tsx
 import { MorphGroup, MorphItem } from "@/framework/morph"
-
-<MorphGroup groupId="card" className="flex gap-4">
-  <MorphItem id="icon" prefix="card"><Icon /></MorphItem>
-  <MorphItem id="title" prefix="card"><h2>Title</h2></MorphItem>
+;<MorphGroup groupId="card" className="flex gap-4">
+  <MorphItem id="icon" prefix="card">
+    <Icon />
+  </MorphItem>
+  <MorphItem id="title" prefix="card">
+    <h2>Title</h2>
+  </MorphItem>
 </MorphGroup>
 ```
 
@@ -179,32 +192,32 @@ All timing values from `src/framework/animation-config.ts`:
 
 ### Durations (seconds)
 
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `SLIDE_TRANSITION_DURATION` | `0.3` | Between slides |
-| `MORPH_DURATION` | `0.8` | Layout morph animations |
-| `STEP_ANIMATION_DURATION` | `0.4` | Within-slide step animations |
-| `STAGGER_DELAY` | `0.1` | Default group stagger |
+| Constant                    | Value | Purpose                      |
+| --------------------------- | ----- | ---------------------------- |
+| `SLIDE_TRANSITION_DURATION` | `0.3` | Between slides               |
+| `MORPH_DURATION`            | `0.8` | Layout morph animations      |
+| `STEP_ANIMATION_DURATION`   | `0.4` | Within-slide step animations |
+| `STAGGER_DELAY`             | `0.1` | Default group stagger        |
 
 ### Spring Configurations
 
-| Preset | Stiffness | Damping | Use Case |
-|--------|-----------|---------|----------|
-| `SPRING_SNAPPY` | 300 | 30 | Step animations (default) |
-| `SPRING_SMOOTH` | 200 | 25 | Gentle animations |
-| `SPRING_BOUNCY` | 400 | 20 | Playful animations |
+| Preset          | Stiffness | Damping | Use Case                  |
+| --------------- | --------- | ------- | ------------------------- |
+| `SPRING_SNAPPY` | 300       | 30      | Step animations (default) |
+| `SPRING_SMOOTH` | 200       | 25      | Gentle animations         |
+| `SPRING_BOUNCY` | 400       | 20      | Playful animations        |
 
 ### Distances (pixels)
 
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `SLIDE_DISTANCE` | `100` | Slide transition distance |
-| `ELEMENT_SLIDE_DISTANCE` | `30` | Within-slide element animations |
+| Constant                 | Value | Purpose                         |
+| ------------------------ | ----- | ------------------------------- |
+| `SLIDE_DISTANCE`         | `100` | Slide transition distance       |
+| `ELEMENT_SLIDE_DISTANCE` | `30`  | Within-slide element animations |
 
 ### Slide Dimensions
 
-| Property | Value |
-|----------|-------|
-| Width | `1280` |
-| Height | `720` |
+| Property     | Value  |
+| ------------ | ------ |
+| Width        | `1280` |
+| Height       | `720`  |
 | Aspect Ratio | `16:9` |

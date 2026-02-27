@@ -18,11 +18,7 @@ export function SlideBrandingProvider({
   branding: SlideBranding
   children: React.ReactNode
 }) {
-  return (
-    <BrandingContext.Provider value={branding}>
-      {children}
-    </BrandingContext.Provider>
-  )
+  return <BrandingContext.Provider value={branding}>{children}</BrandingContext.Provider>
 }
 
 export function useBranding() {

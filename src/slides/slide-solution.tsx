@@ -1,5 +1,7 @@
-import { Animated } from "@promptslide/core"
 import type { SlideProps } from "@promptslide/core"
+
+import { Animated } from "@promptslide/core"
+
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
@@ -7,8 +9,12 @@ export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
     <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
       <div className="-mx-12 -mt-12 -mb-6 grid h-[calc(100%+4.5rem)] grid-cols-5">
         {/* Left panel — bold statement on solid primary */}
-        <Animated step={1} animation="slide-right" className="col-span-2 flex flex-col justify-center bg-primary p-12">
-          <h2 className="text-5xl font-bold leading-tight text-primary-foreground">
+        <Animated
+          step={1}
+          animation="slide-right"
+          className="col-span-2 flex flex-col justify-center bg-primary p-12"
+        >
+          <h2 className="text-5xl leading-tight font-bold text-primary-foreground">
             Describe it.
             <br />
             See it.
@@ -28,19 +34,17 @@ export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
                 <div className="h-3 w-3 rounded-full bg-red-500/60" />
                 <div className="h-3 w-3 rounded-full bg-yellow-500/60" />
                 <div className="h-3 w-3 rounded-full bg-green-500/60" />
-                <span className="text-muted-foreground ml-2 text-xs font-mono">
-                  terminal
-                </span>
+                <span className="ml-2 font-mono text-xs text-muted-foreground">terminal</span>
               </div>
               <div className="space-y-2 font-mono text-sm">
                 <p className="text-muted-foreground">$ npm run dev</p>
                 <p className="text-green-400">VITE v6.4 ready in 400ms</p>
-                <p className="text-muted-foreground mt-4">$ claude</p>
+                <p className="mt-4 text-muted-foreground">$ claude</p>
                 <p className="text-foreground">
-                  &gt; Create a pitch deck about our AI product with slides
-                  for problem, solution, market, team, and fundraising
+                  &gt; Create a pitch deck about our AI product with slides for problem, solution,
+                  market, team, and fundraising
                 </p>
-                <p className="text-primary mt-2">Creating 6 slides...</p>
+                <p className="mt-2 text-primary">Creating 6 slides...</p>
               </div>
             </div>
           </Animated>

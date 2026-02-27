@@ -5,8 +5,8 @@ A slide deck built with [PromptSlide](https://github.com/prompticeu/promptslide)
 ## Getting Started
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 Then open your coding agent (Claude Code, Cursor, Windsurf, etc.) and say:
@@ -23,12 +23,12 @@ The agent reads `AGENTS.md`, generates slide files in `src/slides/`, and Vite ho
 
 ## Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `→` / `Space` | Next step or slide |
-| `←` | Previous step or slide |
-| `F` | Toggle fullscreen |
-| `G` | Toggle grid view |
+| Key           | Action                 |
+| ------------- | ---------------------- |
+| `→` / `Space` | Next step or slide     |
+| `←`           | Previous step or slide |
+| `F`           | Toggle fullscreen      |
+| `G`           | Toggle grid view       |
 
 ## Learn More
 

@@ -1,12 +1,8 @@
-import {
-  FileDown,
-  Fullscreen,
-  Palette,
-  Sparkles,
-} from "lucide-react"
+import type { SlideProps } from "@promptslide/core"
 
 import { AnimatedGroup } from "@promptslide/core"
-import type { SlideProps } from "@promptslide/core"
+import { FileDown, Fullscreen, Palette, Sparkles } from "lucide-react"
+
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
@@ -26,12 +22,10 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
         {/* Wide tile — top left, spans 2 cols */}
         <div className="col-span-2 flex flex-col justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-transparent p-8">
           <Sparkles className="mb-3 h-8 w-8 text-primary" />
-          <h3 className="text-xl font-semibold text-foreground">
-            Step Animations
-          </h3>
+          <h3 className="text-xl font-semibold text-foreground">Step Animations</h3>
           <p className="mt-2 max-w-md text-muted-foreground">
-            Click-to-reveal content with fade, slide, scale, and stagger
-            effects. Build narrative flow into every slide.
+            Click-to-reveal content with fade, slide, scale, and stagger effects. Build narrative
+            flow into every slide.
           </p>
         </div>
 
@@ -41,8 +35,8 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
             <Palette className="mb-3 h-8 w-8 text-primary" />
             <h3 className="font-semibold text-foreground">Themeable</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              OKLCH color system — change one variable to rebrand the entire
-              deck. Dark mode built in.
+              OKLCH color system — change one variable to rebrand the entire deck. Dark mode built
+              in.
             </p>
           </div>
           <div className="space-y-2 text-sm">
@@ -79,9 +73,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
           <div className="flex items-center gap-4">
             <FileDown className="h-7 w-7 shrink-0 text-primary-foreground" />
             <div>
-              <h3 className="font-semibold text-primary-foreground">
-                PDF Export
-              </h3>
+              <h3 className="font-semibold text-primary-foreground">PDF Export</h3>
               <p className="mt-1 text-sm text-primary-foreground/80">
                 One-click download via browser print
               </p>

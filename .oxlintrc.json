@@ -1,0 +1,31 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "import", "jsx-a11y"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "env": {
+    "browser": true,
+    "es2024": true
+  },
+  "globals": {
+    "React": "readonly",
+    "JSX": "readonly"
+  },
+  "rules": {
+    "no-unused-vars": ["error", { "args": "none" }],
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": "off",
+    "import/no-named-as-default": "off",
+    "import/no-absolute-path": "off",
+    "preserve-caught-error": "off",
+    "jsx-a11y/no-autofocus": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/role-has-required-aria-props": "warn",
+    "jsx-a11y/media-has-caption": "warn",
+    "jsx-a11y/prefer-tag-over-role": "warn",
+    "jsx-a11y/label-has-associated-control": "warn"
+  },
+  "ignorePatterns": ["packages/cli/templates/**"]
+}

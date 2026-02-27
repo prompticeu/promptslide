@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline"
+
 import { dim } from "./ansi.mjs"
 
 let _rl = null
@@ -25,9 +26,9 @@ export function closePrompts() {
 export function prompt(question, defaultValue) {
   const rl = getRL()
   if (!rl) return Promise.resolve(defaultValue || "")
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const suffix = defaultValue ? ` ${dim(`(${defaultValue})`)} ` : " "
-    rl.question(`  ${question}${suffix}`, (answer) => {
+    rl.question(`  ${question}${suffix}`, answer => {
       resolve(answer.trim() || defaultValue || "")
     })
     rl.once("close", () => resolve(defaultValue || ""))
@@ -37,9 +38,9 @@ export function prompt(question, defaultValue) {
 export function confirm(question, defaultYes = true) {
   const rl = getRL()
   if (!rl) return Promise.resolve(defaultYes)
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const hint = defaultYes ? "Y/n" : "y/N"
-    rl.question(`  ${question} ${dim(`(${hint})`)} `, (answer) => {
+    rl.question(`  ${question} ${dim(`(${hint})`)} `, answer => {
       const a = answer.trim().toLowerCase()
       if (!a) return resolve(defaultYes)
       resolve(a === "y" || a === "yes")

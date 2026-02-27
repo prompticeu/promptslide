@@ -1,24 +1,26 @@
-import { Animated } from "@promptslide/core"
 import type { SlideProps } from "@promptslide/core"
+
+import { Animated } from "@promptslide/core"
+
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 const steps = [
   {
     title: "Clone & Install",
-    description: "git clone, npm install, npm run dev — up and running in seconds",
+    description: "git clone, npm install, npm run dev — up and running in seconds"
   },
   {
     title: "Open Your Agent",
-    description: "Claude Code, Cursor, Windsurf — any AI coding agent works",
+    description: "Claude Code, Cursor, Windsurf — any AI coding agent works"
   },
   {
     title: "Describe Your Deck",
-    description: '"Create a 10-slide pitch deck for my fintech startup"',
+    description: '"Create a 10-slide pitch deck for my fintech startup"'
   },
   {
     title: "Present & Export",
-    description: "Fullscreen presentation mode, grid view, or one-click PDF download",
-  },
+    description: "Fullscreen presentation mode, grid view, or one-click PDF download"
+  }
 ]
 
 export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
@@ -31,7 +33,7 @@ export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
     >
       <div className="relative flex h-full items-center justify-center">
         {/* Center line */}
-        <div className="absolute left-1/2 top-4 bottom-4 w-px -translate-x-1/2 bg-border" />
+        <div className="absolute top-4 bottom-4 left-1/2 w-px -translate-x-1/2 bg-border" />
 
         <div className="relative w-full max-w-4xl space-y-8">
           {steps.map((step, index) => {
@@ -45,15 +47,9 @@ export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
                   {isLeft ? (
                     <>
                       <div className="w-1/2 pr-12 text-right">
-                        <div className="mb-1 text-xs font-mono text-primary/60">
-                          0{index + 1}
-                        </div>
-                        <h3 className="text-lg font-semibold text-foreground">
-                          {step.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {step.description}
-                        </p>
+                        <div className="mb-1 font-mono text-xs text-primary/60">0{index + 1}</div>
+                        <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
+                        <p className="text-sm text-muted-foreground">{step.description}</p>
                       </div>
                       <div className="w-1/2" />
                     </>
@@ -61,15 +57,9 @@ export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
                     <>
                       <div className="w-1/2" />
                       <div className="w-1/2 pl-12">
-                        <div className="mb-1 text-xs font-mono text-primary/60">
-                          0{index + 1}
-                        </div>
-                        <h3 className="text-lg font-semibold text-foreground">
-                          {step.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {step.description}
-                        </p>
+                        <div className="mb-1 font-mono text-xs text-primary/60">0{index + 1}</div>
+                        <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
+                        <p className="text-sm text-muted-foreground">{step.description}</p>
                       </div>
                     </>
                   )}

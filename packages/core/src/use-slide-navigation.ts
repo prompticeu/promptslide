@@ -133,8 +133,7 @@ export function useSlideNavigation({
     totalSteps,
     direction: navState.direction,
     isTransitioning: navState.status !== "idle",
-    showAllAnimations:
-      navState.direction === -1 && navState.status === "transitioning",
+    showAllAnimations: navState.direction === -1 && navState.status === "transitioning",
     advance,
     goBack,
     goToSlide,

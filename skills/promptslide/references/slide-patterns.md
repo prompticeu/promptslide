@@ -29,9 +29,7 @@ Asymmetric split with solid primary on one side. Use `hideFooter` on `SlideLayou
   <div className="col-span-2 flex flex-col justify-center bg-primary p-12">
     <h2 className="text-5xl font-bold text-primary-foreground">Statement</h2>
   </div>
-  <div className="col-span-3 flex flex-col justify-center p-12">
-    {/* Right content */}
-  </div>
+  <div className="col-span-3 flex flex-col justify-center p-12">{/* Right content */}</div>
 </div>
 ```
 
@@ -226,12 +224,8 @@ Not everything needs to be 50/50. Use `grid-cols-5` for 2/5 + 3/5 splits.
 
 ```tsx
 <div className="grid h-full grid-cols-5 gap-12 items-center">
-  <div className="col-span-3">
-    {/* Larger content area */}
-  </div>
-  <div className="col-span-2">
-    {/* Smaller supporting content */}
-  </div>
+  <div className="col-span-3">{/* Larger content area */}</div>
+  <div className="col-span-2">{/* Smaller supporting content */}</div>
 </div>
 ```
 
@@ -343,9 +337,7 @@ Gradient mesh background with accent line. Use for opening slides.
   <div className="absolute bottom-1/4 right-10 h-64 w-64 rounded-full bg-primary/5 blur-2xl" />
 
   <div className="relative z-10 flex h-full flex-col items-center justify-center text-center">
-    <h1 className="max-w-5xl text-7xl font-bold tracking-tight text-foreground">
-      Title
-    </h1>
+    <h1 className="max-w-5xl text-7xl font-bold tracking-tight text-foreground">Title</h1>
     <p className="mt-6 max-w-2xl text-xl font-light text-muted-foreground">Tagline</p>
     <div className="mt-8 h-1 w-24 rounded-full bg-primary" />
   </div>
@@ -363,13 +355,9 @@ Combine a strong statement with an action. Can use the quote pattern or a termin
 ```tsx
 <SlideLayout slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
   <div className="flex h-full flex-col items-center justify-center text-center">
-    <h1 className="text-5xl font-bold tracking-tight text-foreground">
-      Ready to Get Started?
-    </h1>
+    <h1 className="text-5xl font-bold tracking-tight text-foreground">Ready to Get Started?</h1>
     <div className="mt-8 h-1 w-16 rounded-full bg-primary" />
-    <p className="mt-6 text-lg text-muted-foreground">
-      github.com/your-org/your-repo
-    </p>
+    <p className="mt-6 text-lg text-muted-foreground">github.com/your-org/your-repo</p>
   </div>
 </SlideLayout>
 ```
@@ -382,16 +370,16 @@ Steps: 0
 
 Match animation types to layout styles for maximum impact:
 
-| Layout | Recommended Animation | Why |
-|--------|----------------------|-----|
-| Hero / Title | `scale` or `fade` | Dramatic entrance without directional bias |
-| Split Screen | `slide-right` (left panel) + `slide-left` (right) | Panels enter from their edges |
-| Card Grid / Bento | `AnimatedGroup` with `scale` or `slide-down` | Uniform pop-in effect |
-| Timeline items | `fade` | Clean appearance without movement |
-| Comparison | `slide-right` + `slide-left` | Opposing directions emphasize contrast |
-| Big Numbers | `slide-up` per metric | Vertical reveal suits vertical stacks |
-| Quote | `fade` | Let the words speak |
-| Data/Charts | `scale` | Drawing attention to the visual element |
+| Layout            | Recommended Animation                             | Why                                        |
+| ----------------- | ------------------------------------------------- | ------------------------------------------ |
+| Hero / Title      | `scale` or `fade`                                 | Dramatic entrance without directional bias |
+| Split Screen      | `slide-right` (left panel) + `slide-left` (right) | Panels enter from their edges              |
+| Card Grid / Bento | `AnimatedGroup` with `scale` or `slide-down`      | Uniform pop-in effect                      |
+| Timeline items    | `fade`                                            | Clean appearance without movement          |
+| Comparison        | `slide-right` + `slide-left`                      | Opposing directions emphasize contrast     |
+| Big Numbers       | `slide-up` per metric                             | Vertical reveal suits vertical stacks      |
+| Quote             | `fade`                                            | Let the words speak                        |
+| Data/Charts       | `scale`                                           | Drawing attention to the visual element    |
 
 ---
 

@@ -1,7 +1,8 @@
-import { Github } from "lucide-react"
+import type { SlideProps } from "@promptslide/core"
 
 import { Animated } from "@promptslide/core"
-import type { SlideProps } from "@promptslide/core"
+import { Github } from "lucide-react"
+
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
@@ -14,7 +15,7 @@ export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
             <span className="block font-serif text-[120px] leading-none text-primary/20">
               &ldquo;
             </span>
-            <p className="-mt-10 max-w-4xl text-3xl font-light leading-relaxed italic text-foreground">
+            <p className="-mt-10 max-w-4xl text-3xl leading-relaxed font-light text-foreground italic">
               The best presentation is the one you didn't spend twenty hours making.
             </p>
           </div>
@@ -33,9 +34,7 @@ export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
                 <p className="text-muted-foreground">
                   $ cd promptslide && npm install && npm run dev
                 </p>
-                <p className="mt-1 text-green-400">
-                  VITE ready on http://localhost:5173
-                </p>
+                <p className="mt-1 text-green-400">VITE ready on http://localhost:5173</p>
               </div>
             </div>
 
@@ -47,8 +46,7 @@ export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
             </div>
 
             <p className="mt-4 max-w-md text-sm text-muted-foreground">
-              Open source &middot; MIT License &middot; Works with any coding
-              agent
+              Open source &middot; MIT License &middot; Works with any coding agent
             </p>
           </div>
         </Animated>

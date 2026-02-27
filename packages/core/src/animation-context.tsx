@@ -46,11 +46,7 @@ export function AnimationProvider({
     [currentStep, totalSteps, showAllAnimations]
   )
 
-  return (
-    <AnimationContext.Provider value={value}>
-      {children}
-    </AnimationContext.Provider>
-  )
+  return <AnimationContext.Provider value={value}>{children}</AnimationContext.Provider>
 }
 
 export function useAnimationContext() {

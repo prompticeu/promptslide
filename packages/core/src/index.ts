@@ -1,10 +1,5 @@
 // Types
-export type {
-  SlideProps,
-  SlideComponent,
-  SlideConfig,
-  NavigationDirection
-} from "./types"
+export type { SlideProps, SlideComponent, SlideConfig, NavigationDirection } from "./types"
 
 // Animation Config
 export {
@@ -51,10 +46,7 @@ export { Morph, MorphGroup, MorphItem, MorphText } from "./morph"
 
 // Navigation Hook
 export { useSlideNavigation } from "./use-slide-navigation"
-export type {
-  UseSlideNavigationOptions,
-  UseSlideNavigationReturn
-} from "./use-slide-navigation"
+export type { UseSlideNavigationOptions, UseSlideNavigationReturn } from "./use-slide-navigation"
 
 // Branding
 export { SlideBrandingProvider, useBranding } from "./branding"

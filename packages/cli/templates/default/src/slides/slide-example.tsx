@@ -1,8 +1,8 @@
-import { Lightbulb, Rocket, Zap } from "lucide-react"
+import { Lightbulb, Rocket, Zap } from "lucide-react";
 
-import { Animated, AnimatedGroup } from "@promptslide/core"
-import type { SlideProps } from "@promptslide/core"
-import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
+import { Animated, AnimatedGroup } from "@promptslide/core";
+import type { SlideProps } from "@promptslide/core";
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered";
 
 export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
   return (
@@ -44,12 +44,10 @@ export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
           <div className="rounded-xl border border-border bg-card p-6">
             <Rocket className="text-primary mb-3 h-8 w-8" />
             <h3 className="text-foreground mb-1 font-semibold">Present</h3>
-            <p className="text-muted-foreground text-sm">
-              Press F to go fullscreen and present
-            </p>
+            <p className="text-muted-foreground text-sm">Press F to go fullscreen and present</p>
           </div>
         </AnimatedGroup>
       </div>
     </SlideLayoutCentered>
-  )
+  );
 }

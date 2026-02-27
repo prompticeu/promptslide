@@ -50,10 +50,7 @@ export function promptslidePlugin() {
       return () => {
         server.middlewares.use(async (req, res, next) => {
           if (req.url === "/" || req.url === "/index.html") {
-            const html = await server.transformIndexHtml(
-              req.url,
-              getHtmlTemplate()
-            )
+            const html = await server.transformIndexHtml(req.url, getHtmlTemplate())
             res.setHeader("Content-Type", "text/html")
             res.statusCode = 200
             res.end(html)
@@ -62,7 +59,7 @@ export function promptslidePlugin() {
           next()
         })
       }
-    },
+    }
   }
 }
 

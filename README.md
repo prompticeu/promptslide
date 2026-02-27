@@ -9,8 +9,8 @@ PromptSlide is a local-first slide framework built with React, Tailwind CSS, and
 ```bash
 git clone https://github.com/prompticeu/promptslide.git
 cd promptslide
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 Then open your coding agent and say:
@@ -37,7 +37,7 @@ Edit `src/globals.css` and change `--primary`:
 
 ```css
 :root {
-  --primary: oklch(0.55 0.2 250);  /* Blue (default) */
+  --primary: oklch(0.55 0.2 250); /* Blue (default) */
 }
 ```
 
@@ -63,13 +63,13 @@ Options: `fade`, `slide-left`, `slide-right`, `slide-up`, `slide-down`, `zoom`, 
 
 ## Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `→` / `Space` | Next step or slide |
-| `←` | Previous step or slide |
-| `F` | Toggle fullscreen |
-| `G` | Toggle grid view |
-| `Escape` | Exit fullscreen |
+| Key           | Action                 |
+| ------------- | ---------------------- |
+| `→` / `Space` | Next step or slide     |
+| `←`           | Previous step or slide |
+| `F`           | Toggle fullscreen      |
+| `G`           | Toggle grid view       |
+| `Escape`      | Exit fullscreen        |
 
 ## View Modes
 

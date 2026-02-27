@@ -2,11 +2,13 @@
   "name": "create-slides",
   "version": "0.2.0",
   "description": "Scaffold a new PromptSlide slide deck project",
-  "type": "module",
   "bin": {
     "create-slides": "./index.mjs"
   },
-  "files": ["index.mjs"],
+  "files": [
+    "index.mjs"
+  ],
+  "type": "module",
   "dependencies": {
     "promptslide": "*"
   },
