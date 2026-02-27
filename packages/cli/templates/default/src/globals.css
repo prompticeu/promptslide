@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@source "../packages/core/src";
+@source "../node_modules/@promptslide/core/src";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -72,7 +72,7 @@
   --popover-foreground: oklch(0.145 0 0);
 
   /* Primary brand color — change this to match your brand */
-  --primary: oklch(0.55 0.2 250);
+  --primary: {{PRIMARY_COLOR}};
   --primary-foreground: oklch(0.985 0 0);
 
   --secondary: oklch(0.97 0 0);
@@ -93,7 +93,7 @@
 
   --radius: 0.625rem;
 
-  --chart-1: oklch(0.55 0.2 250);
+  --chart-1: {{PRIMARY_COLOR}};
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
@@ -111,7 +111,7 @@
   --popover-foreground: oklch(0.985 0 0);
 
   /* Primary brand color (dark mode) */
-  --primary: oklch(0.6 0.2 250);
+  --primary: {{PRIMARY_COLOR_DARK}};
   --primary-foreground: oklch(0.985 0 0);
 
   --secondary: oklch(0.985 0 0);

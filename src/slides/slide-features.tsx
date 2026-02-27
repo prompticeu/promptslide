@@ -5,13 +5,13 @@ import {
   Sparkles,
 } from "lucide-react"
 
-import { AnimatedGroup } from "@/framework/animated"
-import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
+import { AnimatedGroup } from "@promptslide/core"
+import type { SlideProps } from "@promptslide/core"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayout
+    <SlideLayoutCentered
       slideNumber={slideNumber}
       totalSlides={totalSlides}
       eyebrow="FEATURES"
@@ -89,6 +89,6 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
           </div>
         </div>
       </AnimatedGroup>
-    </SlideLayout>
+    </SlideLayoutCentered>
   )
 }

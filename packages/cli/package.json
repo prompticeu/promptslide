@@ -1,0 +1,21 @@
+{
+  "name": "promptslide",
+  "version": "0.2.0",
+  "description": "CLI runtime for PromptSlide presentations",
+  "type": "module",
+  "bin": {
+    "promptslide": "./src/index.mjs"
+  },
+  "files": ["src/", "templates/"],
+  "dependencies": {
+    "@promptslide/core": "*",
+    "@vitejs/plugin-react": "^4.5.2",
+    "@tailwindcss/postcss": "^4.1.13",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.13",
+    "vite": "^6.3.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
