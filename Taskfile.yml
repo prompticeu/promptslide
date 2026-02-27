@@ -1,0 +1,54 @@
+version: "3"
+
+silent: true
+
+tasks:
+  dev:
+    desc: Start the development server
+    cmds:
+      - bun run dev
+
+  build:
+    desc: Build the project for production
+    cmds:
+      - bun run build
+
+  preview:
+    desc: Preview the production build
+    cmds:
+      - bun run preview
+
+  lint:
+    desc: Run prek hooks on all files
+    cmds:
+      - git add --intent-to-add .
+      - prek run --all-files
+
+  clean:
+    desc: Remove generated files and caches
+    cmds:
+      - rm -rf node_modules
+      - rm -rf packages/*/node_modules
+      - rm -rf dist
+      - rm -rf .vite
+      - rm -rf .promptslide
+
+  install:
+    desc: Complete project setup
+    cmds:
+      - task: install-dependencies
+      - task: install-prek
+
+  install-dependencies:
+    desc: Install project dependencies with bun
+    run: once
+    cmds:
+      - echo "[promptslide] Install dependencies..."
+      - bun install
+
+  install-prek:
+    desc: Set up prek git hooks
+    run: once
+    cmds:
+      - echo "[promptslide] Install git hooks..."
+      - prek install --install-hooks

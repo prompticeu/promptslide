@@ -26,7 +26,7 @@
         "./src/*"
       ],
       "promptslide": [
-        "./packages/cli/src/core/index.ts"
+        "./node_modules/promptslide/src/core/index.ts"
       ]
     }
   },

@@ -7,12 +7,12 @@ This file documents the slide presentation framework for coding agents (Claude C
 To create a new slide:
 
 1. Create a file in `src/slides/` (e.g., `src/slides/slide-market.tsx`)
-2. Import from `@promptslide/core` and `@/layouts/slide-layout-centered`
+2. Import from `promptslide` and `@/layouts/slide-layout-centered`
 3. Add it to `src/deck-config.ts`
 
 ```tsx
 // src/slides/slide-market.tsx
-import type { SlideProps } from "@promptslide/core";
+import type { SlideProps } from "promptslide";
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered";
 
 export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
@@ -33,7 +33,7 @@ export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
 
 ```ts
 // src/deck-config.ts
-import type { SlideConfig } from "@promptslide/core";
+import type { SlideConfig } from "promptslide";
 import { SlideTitle } from "@/slides/slide-title";
 import { SlideMarket } from "@/slides/slide-market";
 
@@ -62,8 +62,7 @@ src/
 ├── App.tsx                       # Root component (theme provider)
 └── globals.css                   # Theme colors (customize here)
 
-promptslide (CLI runtime)         # Dev server, build, preview
-@promptslide/core (npm package)   # Slide engine — stable, upgradeable
+promptslide (npm package)          # CLI + slide engine — stable, upgradeable
 ├── Animated, AnimatedGroup       # Step animations (click-to-reveal)
 ├── Morph, MorphGroup, MorphItem  # Shared element transitions
 ├── SlideDeck                     # Presentation viewer/controller
@@ -75,7 +74,7 @@ promptslide (CLI runtime)         # Dev server, build, preview
                                   # TwoColumnLayout, ImageLayout, QuoteLayout
 ```
 
-**Key principle**: The presentation engine lives in `@promptslide/core` (stable, upgradeable via npm). Layouts and slides are local files you customize freely.
+**Key principle**: The presentation engine and CLI live in `promptslide` (stable, upgradeable via npm). Layouts and slides are local files you customize freely.
 
 ---
 
@@ -85,9 +84,9 @@ The framework provides three types of animations:
 
 | Type                  | Purpose                                          | Import                              |
 | --------------------- | ------------------------------------------------ | ----------------------------------- |
-| **Slide Transitions** | Animations between slides (fade, slide, zoom)    | `@promptslide/core`                 |
-| **Step Animations**   | Within-slide reveal animations (click to reveal) | `Animated` from `@promptslide/core` |
-| **Morph Animations**  | Shared element transitions across slides         | `Morph` from `@promptslide/core`    |
+| **Slide Transitions** | Animations between slides (fade, slide, zoom)    | `promptslide`                 |
+| **Step Animations**   | Within-slide reveal animations (click to reveal) | `Animated` from `promptslide` |
+| **Morph Animations**  | Shared element transitions across slides         | `Morph` from `promptslide`    |
 
 ---
 
@@ -119,7 +118,7 @@ import { SlideLayoutCentered } from "@/layouts/slide-layout-centered";
 Use `<Animated>` to reveal content on clicks:
 
 ```tsx
-import { Animated } from "@promptslide/core"
+import { Animated } from "promptslide"
 
 // Always visible content (no wrapper needed)
 <h2>Main Title</h2>
@@ -149,7 +148,7 @@ import { Animated } from "@promptslide/core"
 ### AnimatedGroup (staggered children)
 
 ```tsx
-import { AnimatedGroup } from "@promptslide/core";
+import { AnimatedGroup } from "promptslide";
 
 <AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
   <Card>First</Card>
@@ -179,7 +178,7 @@ import { AnimatedGroup } from "@promptslide/core";
 Morph animations smoothly transition shared elements between consecutive slides.
 
 ```tsx
-import { Morph, MorphText } from "@promptslide/core"
+import { Morph, MorphText } from "promptslide"
 
 // Slide 1 - Large version
 <Morph layoutId="hero-title">
@@ -197,7 +196,7 @@ import { Morph, MorphText } from "@promptslide/core"
 ### MorphGroup + MorphItem
 
 ```tsx
-import { MorphGroup, MorphItem } from "@promptslide/core";
+import { MorphGroup, MorphItem } from "promptslide";
 
 <MorphGroup groupId="card">
   <MorphItem id="icon">
@@ -217,7 +216,7 @@ import { MorphGroup, MorphItem } from "@promptslide/core";
 This file controls which slides appear and in what order.
 
 ```ts
-import type { SlideConfig } from "@promptslide/core";
+import type { SlideConfig } from "promptslide";
 import { SlideTitle } from "@/slides/slide-title";
 import { SlideProblem } from "@/slides/slide-problem";
 import { SlideSolution } from "@/slides/slide-solution";
@@ -288,7 +287,7 @@ OKLCH format: `oklch(lightness chroma hue)`
 Configure your brand identity in `src/theme.ts`:
 
 ```ts
-import type { ThemeConfig } from "@promptslide/core";
+import type { ThemeConfig } from "promptslide";
 
 export const theme: ThemeConfig = {
   name: "Acme Inc",
@@ -426,7 +425,7 @@ Match animation types to layout styles:
 
 ## 11. Animation Configuration Constants
 
-From `@promptslide/core`:
+From `promptslide`:
 
 ```ts
 SLIDE_TRANSITION_DURATION = 0.3; // Between slides

@@ -1,22 +1,63 @@
 {
   "name": "promptslide",
   "version": "0.2.0",
-  "description": "CLI runtime for PromptSlide presentations",
+  "description": "CLI and slide engine for PromptSlide presentations",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./src/commands/*": "./src/commands/*"
+  },
   "bin": {
     "promptslide": "./src/index.mjs"
   },
   "files": [
     "src/",
+    "dist/",
     "templates/"
   ],
-  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "npm run build"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prompticeu/promptslide.git"
+  },
+  "author": "prompticeu",
+  "keywords": [
+    "slides",
+    "presentations",
+    "cli",
+    "react",
+    "promptslide",
+    "vite"
+  ],
   "dependencies": {
-    "@promptslide/core": "*",
     "@tailwindcss/postcss": "^4.1.13",
     "@vitejs/plugin-react": "^4.5.2",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.552.0",
     "postcss": "^8.5.6",
+    "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.13",
     "vite": "^6.3.5"
+  },
+  "peerDependencies": {
+    "framer-motion": "^12.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0"

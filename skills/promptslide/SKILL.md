@@ -20,7 +20,7 @@ Create beautiful slide decks with AI coding agents. Each slide is a React compon
 Check if a PromptSlide project already exists in the current directory:
 
 ```bash
-grep -q '"@promptslide/core"' package.json 2>/dev/null
+grep -q '"promptslide"' package.json 2>/dev/null
 ```
 
 - **Match found** → This is an existing PromptSlide project. Go to [Authoring Slides](#authoring-slides).
@@ -51,7 +51,7 @@ This runs `promptslide studio` — the development server starts at http://local
 Edit `src/theme.ts`:
 
 ```ts
-import type { ThemeConfig } from "@promptslide/core"
+import type { ThemeConfig } from "promptslide"
 
 export const theme: ThemeConfig = {
   name: "Your Company",
@@ -94,7 +94,7 @@ Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then f
 
 ```tsx
 // src/slides/slide-market.tsx
-import type { SlideProps } from "@promptslide/core"
+import type { SlideProps } from "promptslide"
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
@@ -115,7 +115,7 @@ export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
 
 ```ts
 // src/deck-config.ts
-import type { SlideConfig } from "@promptslide/core"
+import type { SlideConfig } from "promptslide"
 import { SlideMarket } from "@/slides/slide-market"
 
 export const slides: SlideConfig[] = [{ component: SlideMarket, steps: 0 }]
@@ -136,7 +136,7 @@ src/
 └── globals.css        # Theme colors
 
 promptslide (CLI)      # Dev server, build, preview (owns Vite config)
-@promptslide/core      # Slide engine (npm package — stable, upgradeable)
+promptslide      # Slide engine (npm package — stable, upgradeable)
 ```
 
 ### SlideLayoutCentered API
@@ -164,7 +164,7 @@ Slide dimensions: **1280x720** (16:9). Design content for this size — it scale
 Use `<Animated>` to reveal content on clicks:
 
 ```tsx
-import { Animated } from "@promptslide/core"
+import { Animated } from "promptslide"
 
 // Always visible (no wrapper needed)
 <h2>Main Title</h2>
@@ -185,7 +185,7 @@ import { Animated } from "@promptslide/core"
 **AnimatedGroup** for staggered children:
 
 ```tsx
-import { AnimatedGroup } from "@promptslide/core"
+import { AnimatedGroup } from "promptslide"
 ;<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
   <Card>First</Card>
   <Card>Second</Card>
@@ -210,7 +210,7 @@ For full animation API (props tables, Morph system, config constants), see [refe
 `src/deck-config.ts` controls slide order:
 
 ```ts
-import type { SlideConfig } from "@promptslide/core"
+import type { SlideConfig } from "promptslide"
 
 export const slides: SlideConfig[] = [
   { component: SlideTitle, steps: 0 },

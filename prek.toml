@@ -1,0 +1,125 @@
+default_install_hook_types = ["pre-commit", "commit-msg", "post-checkout", "post-merge", "post-rewrite"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Priority 0: Builtin Rust-native hooks (instant startup, no env setup)
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "builtin"
+
+[[repos.hooks]]
+id = "trailing-whitespace"
+args = ["--markdown-linebreak-ext=md"]
+priority = 0
+
+[[repos.hooks]]
+id = "check-added-large-files"
+priority = 0
+
+[[repos.hooks]]
+id = "check-case-conflict"
+priority = 0
+
+[[repos.hooks]]
+id = "end-of-file-fixer"
+priority = 0
+
+[[repos.hooks]]
+id = "fix-byte-order-marker"
+priority = 0
+
+[[repos.hooks]]
+id = "check-json"
+exclude = '(\.vscode/.*\.json)$'
+priority = 0
+
+[[repos.hooks]]
+id = "check-toml"
+priority = 0
+
+[[repos.hooks]]
+id = "check-yaml"
+args = ["--allow-multiple-documents"]
+priority = 0
+
+[[repos.hooks]]
+id = "mixed-line-ending"
+priority = 0
+
+[[repos.hooks]]
+id = "check-symlinks"
+priority = 0
+
+[[repos.hooks]]
+id = "check-merge-conflict"
+args = ["--assume-in-merge"]
+priority = 0
+
+[[repos.hooks]]
+id = "check-executables-have-shebangs"
+priority = 0
+
+[[repos.hooks]]
+id = "check-json5"
+priority = 0
+
+[[repos.hooks]]
+id = "check-xml"
+priority = 0
+
+[[repos.hooks]]
+id = "detect-private-key"
+priority = 0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Priority 10: Formatters (run before linters)
+# ─────────────────────────────────────────────────────────────────────────────
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "oxfmt"
+name = "oxfmt"
+description = "Format code with oxfmt"
+entry = "bunx oxfmt --write"
+language = "system"
+files = '\.(ts|tsx|js|jsx|mjs|json|css|scss|md|mdx)$'
+exclude = '^packages/cli/templates/'
+pass_filenames = true
+priority = 10
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Priority 20: Linters
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[repos.hooks]]
+id = "oxlint"
+name = "oxlint"
+description = "Lint TypeScript/JavaScript with oxlint"
+entry = "bunx oxlint"
+language = "system"
+files = '\.(ts|tsx|js|jsx|mjs)$'
+exclude = '^packages/cli/templates/'
+pass_filenames = true
+priority = 20
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage-specific hooks (post-checkout, post-merge)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[[repos.hooks]]
+id = "commitizen"
+name = "commitizen"
+description = "Validate commit message format"
+entry = "bunx cz check --allow-abort --commit-msg-file"
+stages = ["commit-msg"]
+language = "system"
+
+[[repos.hooks]]
+id = "bun-install"
+name = "bun-install"
+description = "Automatically run 'bun install' after checkout, pull or rebase"
+entry = "bun install --frozen-lockfile"
+language = "system"
+always_run = true
+pass_filenames = false
+stages = ["post-checkout", "post-merge", "post-rewrite"]

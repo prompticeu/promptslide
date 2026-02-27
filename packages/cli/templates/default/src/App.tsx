@@ -1,4 +1,4 @@
-import { SlideThemeProvider, SlideDeck } from "@promptslide/core";
+import { SlideThemeProvider, SlideDeck } from "promptslide";
 import { slides } from "@/deck-config";
 import { theme } from "@/theme";
 

@@ -25,7 +25,7 @@ export function ensureTsConfig(cwd) {
       baseUrl: ".",
       paths: {
         "@/*": ["./src/*"],
-        "@promptslide/core": ["./node_modules/@promptslide/core/src/index.ts"]
+        "promptslide": ["./node_modules/promptslide/src/core/index.ts"]
       }
     },
     include: ["src"]

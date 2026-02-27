@@ -1,4 +1,4 @@
-import { useTheme, SlideFooter } from "@promptslide/core";
+import { useTheme, SlideFooter } from "promptslide";
 
 // =============================================================================
 // SLIDE LAYOUT — CENTERED
