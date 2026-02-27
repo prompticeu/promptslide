@@ -7,9 +7,8 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "development": "./src/core/index.ts",
-      "import": "./dist/index.js"
+      "types": "./src/core/index.ts",
+      "import": "./src/core/index.ts"
     },
     "./src/commands/*": "./src/commands/*"
   },

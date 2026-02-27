@@ -19,7 +19,6 @@ export function createViteConfig({ cwd, mode = "development" }) {
     mode,
     plugins: [react(), promptslidePlugin()],
     resolve: {
-      conditions: ["development"],
       alias: {
         "@": resolve(cwd, "src"),
         // CSS @import "tailwindcss" → resolved from CLI package
