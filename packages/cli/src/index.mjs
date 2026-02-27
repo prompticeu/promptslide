@@ -24,6 +24,14 @@ function printHelp() {
   console.log(`    build           Build for production`)
   console.log(`    preview         Preview the production build`)
   console.log()
+  console.log(`  ${bold("Registry:")}`)
+  console.log(`    login           Authenticate with the slide registry`)
+  console.log(`    logout          Clear stored credentials`)
+  console.log(`    add ${dim("<name>")}     Install a slide/deck from the registry`)
+  console.log(`    publish ${dim("[file]")} Publish a slide to the registry`)
+  console.log(`    search ${dim("<query>")} Search the registry`)
+  console.log(`    list ${dim("[--type]")}  List registry items`)
+  console.log()
   console.log(`  ${bold("Options:")}`)
   console.log(`    --help, -h      Show this help message`)
   console.log(`    --version, -v   Show version number`)
@@ -52,6 +60,36 @@ switch (command) {
   case "preview": {
     const { preview } = await import("./commands/preview.mjs")
     await preview(args)
+    break
+  }
+  case "login": {
+    const { login } = await import("./commands/login.mjs")
+    await login(args)
+    break
+  }
+  case "logout": {
+    const { logout } = await import("./commands/logout.mjs")
+    await logout(args)
+    break
+  }
+  case "add": {
+    const { add } = await import("./commands/add.mjs")
+    await add(args)
+    break
+  }
+  case "publish": {
+    const { publish } = await import("./commands/publish.mjs")
+    await publish(args)
+    break
+  }
+  case "search": {
+    const { search } = await import("./commands/search.mjs")
+    await search(args)
+    break
+  }
+  case "list": {
+    const { list } = await import("./commands/list.mjs")
+    await list(args)
     break
   }
   case "--help":

@@ -1,0 +1,152 @@
+import { existsSync, writeFileSync, mkdirSync } from "node:fs"
+import { execSync } from "node:child_process"
+import { join, dirname } from "node:path"
+
+import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
+import { requireAuth } from "../utils/auth.mjs"
+import {
+  fetchRegistryItem,
+  resolveRegistryDependencies,
+  detectPackageManager,
+  getInstallCommand
+} from "../utils/registry.mjs"
+import {
+  toPascalCase,
+  deriveImportPath,
+  addSlideToDeckConfig,
+  replaceDeckConfig
+} from "../utils/deck-config.mjs"
+import { confirm, closePrompts } from "../utils/prompts.mjs"
+
+export async function add(args) {
+  const cwd = process.cwd()
+
+  console.log()
+  console.log(`  ${bold("promptslide")} ${dim("add")}`)
+  console.log()
+
+  const name = args[0]
+  if (!name || name === "--help" || name === "-h") {
+    console.log(`  ${bold("Usage:")} promptslide add ${dim("<name|url>")}`)
+    console.log()
+    console.log(`  Install a slide, layout, deck, or theme from the registry.`)
+    console.log()
+    console.log(`  ${bold("Examples:")}`)
+    console.log(`    promptslide add slide-hero-gradient`)
+    console.log(`    promptslide add deck-pitch`)
+    console.log(`    promptslide add https://custom-registry.com/r/my-slide.json`)
+    console.log()
+    process.exit(0)
+  }
+
+  const auth = requireAuth()
+
+  // Fetch registry item
+  let item
+  try {
+    item = await fetchRegistryItem(name, auth)
+  } catch (err) {
+    console.error(`  ${red("Error:")} ${err.message}`)
+    process.exit(1)
+  }
+
+  console.log(`  Found ${bold(item.title || item.name)} ${dim(`(${item.type})`)}`)
+
+  // Resolve dependencies
+  let resolved
+  try {
+    resolved = await resolveRegistryDependencies(item, auth, cwd)
+  } catch (err) {
+    console.error(`  ${red("Error:")} ${err.message}`)
+    process.exit(1)
+  }
+
+  // Write files
+  const written = []
+  for (const regItem of resolved.items) {
+    if (!regItem.files?.length) continue
+
+    for (const file of regItem.files) {
+      const targetPath = join(cwd, file.target, file.path)
+      const targetDir = dirname(targetPath)
+
+      if (existsSync(targetPath)) {
+        const overwrite = await confirm(`  Overwrite ${file.target}${file.path}?`, false)
+        if (!overwrite) {
+          console.log(`  ${dim("Skipped")} ${file.target}${file.path}`)
+          continue
+        }
+      }
+
+      mkdirSync(targetDir, { recursive: true })
+      writeFileSync(targetPath, file.content, "utf-8")
+      written.push({ item: regItem, file })
+      console.log(`  ${green("✓")} Added ${cyan(file.target + file.path)}${regItem !== item ? dim(" (dependency)") : ""}`)
+    }
+  }
+
+  if (written.length === 0) {
+    console.log(`  ${dim("All files already exist. Nothing to add.")}`)
+    console.log()
+    closePrompts()
+    return
+  }
+
+  // Auto-update deck-config.ts
+  if (item.type === "slide") {
+    for (const { file } of written.filter(w => w.file.target.includes("slides"))) {
+      const componentName = toPascalCase(file.path.replace(/\.tsx?$/, ""))
+      const importPath = deriveImportPath(file.target, file.path)
+      const steps = item.meta?.steps ?? 0
+      const updated = addSlideToDeckConfig(cwd, { componentName, importPath, steps })
+      if (updated) {
+        console.log(`  ${green("✓")} Updated ${cyan("deck-config.ts")} ${dim(`(${componentName}, steps: ${steps})`)}`)
+      }
+    }
+  } else if (item.type === "deck" && item.meta?.slides) {
+    const shouldReplace = await confirm("  Replace entire deck-config.ts with this deck?", true)
+    if (shouldReplace) {
+      const slides = item.meta.slides.map(s => ({
+        componentName: toPascalCase(s.slug),
+        importPath: `@/slides/${s.slug}`,
+        steps: s.steps,
+        section: s.section
+      }))
+      replaceDeckConfig(cwd, slides, {
+        transition: item.meta.transition,
+        directionalTransition: item.meta.directionalTransition
+      })
+      console.log(`  ${green("✓")} Replaced ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`)
+    } else {
+      // Append individual slides
+      for (const s of item.meta.slides) {
+        const componentName = toPascalCase(s.slug)
+        const importPath = `@/slides/${s.slug}`
+        const updated = addSlideToDeckConfig(cwd, { componentName, importPath, steps: s.steps })
+        if (updated) {
+          console.log(`  ${green("✓")} Added ${componentName} to ${cyan("deck-config.ts")}`)
+        }
+      }
+    }
+  }
+
+  // Install npm dependencies
+  const existingPkg = join(cwd, "package.json")
+  if (Object.keys(resolved.npmDeps).length > 0 && existsSync(existingPkg)) {
+    const pm = detectPackageManager(cwd)
+    const pkgList = Object.entries(resolved.npmDeps).map(([name, ver]) => `${name}@${ver}`)
+    const cmd = getInstallCommand(pm, pkgList)
+    console.log()
+    console.log(`  ${dim(`Installing dependencies: ${cmd}`)}`)
+    try {
+      execSync(cmd, { cwd, stdio: "inherit" })
+      console.log(`  ${green("✓")} Dependencies installed`)
+    } catch {
+      console.log(`  ${red("⚠")} Dependency installation failed. Run manually:`)
+      console.log(`    ${cmd}`)
+    }
+  }
+
+  console.log()
+  closePrompts()
+}
