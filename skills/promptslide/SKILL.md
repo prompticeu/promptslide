@@ -33,7 +33,7 @@ grep -q '"promptslide"' package.json 2>/dev/null
 ### Step 1: Scaffold the project
 
 ```bash
-npx promptslide create my-deck
+bun create slides my-deck
 cd my-deck
 bun install
 ```
