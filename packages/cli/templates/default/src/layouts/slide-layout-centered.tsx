@@ -1,4 +1,4 @@
-import { useBranding } from "@promptslide/core";
+import { useBranding } from "promptslide-core";
 
 // =============================================================================
 // SLIDE LAYOUT — CENTERED

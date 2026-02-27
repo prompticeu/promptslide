@@ -11,7 +11,7 @@
   ],
   "type": "module",
   "dependencies": {
-    "@promptslide/core": "*",
+    "promptslide-core": "*",
     "@tailwindcss/postcss": "^4.1.13",
     "@vitejs/plugin-react": "^4.5.2",
     "postcss": "^8.5.6",
