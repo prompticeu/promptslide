@@ -1,11 +1,11 @@
-import { SlideBrandingProvider, SlideDeck } from "@promptslide/core"
-
+import { SlideThemeProvider, SlideDeck } from "@promptslide/core"
 import { slides } from "@/deck-config"
+import { theme } from "@/theme"
 
 export default function App() {
   return (
-    <SlideBrandingProvider branding={{ name: "PromptSlide", logoUrl: "/logo.svg" }}>
+    <SlideThemeProvider theme={theme}>
       <SlideDeck slides={slides} />
-    </SlideBrandingProvider>
+    </SlideThemeProvider>
   )
 }
