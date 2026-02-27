@@ -59,9 +59,9 @@ src/
 │
 ├── deck-config.ts                # Slide order + step counts (modify this)
 ├── App.tsx                       # Root component (branding config)
-├── globals.css                   # Theme colors (customize here)
-└── main.tsx                      # Vite entry point
+└── globals.css                   # Theme colors (customize here)
 
+promptslide (CLI runtime)         # Dev server, build, preview
 @promptslide/core (npm package)   # Slide engine — stable, upgradeable
 ├── Animated, AnimatedGroup       # Step animations (click-to-reveal)
 ├── Morph, MorphGroup, MorphItem  # Shared element transitions

@@ -1,4 +1,6 @@
 node_modules
 dist
 .vite
+.promptslide
+tsconfig.json
 *.local

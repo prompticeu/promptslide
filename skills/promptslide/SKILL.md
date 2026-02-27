@@ -33,9 +33,8 @@ grep -q '"@promptslide/core"' package.json 2>/dev/null
 ### Step 1: Scaffold the project
 
 ```bash
-git clone https://github.com/prompticeu/promptslide.git my-deck
+npx promptslide create my-deck
 cd my-deck
-rm -rf .git
 npm install
 ```
 
@@ -45,7 +44,7 @@ npm install
 npm run dev
 ```
 
-Vite starts at http://localhost:5173 with hot module replacement. Slides update instantly as files are saved.
+This runs `promptslide studio` — the development server starts at http://localhost:5173 with hot module replacement. Slides update instantly as files are saved.
 
 ### Step 3: Configure branding
 
@@ -134,9 +133,9 @@ src/
 ├── slides/            # YOUR SLIDES GO HERE
 ├── deck-config.ts     # Slide order + step counts (modify this)
 ├── App.tsx            # Branding config
-├── globals.css        # Theme colors
-└── main.tsx           # Vite entry point
+└── globals.css        # Theme colors
 
+promptslide (CLI)      # Dev server, build, preview (owns Vite config)
 @promptslide/core      # Slide engine (npm package — stable, upgradeable)
 ```
 
