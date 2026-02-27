@@ -13,7 +13,7 @@ metadata:
 
 # PromptSlide
 
-Create distinctive, production-grade slide decks with AI coding agents. Each slide is a React component styled with Tailwind CSS, with built-in animations, presentation mode, and PDF export. Every deck should feel intentionally designed — bold aesthetic choices, unexpected layouts, and memorable visual identity.
+Create beautiful slide decks with AI coding agents. Each slide is a React component styled with Tailwind CSS, with built-in animations, presentation mode, and PDF export.
 
 ## Detect Mode
 
@@ -238,49 +238,35 @@ Options: `fade` (default), `slide-left`, `slide-right`, `slide-up`, `slide-down`
 
 For layout patterns and design recipes, see [references/slide-patterns.md](references/slide-patterns.md).
 
-### Design Philosophy
+### Visual Diversity Guidelines
 
-Before building slides, commit to a **bold aesthetic direction** for the deck. Every deck should feel intentionally designed, not assembled from a component library.
+When creating a deck with multiple slides, **vary the visual treatment across slides**. Do not repeat the same layout pattern on consecutive slides.
 
-**Think before coding:**
-- **Purpose**: What's the narrative arc? Who's the audience?
-- **Tone**: Pick an extreme and own it — brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian. There are many flavors; design one true to the chosen direction.
-- **Differentiation**: What makes this deck UNFORGETTABLE? What's the one thing someone will remember?
+**Rotate backgrounds:** Not every slide needs a plain `bg-background`. Use:
+- Gradient mesh backgrounds (layered blurred gradient orbs)
+- Split backgrounds (solid primary on one side, content on the other)
+- Subtle radial spotlights
 
-**CRITICAL**: Choose a clear conceptual direction and execute it with precision. Bold maximalism and refined minimalism both work — the key is intentionality, not intensity.
+**Vary card styles:** Do NOT use `rounded-xl border border-border bg-card` on every slide. Alternate between:
+- Glass panels: `rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md`
+- Gradient cards: `bg-gradient-to-br from-primary/15 to-transparent border border-primary/10`
+- Elevated cards: `shadow-xl shadow-primary/10` (shadow instead of border)
+- Accent-border cards: `border-l-4 border-l-primary`
+- No cards at all — use large typography, progress bars, or data visualizations directly
 
-### Frontend Aesthetics
+**Use different animations on different slides:**
+- `fade` for quotes, images, subtle reveals
+- `slide-left` / `slide-right` for split-screen content entering from edges
+- `scale` for hero elements and card grids
+- `slide-up` for sequential list items or stat metrics
+- `AnimatedGroup` for grids/collections (preferred over manual stagger delays)
 
-- **Typography**: Choose fonts that are beautiful, unique, and characterful. Avoid generic fonts like Arial, Inter, Roboto, and system fonts. Pair a distinctive display font with a refined body font. Import from Google Fonts via `@import` in `globals.css`. Typography itself can be the visual — a 200px bold word needs no card around it.
-- **Color & Theme**: Commit to a cohesive aesthetic. Dominant colors with sharp accents outperform timid, evenly-distributed palettes. Override the default OKLCH variables in `globals.css` to match the deck's personality — don't just use the default blue.
-- **Motion**: Focus on high-impact moments. One well-orchestrated page load with staggered reveals creates more delight than scattered micro-interactions on every element. Not every element needs an `<Animated>` wrapper.
-- **Spatial Composition**: Unexpected layouts. Asymmetry. Overlap. Diagonal flow. Grid-breaking elements. Generous negative space OR controlled density — both work when intentional.
-- **Backgrounds & Depth**: Create atmosphere rather than defaulting to solid `bg-background`. Use gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows, grain overlays. The background sets the mood.
-
-### What to Avoid
-
-NEVER produce generic AI-generated aesthetics:
-- Overused font families (Inter, Roboto, Arial, system fonts)
-- The same purple/blue gradient on white that every AI tool produces
-- Predictable 3-column card grids on every slide
-- `rounded-xl border border-border bg-card p-8` as the default for everything
-- `slide-up` animation on every element
-- Cookie-cutter layouts that lack context-specific character
-- Cards everywhere — some slides should have NO cards at all. Use large typography, data visualizations, full-bleed images, or negative space as the visual element.
-
-**Every deck should look different.** Vary between light and dark themes, different font families, different aesthetic directions. Never converge on the same safe choices across decks.
-
-### Visual Variety Within a Deck
-
-Do not repeat the same layout pattern on consecutive slides. Mix these approaches:
-
-**Backgrounds:** Gradient mesh orbs, split solid-color panels, radial spotlights, textured overlays, full-bleed color, or pure white/black.
-
-**Content containers:** Glass panels (`backdrop-blur-md bg-white/5`), gradient fills, deep shadows (no border), thick accent borders, or no container at all.
-
-**Animations:** Match to intent — `scale` for dramatic entrances, `fade` for letting words speak, `slide-left`/`slide-right` for panels entering from edges, `AnimatedGroup` for collections. Leave some slides with zero animation for contrast.
-
-**Layouts:** Asymmetric splits, bento grids with mixed tile sizes, vertical timelines, full-width typography, overlapping elements, diagonal compositions. Not everything needs columns.
+**Layout variety:** Do not make every slide a 3-column equal grid. Use:
+- Asymmetric splits (`grid-cols-5` with `col-span-2` + `col-span-3`)
+- Bento grids with mixed tile sizes (`col-span-2`, `row-span-2`)
+- Vertical timelines with alternating left/right content
+- Full-width typography-driven layouts (where text IS the visual)
+- Side-by-side comparisons with contrasting panel styles
 
 ### Keyboard Shortcuts
 
