@@ -57,8 +57,9 @@ src/
 ├── slides/                       # YOUR SLIDES GO HERE
 │   └── slide-title.tsx           # Example starter slide
 │
+├── theme.ts                      # Theme config (brand, colors, fonts, assets)
 ├── deck-config.ts                # Slide order + step counts (modify this)
-├── App.tsx                       # Root component (branding config)
+├── App.tsx                       # Root component (theme provider)
 └── globals.css                   # Theme colors (customize here)
 
 promptslide (CLI runtime)         # Dev server, build, preview
@@ -66,9 +67,12 @@ promptslide (CLI runtime)         # Dev server, build, preview
 ├── Animated, AnimatedGroup       # Step animations (click-to-reveal)
 ├── Morph, MorphGroup, MorphItem  # Shared element transitions
 ├── SlideDeck                     # Presentation viewer/controller
-├── SlideBrandingProvider         # Branding context
+├── SlideThemeProvider            # Theme context (colors, logos, fonts, assets)
 ├── useSlideNavigation            # Navigation state machine
-└── SlideProps, SlideConfig       # TypeScript types
+├── SlideProps, SlideConfig       # TypeScript types
+├── ThemeConfig                   # Theme configuration type
+└── Layouts                       # ContentLayout, TitleLayout, SectionLayout,
+                                  # TwoColumnLayout, ImageLayout, QuoteLayout
 ```
 
 **Key principle**: The presentation engine lives in `@promptslide/core` (stable, upgradeable via npm). Layouts and slides are local files you customize freely.
@@ -279,19 +283,31 @@ OKLCH format: `oklch(lightness chroma hue)`
 
 ---
 
-## 6. Branding (`App.tsx`)
+## 6. Theme & Branding (`theme.ts`)
 
-Set your company name and logo in `src/App.tsx`:
+Configure your brand identity in `src/theme.ts`:
 
-```tsx
-import { SlideBrandingProvider, SlideDeck } from "@promptslide/core";
+```ts
+import type { ThemeConfig } from "@promptslide/core";
 
-<SlideBrandingProvider branding={{ name: "Acme Inc", logoUrl: "/logo.svg" }}>
-  <SlideDeck slides={slides} />
-</SlideBrandingProvider>;
+export const theme: ThemeConfig = {
+  name: "Acme Inc",
+  logo: {
+    full: "/logo.svg",            // Footer logo
+    icon: "/icon.svg",            // Compact variant (title slides)
+    fullLight: "/logo-white.svg", // For dark backgrounds
+  },
+  colors: {
+    primary: "oklch(0.55 0.2 250)",
+  },
+  fonts: {
+    heading: "Inter",
+    body: "Inter",
+  },
+};
 ```
 
-Replace `public/logo.svg` with your own logo file. The logo appears in the footer of each slide (unless `hideFooter` is set).
+Everything is optional except `name`. Omitted values fall back to `globals.css` defaults. Logo files go in `public/`.
 
 ---
 

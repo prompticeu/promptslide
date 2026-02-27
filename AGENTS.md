@@ -51,13 +51,13 @@ Vite will hot-reload — the new slide appears instantly in the browser.
 
 ```
 src/
-├── layouts/                      # Slide layouts (customizable)
-│   └── slide-layout-centered.tsx # Base centered layout with header/footer
+├── layouts/                      # Slide layouts (your "master theme" — add/edit/delete freely)
+│   └── slide-layout-centered.tsx # Default layout with header + footer
 │
 ├── slides/                       # YOUR SLIDES GO HERE
 │   └── slide-title.tsx           # Example starter slide
 │
-├── theme.ts                      # Theme config (brand, colors, fonts, assets)
+├── theme.ts                      # Theme config (brand name, logo, colors, fonts)
 ├── deck-config.ts                # Slide order + step counts (modify this)
 ├── App.tsx                       # Root component (theme provider)
 └── globals.css                   # Theme colors (customize here)
@@ -67,13 +67,10 @@ promptslide (CLI runtime)         # Dev server, build, preview
 ├── Animated, AnimatedGroup       # Step animations (click-to-reveal)
 ├── Morph, MorphGroup, MorphItem  # Shared element transitions
 ├── SlideDeck                     # Presentation viewer/controller
-├── SlideThemeProvider            # Theme context (wraps SlideBrandingProvider)
-├── SlideBrandingProvider         # Branding context (legacy)
+├── SlideThemeProvider, useTheme  # Theme context (brand identity)
+├── SlideFooter                   # Footer with logo + slide number
 ├── useSlideNavigation            # Navigation state machine
-├── SlideProps, SlideConfig       # TypeScript types
-├── ThemeConfig                   # Theme configuration type
-└── Layouts                       # ContentLayout, TitleLayout, SectionLayout,
-                                  # TwoColumnLayout, ImageLayout, QuoteLayout
+└── SlideProps, SlideConfig, etc. # TypeScript types
 ```
 
 **Key principle**: The presentation engine lives in `@promptslide/core` (stable, upgradeable via npm). Layouts and slides are local files you customize freely.
@@ -316,135 +313,48 @@ Logo files go in `public/`. The logo appears in the footer of each slide (unless
 
 ---
 
-## 6b. Slide Layouts
+## 6b. Custom Layouts
 
-Instead of manually building every slide's structure, use a **layout component**. Each layout consumes the theme automatically and provides consistent padding, headers, and footers.
+Layouts live in `src/layouts/`. Create new layout files to build a "master theme" for the deck. Each layout is a React component that uses `useTheme()` for brand identity and `SlideFooter` for consistent footers.
 
-### Available Layouts
-
-| Layout | Import | Best For |
-|--------|--------|----------|
-| `ContentLayout` | `@promptslide/core` | Standard slides with header + content |
-| `TitleLayout` | `@promptslide/core` | Title/hero slides, chapter openers |
-| `SectionLayout` | `@promptslide/core` | Section dividers between topics |
-| `TwoColumnLayout` | `@promptslide/core` | Side-by-side comparisons, before/after |
-| `ImageLayout` | `@promptslide/core` | Image-driven slides |
-| `QuoteLayout` | `@promptslide/core` | Testimonials, key quotes |
-
-All layouts are imported from `@promptslide/core`.
-
-### ContentLayout
-
-Standard header + content area. Theme-aware equivalent of `SlideLayout`.
+### Creating a Layout
 
 ```tsx
-import { ContentLayout } from "@promptslide/core"
+// src/layouts/my-custom-layout.tsx
+import { useTheme, SlideFooter, cn } from "@promptslide/core"
+import type { SlideProps } from "@promptslide/core"
 
-<ContentLayout
-  slideNumber={slideNumber} totalSlides={totalSlides}
-  eyebrow="MARKET" title="$50B TAM" subtitle="Growing 20% YoY"
->
-  <div className="grid grid-cols-3 gap-6">{/* cards */}</div>
-</ContentLayout>
+interface MyLayoutProps extends SlideProps {
+  children?: React.ReactNode
+  title?: string
+  hideFooter?: boolean
+}
+
+export function MyCustomLayout({ children, slideNumber, totalSlides, title, hideFooter }: MyLayoutProps) {
+  const theme = useTheme()
+
+  return (
+    <div className="bg-background text-foreground relative flex h-full w-full flex-col overflow-hidden px-12 pt-10 pb-6">
+      {title && <h2 className="text-4xl font-bold tracking-tight">{title}</h2>}
+      <div className="min-h-0 flex-1">{children}</div>
+      {!hideFooter && <SlideFooter slideNumber={slideNumber} totalSlides={totalSlides} />}
+    </div>
+  )
+}
 ```
 
-### TitleLayout
+### Key building blocks
 
-Full-bleed hero with gradient mesh or background image.
+- **`useTheme()`** — returns `ThemeConfig` with `name`, `logo`, `colors`, `fonts`, `assets`
+- **`SlideFooter`** — renders logo + name + slide number. Pass `variant="light"` for dark backgrounds
+- **`cn()`** — Tailwind class merge utility
 
-```tsx
-import { TitleLayout } from "@promptslide/core"
+### Tips
 
-<TitleLayout
-  slideNumber={slideNumber} totalSlides={totalSlides}
-  title="Our Product" subtitle="Reimagining the workflow"
-  dark                          // Dark bg with light text
-  backgroundImage="/hero.jpg"   // Optional override
->
-  <p className="text-white/60">Q1 2026</p>
-</TitleLayout>
-```
-
-### SectionLayout
-
-Section divider with large title and accent bar.
-
-```tsx
-import { SectionLayout } from "@promptslide/core"
-
-<SectionLayout
-  slideNumber={slideNumber} totalSlides={totalSlides}
-  eyebrow="02" title="Market Analysis"
-  subtitle="Understanding our competitive landscape"
-/>
-```
-
-### TwoColumnLayout
-
-Split-screen with configurable column ratio.
-
-```tsx
-import { TwoColumnLayout } from "@promptslide/core"
-
-<TwoColumnLayout
-  slideNumber={slideNumber} totalSlides={totalSlides}
-  eyebrow="COMPARISON" title="Before vs. After"
-  ratio="1:1"  // "1:1" | "2:1" | "1:2" | "3:2" | "2:3"
-  left={<div>Left content</div>}
-  right={<div>Right content</div>}
-/>
-```
-
-### ImageLayout
-
-Three modes: `side` (image beside content), `overlay` (image with gradient overlay), `full` (full-bleed).
-
-```tsx
-import { ImageLayout } from "@promptslide/core"
-
-<ImageLayout
-  slideNumber={slideNumber} totalSlides={totalSlides}
-  src="/product-screenshot.png"
-  mode="overlay"  // "side" | "overlay" | "full"
->
-  <h2 className="text-4xl font-bold">See it in action</h2>
-</ImageLayout>
-```
-
-### QuoteLayout
-
-Centered quote with decorative mark and attribution.
-
-```tsx
-import { QuoteLayout } from "@promptslide/core"
-
-<QuoteLayout
-  slideNumber={slideNumber} totalSlides={totalSlides}
-  quote="The best presentation is the one you didn't spend hours making."
-  attribution="PromptSlide Team"
-  role="Open Source Maintainers"
-/>
-```
-
-### Layouts + Animations
-
-Layouts work with `<Animated>` and `<AnimatedGroup>` just like `SlideLayout`. Wrap content inside the layout's children slot:
-
-```tsx
-<ContentLayout slideNumber={slideNumber} totalSlides={totalSlides} title="Features">
-  <AnimatedGroup startStep={1} animation="scale" staggerDelay={0.1}
-    className="grid grid-cols-3 gap-6">
-    <Card>Feature 1</Card>
-    <Card>Feature 2</Card>
-    <Card>Feature 3</Card>
-  </AnimatedGroup>
-</ContentLayout>
-```
-
-### When to use SlideLayoutCentered vs. Layouts
-
-- **`SlideLayoutCentered`** — still works, fully backward-compatible. Use it for custom one-off slide designs where you need full control.
-- **Layouts** — preferred for new slides. They apply theme fonts, handle footer variants automatically, and give the deck visual consistency.
+- Read `theme.ts` to understand the brand identity, then create layouts that reflect it
+- Use `theme.logo`, `theme.fonts`, `theme.assets.backgroundImage` to incorporate brand elements
+- For dark backgrounds, use `<SlideFooter variant="light" />` and `theme.logo.fullLight`
+- Layouts go in `src/layouts/`, slides go in `src/slides/` — keep them separate
 
 ---
 

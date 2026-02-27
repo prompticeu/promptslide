@@ -1,6 +1,5 @@
 import { createContext, useContext, useMemo } from "react"
 import type { ThemeConfig } from "./types"
-import { SlideBrandingProvider, type SlideBranding } from "./branding"
 
 const ThemeContext = createContext<ThemeConfig | null>(null)
 
@@ -27,13 +26,6 @@ function buildCssOverrides(theme: ThemeConfig): React.CSSProperties {
   return style as React.CSSProperties
 }
 
-function deriveBranding(theme: ThemeConfig): SlideBranding {
-  return {
-    name: theme.name,
-    logoUrl: theme.logo?.full,
-  }
-}
-
 interface SlideThemeProviderProps {
   theme: ThemeConfig
   children: React.ReactNode
@@ -41,20 +33,16 @@ interface SlideThemeProviderProps {
 
 /**
  * Provides the full theme to all descendants.
- * Wraps SlideBrandingProvider so existing SlideLayout continues to work.
  * Injects CSS variable overrides via inline style.
  */
 export function SlideThemeProvider({ theme, children }: SlideThemeProviderProps) {
   const cssOverrides = useMemo(() => buildCssOverrides(theme), [theme])
-  const branding = useMemo(() => deriveBranding(theme), [theme])
 
   return (
     <ThemeContext.Provider value={theme}>
-      <SlideBrandingProvider branding={branding}>
-        <div style={cssOverrides} className="contents">
-          {children}
-        </div>
-      </SlideBrandingProvider>
+      <div style={cssOverrides} className="contents">
+        {children}
+      </div>
     </ThemeContext.Provider>
   )
 }

@@ -122,36 +122,38 @@ Use these Tailwind classes for consistent theming:
 
 ---
 
-## Branding Setup
+## Theme Setup
 
-Configure in `src/App.tsx`:
-
-```tsx
-import { SlideBrandingProvider } from "@/framework/slide-layout"
-import { SlideDeck } from "@/components/slide-deck"
-import { slides } from "@/deck-config"
-
-export default function App() {
-  return (
-    <SlideBrandingProvider branding={{ name: "Acme Inc", logoUrl: "/logo.svg" }}>
-      <SlideDeck slides={slides} />
-    </SlideBrandingProvider>
-  )
-}
-```
-
-### SlideBranding Interface
+Configure in `src/theme.ts`:
 
 ```ts
-interface SlideBranding {
-  name: string // Company name shown in footer
-  logoUrl?: string // Path to logo (relative to public/)
+import type { ThemeConfig } from "@promptslide/core"
+
+export const theme: ThemeConfig = {
+  name: "Acme Inc",
+  logo: {
+    full: "/logo.svg",
+    icon: "/icon.svg",            // Compact variant (title slides)
+    fullLight: "/logo-white.svg", // For dark backgrounds
+  },
+  colors: {
+    primary: "oklch(0.55 0.2 250)",
+    secondary: "oklch(0.6 0.15 200)",
+    accent: "oklch(0.7 0.2 50)",
+  },
+  fonts: {
+    heading: "Inter",
+    body: "Inter",
+  },
 }
 ```
+
+Everything is optional except `name`. Omitted values fall back to `globals.css` defaults.
 
 - Place your logo file in the `public/` directory (e.g., `public/logo.svg`)
 - The logo appears in the footer of every slide (unless `hideFooter` is set)
 - Logo renders at `h-8 w-auto` (32px height, auto width)
+- Colors use OKLCH format and are injected as CSS variable overrides at runtime
 
 ---
 
