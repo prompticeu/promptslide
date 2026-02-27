@@ -2,6 +2,8 @@
  * Shared types for the slide deck framework.
  */
 
+import type { SlideTransitionType } from "./transitions"
+
 // =============================================================================
 // SLIDE CONFIGURATION TYPES
 // =============================================================================
@@ -29,6 +31,14 @@ export interface SlideConfig {
   component: SlideComponent
   /** Number of animation steps (0 = no animations). This is the max step number used in <Animated step={N}> */
   steps: number
+  /** Display name for grid view thumbnails, navigation, and accessibility */
+  title?: string
+  /** Speaker notes (not rendered on slide, shown in notes panel) */
+  notes?: string
+  /** Per-slide transition override (falls back to deck-level transition) */
+  transition?: SlideTransitionType
+  /** Section/chapter name for grouping slides in grid view */
+  section?: string
 }
 
 // =============================================================================

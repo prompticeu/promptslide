@@ -1,39 +1,10 @@
-import { createContext, useContext } from "react"
+import { useBranding } from "@promptslide/core"
 
 // =============================================================================
-// BRANDING CONTEXT
+// SLIDE LAYOUT — CENTERED
 // =============================================================================
 
-export interface SlideBranding {
-  name: string
-  logoUrl?: string
-}
-
-const BrandingContext = createContext<SlideBranding | null>(null)
-
-export function SlideBrandingProvider({
-  branding,
-  children
-}: {
-  branding: SlideBranding
-  children: React.ReactNode
-}) {
-  return (
-    <BrandingContext.Provider value={branding}>
-      {children}
-    </BrandingContext.Provider>
-  )
-}
-
-export function useBranding() {
-  return useContext(BrandingContext)
-}
-
-// =============================================================================
-// SLIDE LAYOUT
-// =============================================================================
-
-interface SlideLayoutProps {
+interface SlideLayoutCenteredProps {
   children: React.ReactNode
   slideNumber: number
   totalSlides: number
@@ -43,7 +14,7 @@ interface SlideLayoutProps {
   hideFooter?: boolean
 }
 
-export function SlideLayout({
+export function SlideLayoutCentered({
   children,
   slideNumber,
   totalSlides,
@@ -51,7 +22,7 @@ export function SlideLayout({
   subtitle,
   eyebrow,
   hideFooter = false
-}: SlideLayoutProps) {
+}: SlideLayoutCenteredProps) {
   const branding = useBranding()
 
   return (

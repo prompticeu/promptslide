@@ -18,7 +18,8 @@
     "noUncheckedIndexedAccess": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@promptslide/core": ["./node_modules/@promptslide/core/src/index.ts"]
     }
   },
   "include": ["src"]

@@ -1,12 +1,12 @@
 import { Lightbulb, Rocket, Zap } from "lucide-react"
 
-import { Animated, AnimatedGroup } from "@/framework/animated"
-import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
+import { Animated, AnimatedGroup } from "@promptslide/core"
+import type { SlideProps } from "@promptslide/core"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayout
+    <SlideLayoutCentered
       slideNumber={slideNumber}
       totalSlides={totalSlides}
       eyebrow="EXAMPLE"
@@ -50,6 +50,6 @@ export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
           </div>
         </AnimatedGroup>
       </div>
-    </SlideLayout>
+    </SlideLayoutCentered>
   )
 }

@@ -10,19 +10,20 @@ import {
   Monitor
 } from "lucide-react"
 
-import type { SlideTransitionType } from "@/framework/transitions"
-import type { SlideConfig } from "@/framework/types"
-import { cn } from "@/lib/utils"
+import type { SlideTransitionType } from "./transitions"
+import type { SlideConfig } from "./types"
+import { cn } from "./utils"
 import {
   SLIDE_DIMENSIONS,
   SLIDE_TRANSITION
-} from "@/framework/animation-config"
-import { AnimationProvider } from "@/framework/animation-context"
+} from "./animation-config"
+import { AnimationProvider } from "./animation-context"
 import {
   DEFAULT_SLIDE_TRANSITION,
   getSlideVariants
-} from "@/framework/transitions"
-import { useSlideNavigation } from "@/framework/use-slide-navigation"
+} from "./transitions"
+import { useSlideNavigation } from "./use-slide-navigation"
+import { SlideErrorBoundary } from "./slide-error-boundary"
 
 // =============================================================================
 // TYPES
@@ -144,7 +145,9 @@ export function SlideDeck({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [advance, goBack, viewMode, togglePresentationMode])
 
-  const transitionType = transition ?? DEFAULT_SLIDE_TRANSITION
+  // Per-slide transition resolution
+  const currentSlideTransition = slides[currentSlide]?.transition
+  const transitionType = currentSlideTransition ?? transition ?? DEFAULT_SLIDE_TRANSITION
   const isDirectional = directionalTransition ?? false
 
   const slideVariants = getSlideVariants(
@@ -275,10 +278,12 @@ export function SlideDeck({
                       totalSteps={totalSteps}
                       showAllAnimations={showAllAnimations}
                     >
-                      <CurrentSlideComponent
-                        slideNumber={currentSlide + 1}
-                        totalSlides={slides.length}
-                      />
+                      <SlideErrorBoundary slideIndex={currentSlide} slideTitle={slides[currentSlide]?.title}>
+                        <CurrentSlideComponent
+                          slideNumber={currentSlide + 1}
+                          totalSlides={slides.length}
+                        />
+                      </SlideErrorBoundary>
                     </AnimationProvider>
                   </motion.div>
                 </AnimatePresence>
@@ -305,10 +310,12 @@ export function SlideDeck({
                       totalSteps={totalSteps}
                       showAllAnimations={showAllAnimations}
                     >
-                      <CurrentSlideComponent
-                        slideNumber={currentSlide + 1}
-                        totalSlides={slides.length}
-                      />
+                      <SlideErrorBoundary slideIndex={currentSlide} slideTitle={slides[currentSlide]?.title}>
+                        <CurrentSlideComponent
+                          slideNumber={currentSlide + 1}
+                          totalSlides={slides.length}
+                        />
+                      </SlideErrorBoundary>
                     </AnimationProvider>
                   </motion.div>
                 </AnimatePresence>
@@ -325,9 +332,16 @@ export function SlideDeck({
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <span className="min-w-[4rem] text-center font-mono text-sm text-neutral-500">
-                {currentSlide + 1} / {slides.length}
-              </span>
+              <div className="flex min-w-[4rem] flex-col items-center">
+                <span className="font-mono text-sm text-neutral-500">
+                  {currentSlide + 1} / {slides.length}
+                </span>
+                {slides[currentSlide]?.title && (
+                  <span className="mt-0.5 text-xs text-neutral-600">
+                    {slides[currentSlide].title}
+                  </span>
+                )}
+              </div>
               <button
                 onClick={advance}
                 className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
@@ -345,29 +359,40 @@ export function SlideDeck({
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
             {slides.map((slideConfig, index) => {
               const SlideComponent = slideConfig.component
+              const prevSection = index > 0 ? slides[index - 1]?.section : undefined
+              const showSectionHeader = slideConfig.section && slideConfig.section !== prevSection
+
               return (
-                <button
-                  key={index}
-                  onClick={() => {
-                    goToSlide(index)
-                    setViewMode("slide")
-                  }}
-                  className="group hover:border-primary hover:shadow-primary/10 relative aspect-video w-full overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-sm transition-all hover:shadow-lg"
-                >
-                  <div
-                    className="h-full w-full origin-top-left scale-[0.25]"
-                    style={{ width: "400%", height: "400%" }}
+                <div key={index} className={showSectionHeader ? "col-span-full" : undefined}>
+                  {showSectionHeader && (
+                    <h3 className="mb-3 mt-4 text-xs font-bold tracking-[0.2em] uppercase text-neutral-500 first:mt-0">
+                      {slideConfig.section}
+                    </h3>
+                  )}
+                  <button
+                    onClick={() => {
+                      goToSlide(index)
+                      setViewMode("slide")
+                    }}
+                    className="group hover:border-primary hover:shadow-primary/10 relative aspect-video w-full overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-sm transition-all hover:shadow-lg"
                   >
-                    <SlideComponent
-                      slideNumber={index + 1}
-                      totalSlides={slides.length}
-                    />
-                  </div>
-                  <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
-                  <div className="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white">
-                    {index + 1}
-                  </div>
-                </button>
+                    <div
+                      className="h-full w-full origin-top-left scale-[0.25]"
+                      style={{ width: "400%", height: "400%" }}
+                    >
+                      <SlideErrorBoundary slideIndex={index} slideTitle={slideConfig.title}>
+                        <SlideComponent
+                          slideNumber={index + 1}
+                          totalSlides={slides.length}
+                        />
+                      </SlideErrorBoundary>
+                    </div>
+                    <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+                    <div className="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white">
+                      {slideConfig.title ? `${index + 1}. ${slideConfig.title}` : index + 1}
+                    </div>
+                  </button>
+                </div>
               )
             })}
           </div>
@@ -396,10 +421,12 @@ export function SlideDeck({
                     totalSteps={slideConfig.steps}
                     showAllAnimations={true}
                   >
-                    <SlideComponent
-                      slideNumber={index + 1}
-                      totalSlides={slides.length}
-                    />
+                    <SlideErrorBoundary slideIndex={index} slideTitle={slideConfig.title}>
+                      <SlideComponent
+                        slideNumber={index + 1}
+                        totalSlides={slides.length}
+                      />
+                    </SlideErrorBoundary>
                   </AnimationProvider>
                 </div>
               </div>

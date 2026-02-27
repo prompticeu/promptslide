@@ -56,6 +56,15 @@ export type {
   UseSlideNavigationReturn
 } from "./use-slide-navigation"
 
-// Layout
-export { SlideLayout, SlideBrandingProvider, useBranding } from "./slide-layout"
-export type { SlideBranding } from "./slide-layout"
+// Branding
+export { SlideBrandingProvider, useBranding } from "./branding"
+export type { SlideBranding } from "./branding"
+
+// SlideDeck
+export { SlideDeck } from "./slide-deck"
+
+// Error Boundary
+export { SlideErrorBoundary } from "./slide-error-boundary"
+
+// Utils
+export { cn } from "./utils"

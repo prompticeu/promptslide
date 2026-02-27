@@ -1,11 +1,11 @@
 import { Presentation } from "lucide-react"
 
-import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
+import type { SlideProps } from "@promptslide/core"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayout slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
+    <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
       <div className="relative flex h-full w-full flex-col items-center justify-center text-center">
         <Presentation className="text-primary mb-6 h-16 w-16" />
 
@@ -21,6 +21,6 @@ export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
           Press <kbd className="rounded bg-card px-2 py-0.5 font-mono text-xs">Space</kbd> or <kbd className="rounded bg-card px-2 py-0.5 font-mono text-xs">&rarr;</kbd> to navigate
         </div>
       </div>
-    </SlideLayout>
+    </SlideLayoutCentered>
   )
 }

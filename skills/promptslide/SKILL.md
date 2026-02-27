@@ -8,7 +8,7 @@ description: >-
   decks, presentations, PromptSlide, or slide-related tasks.
 metadata:
   author: prompticeu
-  version: "1.0"
+  version: "2.0"
 ---
 
 # PromptSlide
@@ -20,11 +20,11 @@ Create beautiful slide decks with AI coding agents. Each slide is a React compon
 Check if a PromptSlide project already exists in the current directory:
 
 ```bash
-ls src/framework/types.ts 2>/dev/null
+grep -q '"@promptslide/core"' package.json 2>/dev/null
 ```
 
-- **File exists** → This is an existing PromptSlide project. Go to [Authoring Slides](#authoring-slides).
-- **File does not exist** → No project yet. Go to [Creating a New Deck](#creating-a-new-deck).
+- **Match found** → This is an existing PromptSlide project. Go to [Authoring Slides](#authoring-slides).
+- **No match** → No project yet. Go to [Creating a New Deck](#creating-a-new-deck).
 
 ---
 
@@ -52,6 +52,8 @@ Vite starts at http://localhost:5173 with hot module replacement. Slides update 
 Edit `src/App.tsx`:
 
 ```tsx
+import { SlideBrandingProvider, SlideDeck } from "@promptslide/core"
+
 <SlideBrandingProvider branding={{ name: "Your Company", logoUrl: "/logo.svg" }}>
   <SlideDeck slides={slides} />
 </SlideBrandingProvider>
@@ -87,17 +89,17 @@ Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then f
 ### Quick Start
 
 1. Create a file in `src/slides/` (e.g., `slide-market.tsx`)
-2. Use `SlideLayout` as the wrapper component
+2. Use `SlideLayoutCentered` as the wrapper component
 3. Register it in `src/deck-config.ts`
 
 ```tsx
 // src/slides/slide-market.tsx
-import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
+import type { SlideProps } from "@promptslide/core"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayout
+    <SlideLayoutCentered
       slideNumber={slideNumber}
       totalSlides={totalSlides}
       eyebrow="MARKET OPPORTUNITY"
@@ -106,14 +108,14 @@ export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
       <div className="flex h-full flex-col justify-center">
         <p className="text-muted-foreground text-lg">Your content here</p>
       </div>
-    </SlideLayout>
+    </SlideLayoutCentered>
   )
 }
 ```
 
 ```ts
 // src/deck-config.ts
-import type { SlideConfig } from "@/framework/types"
+import type { SlideConfig } from "@promptslide/core"
 import { SlideMarket } from "@/slides/slide-market"
 
 export const slides: SlideConfig[] = [
@@ -127,22 +129,25 @@ Vite hot-reloads — the new slide appears instantly in the browser.
 
 ```
 src/
-├── framework/         # Slide engine — DO NOT MODIFY
-├── components/
-│   └── slide-deck.tsx # Main deck controller
+├── layouts/                      # Slide layouts (customizable)
+│   └── slide-layout-centered.tsx # Base centered layout with header/footer
 ├── slides/            # YOUR SLIDES GO HERE
 ├── deck-config.ts     # Slide order + step counts (modify this)
 ├── App.tsx            # Branding config
 ├── globals.css        # Theme colors
 └── main.tsx           # Vite entry point
+
+@promptslide/core      # Slide engine (npm package — stable, upgradeable)
 ```
 
-### SlideLayout API
+### SlideLayoutCentered API
 
-Every slide wraps its content in `SlideLayout`:
+Every slide wraps its content in `SlideLayoutCentered`:
 
 ```tsx
-<SlideLayout
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
+
+<SlideLayoutCentered
   slideNumber={slideNumber}
   totalSlides={totalSlides}
   eyebrow="CATEGORY"       // Optional: small label above title
@@ -151,7 +156,7 @@ Every slide wraps its content in `SlideLayout`:
   hideFooter               // Optional: hide footer with logo + slide number
 >
   {/* Your slide content */}
-</SlideLayout>
+</SlideLayoutCentered>
 ```
 
 Slide dimensions: **1280x720** (16:9). Design content for this size — it scales automatically in presentation mode.
@@ -161,7 +166,7 @@ Slide dimensions: **1280x720** (16:9). Design content for this size — it scale
 Use `<Animated>` to reveal content on clicks:
 
 ```tsx
-import { Animated } from "@/framework/animated"
+import { Animated } from "@promptslide/core"
 
 // Always visible (no wrapper needed)
 <h2>Main Title</h2>
@@ -182,7 +187,7 @@ import { Animated } from "@/framework/animated"
 **AnimatedGroup** for staggered children:
 
 ```tsx
-import { AnimatedGroup } from "@/framework/animated"
+import { AnimatedGroup } from "@promptslide/core"
 
 <AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
   <Card>First</Card>
@@ -208,11 +213,26 @@ For full animation API (props tables, Morph system, config constants), see [refe
 `src/deck-config.ts` controls slide order:
 
 ```ts
+import type { SlideConfig } from "@promptslide/core"
+
 export const slides: SlideConfig[] = [
   { component: SlideTitle, steps: 0 },
   { component: SlideProblem, steps: 3 },
   { component: SlideSolution, steps: 0 },
 ]
+```
+
+Optional metadata fields:
+
+```ts
+{
+  component: SlideProblem,
+  steps: 2,
+  title: "The Problem",           // Grid view labels, navigation
+  section: "Introduction",        // Chapter grouping in grid view
+  transition: "zoom",             // Per-slide transition override
+  notes: "Talk about market gap", // Speaker notes (future)
+}
 ```
 
 - **Add a slide**: Import component, append to array
@@ -228,6 +248,8 @@ The `SlideDeck` component accepts a `transition` prop in `src/App.tsx`:
 ```
 
 Options: `fade` (default), `slide-left`, `slide-right`, `slide-up`, `slide-down`, `zoom`, `zoom-fade`, `none`
+
+Per-slide transitions can be set via the `transition` field on individual slide configs in `deck-config.ts`.
 
 ### Design Essentials
 
