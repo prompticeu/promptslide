@@ -1,4 +1,4 @@
-import type { SlideConfig } from "promptslide-core";
+import type { SlideConfig } from "promptslide";
 import { SlideTitle } from "@/slides/slide-title";
 import { SlideExample } from "@/slides/slide-example";
 

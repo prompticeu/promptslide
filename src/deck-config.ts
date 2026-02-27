@@ -1,4 +1,4 @@
-import type { SlideConfig } from "promptslide-core"
+import type { SlideConfig } from "promptslide"
 
 import { SlideFeatures } from "@/slides/slide-features"
 import { SlideGetStarted } from "@/slides/slide-get-started"

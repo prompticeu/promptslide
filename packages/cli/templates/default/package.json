@@ -9,7 +9,7 @@
     "preview": "promptslide preview"
   },
   "dependencies": {
-    "promptslide-core": "^0.2.0",
+    "promptslide": "^0.2.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.22",
     "lucide-react": "^0.552.0",
@@ -21,7 +21,6 @@
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "promptslide": "^0.2.0",
     "typescript": "^5.9.2"
   }
 }

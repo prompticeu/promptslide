@@ -1,6 +1,6 @@
-import type { SlideProps } from "promptslide-core"
+import type { SlideProps } from "promptslide"
 
-import { Animated } from "promptslide-core"
+import { Animated } from "promptslide"
 import { Presentation } from "lucide-react"
 
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"

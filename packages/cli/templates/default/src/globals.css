@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@source "../node_modules/promptslide-core/src";
+@source "../node_modules/promptslide/src/core";
 
 @custom-variant dark (&:is(.dark *));
 
