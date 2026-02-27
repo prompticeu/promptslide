@@ -13,7 +13,7 @@
     "./src/commands/*": "./src/commands/*"
   },
   "bin": {
-    "promptslide": "./src/index.mjs"
+    "promptslide": "src/index.mjs"
   },
   "files": [
     "src/",

@@ -7,8 +7,8 @@ PromptSlide is a local-first slide framework built with React, Tailwind CSS, and
 ## Quick Start
 
 ```bash
-git clone https://github.com/prompticeu/promptslide.git
-cd promptslide
+bun create slides my-deck
+cd my-deck
 bun install
 bun run dev
 ```
@@ -46,7 +46,7 @@ Edit `src/globals.css` and change `--primary`:
 Edit `src/theme.ts`:
 
 ```ts
-import type { ThemeConfig } from "@promptslide/core"
+import type { ThemeConfig } from "promptslide"
 
 export const theme: ThemeConfig = {
   name: "Your Company",
