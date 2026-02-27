@@ -14,7 +14,7 @@
     "format": "oxfmt --write ."
   },
   "dependencies": {
-    "@promptslide/core": "*",
+    "promptslide-core": "*",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.22",
     "lucide-react": "^0.552.0",

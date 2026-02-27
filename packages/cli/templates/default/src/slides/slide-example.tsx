@@ -1,7 +1,7 @@
 import { Lightbulb, Rocket, Zap } from "lucide-react";
 
-import { Animated, AnimatedGroup } from "@promptslide/core";
-import type { SlideProps } from "@promptslide/core";
+import { Animated, AnimatedGroup } from "promptslide-core";
+import type { SlideProps } from "promptslide-core";
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered";
 
 export function SlideExample({ slideNumber, totalSlides }: SlideProps) {

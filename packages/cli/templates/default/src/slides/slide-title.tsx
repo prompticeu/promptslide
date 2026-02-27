@@ -1,6 +1,6 @@
 import { Presentation } from "lucide-react";
 
-import type { SlideProps } from "@promptslide/core";
+import type { SlideProps } from "promptslide-core";
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered";
 
 export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
