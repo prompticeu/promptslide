@@ -1,6 +1,6 @@
-import { Animated } from "@/framework/animated"
-import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
+import { Animated } from "@promptslide/core"
+import type { SlideProps } from "@promptslide/core"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 const steps = [
   {
@@ -23,7 +23,7 @@ const steps = [
 
 export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayout
+    <SlideLayoutCentered
       slideNumber={slideNumber}
       totalSlides={totalSlides}
       eyebrow="HOW IT WORKS"
@@ -79,6 +79,6 @@ export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
           })}
         </div>
       </div>
-    </SlideLayout>
+    </SlideLayoutCentered>
   )
 }

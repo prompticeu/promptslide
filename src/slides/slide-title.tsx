@@ -1,12 +1,12 @@
 import { Presentation } from "lucide-react"
 
-import { Animated } from "@/framework/animated"
-import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
+import { Animated } from "@promptslide/core"
+import type { SlideProps } from "@promptslide/core"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayout slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
+    <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
       {/* Gradient mesh background */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
       <div className="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
@@ -37,6 +37,6 @@ export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
           </div>
         </Animated>
       </div>
-    </SlideLayout>
+    </SlideLayoutCentered>
   )
 }

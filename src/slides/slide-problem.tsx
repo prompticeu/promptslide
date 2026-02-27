@@ -1,8 +1,8 @@
 import { Check, X } from "lucide-react"
 
-import { Animated } from "@/framework/animated"
-import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
+import { Animated } from "@promptslide/core"
+import type { SlideProps } from "@promptslide/core"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 const oldWay = [
   "Drag-and-drop busywork for hours",
@@ -20,7 +20,7 @@ const newWay = [
 
 export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayout
+    <SlideLayoutCentered
       slideNumber={slideNumber}
       totalSlides={totalSlides}
       eyebrow="THE PROBLEM"
@@ -76,6 +76,6 @@ export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
           VS
         </div>
       </div>
-    </SlideLayout>
+    </SlideLayoutCentered>
   )
 }

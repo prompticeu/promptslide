@@ -156,6 +156,6 @@ interface SlideBranding {
 
 ## Dark Mode
 
-The project uses dark mode by default via `class="dark"` on the `<html>` element in `index.html`.
+The project uses dark mode by default. The `<html>` element is rendered with `class="dark"` by the PromptSlide CLI runtime.
 
-To switch to light mode, remove the `dark` class from `<html>` in `index.html`.
+Dark mode is the default and recommended mode. Light mode theming can be customized via CSS variables in `globals.css`.
