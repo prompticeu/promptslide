@@ -53,14 +53,23 @@ Vite will hot-reload — the new slide appears instantly in the browser.
 src/
 ├── framework/                    # Slide engine (do not modify)
 │   ├── index.ts                  # Barrel export
-│   ├── types.ts                  # SlideProps, SlideConfig, SlideComponent
+│   ├── types.ts                  # SlideProps, SlideConfig, ThemeConfig, etc.
 │   ├── animation-config.ts       # Timing constants, springs, dimensions
 │   ├── animation-context.tsx     # AnimationProvider + useAnimationContext
 │   ├── animated.tsx              # <Animated> and <AnimatedGroup>
 │   ├── transitions.ts            # Slide transition variants
 │   ├── morph.tsx                 # Morph, MorphGroup, MorphItem, MorphText
 │   ├── use-slide-navigation.ts   # Navigation state machine hook
-│   └── slide-layout.tsx          # Base layout + SlideBrandingProvider
+│   ├── slide-layout.tsx          # Base layout + SlideBrandingProvider (legacy)
+│   ├── theme-context.tsx         # SlideThemeProvider + useTheme
+│   └── layouts/                  # Reusable slide layouts
+│       ├── shared-footer.tsx     # Shared footer component
+│       ├── content-layout.tsx    # Standard header + content
+│       ├── title-layout.tsx      # Full-bleed hero
+│       ├── section-layout.tsx    # Section divider
+│       ├── two-column-layout.tsx # Split-screen
+│       ├── image-layout.tsx      # Image-driven
+│       └── quote-layout.tsx      # Centered quote
 │
 ├── components/
 │   └── slide-deck.tsx            # Main controller (views, nav, fullscreen, PDF)
@@ -68,9 +77,10 @@ src/
 ├── slides/                       # YOUR SLIDES GO HERE
 │   └── slide-title.tsx           # Example starter slide
 │
+├── theme.ts                      # Theme config (brand, colors, fonts, assets)
 ├── deck-config.ts                # Slide order + step counts (modify this)
-├── App.tsx                       # Root component (branding config)
-├── globals.css                   # Theme colors (customize here)
+├── App.tsx                       # Root component (theme provider)
+├── globals.css                   # Theme color defaults (customize here)
 └── main.tsx                      # Vite entry point
 ```
 
@@ -260,17 +270,172 @@ OKLCH format: `oklch(lightness chroma hue)`
 
 ---
 
-## 6. Branding (`App.tsx`)
+## 6. Theme & Branding (`theme.ts`)
 
-Set your company name and logo in `src/App.tsx`:
+Configure your brand identity in `src/theme.ts`:
 
-```tsx
-<SlideBrandingProvider branding={{ name: "Acme Inc", logoUrl: "/logo.svg" }}>
-  <SlideDeck slides={slides} />
-</SlideBrandingProvider>
+```ts
+import type { ThemeConfig } from "@/framework/types"
+
+export const theme: ThemeConfig = {
+  name: "Acme Inc",
+  tagline: "Building the future",
+  logo: {
+    full: "/logo.svg",            // Footer logo
+    icon: "/icon.svg",            // Compact variant (title slides)
+    fullLight: "/logo-white.svg", // For dark backgrounds
+  },
+  colors: {
+    primary: "oklch(0.55 0.2 250)",     // Override --primary
+    secondary: "oklch(0.6 0.15 200)",   // Override --secondary
+    accent: "oklch(0.7 0.2 50)",        // Override --accent
+  },
+  assets: {
+    backgroundImage: "/brand/hero-bg.jpg",  // Used by TitleLayout
+    patternImage: "/brand/pattern.svg",
+  },
+  fonts: {
+    heading: "Inter",   // Load via <link> in index.html
+    body: "Inter",
+  },
+}
 ```
 
-Replace `public/logo.svg` with your own logo file. The logo appears in the footer of each slide (unless `hideFooter` is set).
+Everything is optional except `name`. Omitted values fall back to `globals.css` defaults. Colors use OKLCH format and are injected as CSS variable overrides at runtime.
+
+Logo files go in `public/`. The logo appears in the footer of each slide (unless `hideFooter` is set).
+
+---
+
+## 6b. Slide Layouts
+
+Instead of manually building every slide's structure, use a **layout component**. Each layout consumes the theme automatically and provides consistent padding, headers, and footers.
+
+### Available Layouts
+
+| Layout | Import | Best For |
+|--------|--------|----------|
+| `ContentLayout` | `@/framework/layouts/content-layout` | Standard slides with header + content |
+| `TitleLayout` | `@/framework/layouts/title-layout` | Title/hero slides, chapter openers |
+| `SectionLayout` | `@/framework/layouts/section-layout` | Section dividers between topics |
+| `TwoColumnLayout` | `@/framework/layouts/two-column-layout` | Side-by-side comparisons, before/after |
+| `ImageLayout` | `@/framework/layouts/image-layout` | Image-driven slides |
+| `QuoteLayout` | `@/framework/layouts/quote-layout` | Testimonials, key quotes |
+
+All layouts can also be imported from `@/framework`.
+
+### ContentLayout
+
+Standard header + content area. Theme-aware equivalent of `SlideLayout`.
+
+```tsx
+import { ContentLayout } from "@/framework"
+
+<ContentLayout
+  slideNumber={slideNumber} totalSlides={totalSlides}
+  eyebrow="MARKET" title="$50B TAM" subtitle="Growing 20% YoY"
+>
+  <div className="grid grid-cols-3 gap-6">{/* cards */}</div>
+</ContentLayout>
+```
+
+### TitleLayout
+
+Full-bleed hero with gradient mesh or background image.
+
+```tsx
+import { TitleLayout } from "@/framework"
+
+<TitleLayout
+  slideNumber={slideNumber} totalSlides={totalSlides}
+  title="Our Product" subtitle="Reimagining the workflow"
+  dark                          // Dark bg with light text
+  backgroundImage="/hero.jpg"   // Optional override
+>
+  <p className="text-white/60">Q1 2026</p>
+</TitleLayout>
+```
+
+### SectionLayout
+
+Section divider with large title and accent bar.
+
+```tsx
+import { SectionLayout } from "@/framework"
+
+<SectionLayout
+  slideNumber={slideNumber} totalSlides={totalSlides}
+  eyebrow="02" title="Market Analysis"
+  subtitle="Understanding our competitive landscape"
+/>
+```
+
+### TwoColumnLayout
+
+Split-screen with configurable column ratio.
+
+```tsx
+import { TwoColumnLayout } from "@/framework"
+
+<TwoColumnLayout
+  slideNumber={slideNumber} totalSlides={totalSlides}
+  eyebrow="COMPARISON" title="Before vs. After"
+  ratio="1:1"  // "1:1" | "2:1" | "1:2" | "3:2" | "2:3"
+  left={<div>Left content</div>}
+  right={<div>Right content</div>}
+/>
+```
+
+### ImageLayout
+
+Three modes: `side` (image beside content), `overlay` (image with gradient overlay), `full` (full-bleed).
+
+```tsx
+import { ImageLayout } from "@/framework"
+
+<ImageLayout
+  slideNumber={slideNumber} totalSlides={totalSlides}
+  src="/product-screenshot.png"
+  mode="overlay"  // "side" | "overlay" | "full"
+>
+  <h2 className="text-4xl font-bold">See it in action</h2>
+</ImageLayout>
+```
+
+### QuoteLayout
+
+Centered quote with decorative mark and attribution.
+
+```tsx
+import { QuoteLayout } from "@/framework"
+
+<QuoteLayout
+  slideNumber={slideNumber} totalSlides={totalSlides}
+  quote="The best presentation is the one you didn't spend hours making."
+  attribution="PromptSlide Team"
+  role="Open Source Maintainers"
+/>
+```
+
+### Layouts + Animations
+
+Layouts work with `<Animated>` and `<AnimatedGroup>` just like `SlideLayout`. Wrap content inside the layout's children slot:
+
+```tsx
+<ContentLayout slideNumber={slideNumber} totalSlides={totalSlides} title="Features">
+  <AnimatedGroup startStep={1} animation="scale" staggerDelay={0.1}
+    className="grid grid-cols-3 gap-6">
+    <Card>Feature 1</Card>
+    <Card>Feature 2</Card>
+    <Card>Feature 3</Card>
+  </AnimatedGroup>
+</ContentLayout>
+```
+
+### When to use SlideLayout vs. Layouts
+
+- **`SlideLayout`** — still works, fully backward-compatible. Use it for custom one-off slide designs where you need full control.
+- **Layouts** — preferred for new slides. They apply theme fonts, handle footer variants automatically, and give the deck visual consistency.
 
 ---
 

@@ -56,6 +56,26 @@ export type {
   UseSlideNavigationReturn
 } from "./use-slide-navigation"
 
-// Layout
+// Layout (legacy)
 export { SlideLayout, SlideBrandingProvider, useBranding } from "./slide-layout"
 export type { SlideBranding } from "./slide-layout"
+
+// Theme
+export { SlideThemeProvider, useTheme } from "./theme-context"
+export type {
+  ThemeConfig,
+  ThemeLogos,
+  ThemeColors,
+  ThemeAssets,
+  ThemeFonts,
+  LayoutBaseProps
+} from "./types"
+
+// Layouts
+export { ContentLayout } from "./layouts/content-layout"
+export { TitleLayout } from "./layouts/title-layout"
+export { SectionLayout } from "./layouts/section-layout"
+export { TwoColumnLayout } from "./layouts/two-column-layout"
+export { ImageLayout } from "./layouts/image-layout"
+export { QuoteLayout } from "./layouts/quote-layout"
+export { SlideFooter } from "./layouts/shared-footer"

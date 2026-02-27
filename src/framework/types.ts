@@ -42,3 +42,85 @@ export interface SlideConfig {
  * - 0: Direct jump (no direction)
  */
 export type NavigationDirection = -1 | 0 | 1
+
+// =============================================================================
+// THEME CONFIGURATION TYPES
+// =============================================================================
+
+/**
+ * Logo variants for different contexts.
+ */
+export interface ThemeLogos {
+  /** Full logo (default, used in footers) */
+  full?: string
+  /** Icon-only mark (used in compact spaces) */
+  icon?: string
+  /** Light version for dark backgrounds */
+  fullLight?: string
+  /** Light icon for dark backgrounds */
+  iconLight?: string
+}
+
+/**
+ * Brand color overrides using OKLCH strings.
+ * Injected as CSS custom properties at runtime.
+ * If omitted, the existing globals.css values apply.
+ */
+export interface ThemeColors {
+  primary?: string
+  primaryForeground?: string
+  secondary?: string
+  secondaryForeground?: string
+  accent?: string
+  accentForeground?: string
+}
+
+/**
+ * Corporate visual assets (paths relative to public/).
+ */
+export interface ThemeAssets {
+  /** Background image URL (e.g. for title slides) */
+  backgroundImage?: string
+  /** Subtle pattern overlay URL */
+  patternImage?: string
+}
+
+/**
+ * Typography preferences. Font names must be loaded via
+ * <link> in index.html or @font-face in globals.css.
+ */
+export interface ThemeFonts {
+  heading?: string
+  body?: string
+}
+
+/**
+ * Full theme configuration.
+ */
+export interface ThemeConfig {
+  /** Company/product name (shown in footers) */
+  name: string
+  /** Optional tagline */
+  tagline?: string
+  /** Logo configuration */
+  logo?: ThemeLogos
+  /** Brand color overrides (OKLCH strings) */
+  colors?: ThemeColors
+  /** Corporate visual assets */
+  assets?: ThemeAssets
+  /** Typography preferences */
+  fonts?: ThemeFonts
+}
+
+// =============================================================================
+// LAYOUT BASE PROPS
+// =============================================================================
+
+/**
+ * Base props shared by all layout components.
+ */
+export interface LayoutBaseProps extends SlideProps {
+  children?: React.ReactNode
+  hideFooter?: boolean
+  className?: string
+}
