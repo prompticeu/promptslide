@@ -8,6 +8,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "development": "./src/core/index.ts",
       "import": "./dist/index.js"
     },
     "./src/commands/*": "./src/commands/*"
