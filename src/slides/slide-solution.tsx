@@ -1,10 +1,10 @@
-import { Animated } from "@/framework/animated"
-import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
+import { Animated } from "@promptslide/core"
+import type { SlideProps } from "@promptslide/core"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayout slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
+    <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
       <div className="-mx-12 -mt-12 -mb-6 grid h-[calc(100%+4.5rem)] grid-cols-5">
         {/* Left panel — bold statement on solid primary */}
         <Animated step={1} animation="slide-right" className="col-span-2 flex flex-col justify-center bg-primary p-12">
@@ -46,6 +46,6 @@ export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
           </Animated>
         </div>
       </div>
-    </SlideLayout>
+    </SlideLayoutCentered>
   )
 }

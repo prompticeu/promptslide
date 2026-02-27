@@ -1,6 +1,6 @@
-import { AnimatedGroup } from "@/framework/animated"
-import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
+import { AnimatedGroup } from "@promptslide/core"
+import type { SlideProps } from "@promptslide/core"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 const stack = [
   {
@@ -37,7 +37,7 @@ const stack = [
 
 export function SlideTechStack({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayout
+    <SlideLayoutCentered
       slideNumber={slideNumber}
       totalSlides={totalSlides}
       eyebrow="TECH STACK"
@@ -75,6 +75,6 @@ export function SlideTechStack({ slideNumber, totalSlides }: SlideProps) {
           ))}
         </AnimatedGroup>
       </div>
-    </SlideLayout>
+    </SlideLayoutCentered>
   )
 }

@@ -1,12 +1,12 @@
 import { Github } from "lucide-react"
 
-import { Animated } from "@/framework/animated"
-import { SlideLayout } from "@/framework/slide-layout"
-import type { SlideProps } from "@/framework/types"
+import { Animated } from "@promptslide/core"
+import type { SlideProps } from "@promptslide/core"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayout slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
+    <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
       <div className="flex h-full flex-col items-center justify-center text-center">
         <Animated step={1} animation="fade">
           <div>
@@ -53,6 +53,6 @@ export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
           </div>
         </Animated>
       </div>
-    </SlideLayout>
+    </SlideLayoutCentered>
   )
 }

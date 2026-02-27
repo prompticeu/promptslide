@@ -1,5 +1,4 @@
-import { SlideThemeProvider } from "@/framework/theme-context"
-import { SlideDeck } from "@/components/slide-deck"
+import { SlideThemeProvider, SlideDeck } from "@promptslide/core"
 import { slides } from "@/deck-config"
 import { theme } from "@/theme"
 

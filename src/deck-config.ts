@@ -1,4 +1,4 @@
-import type { SlideConfig } from "@/framework/types"
+import type { SlideConfig } from "@promptslide/core"
 import { SlideTitle } from "@/slides/slide-title"
 import { SlideProblem } from "@/slides/slide-problem"
 import { SlideSolution } from "@/slides/slide-solution"

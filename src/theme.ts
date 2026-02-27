@@ -1,4 +1,4 @@
-import type { ThemeConfig } from "@/framework/types"
+import type { ThemeConfig } from "@promptslide/core"
 
 export const theme: ThemeConfig = {
   name: "PromptSlide",
