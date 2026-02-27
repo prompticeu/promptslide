@@ -124,7 +124,7 @@ export async function create(args) {
       values: { "{{PROJECT_SLUG}}": dirName, "{{PROJECT_NAME}}": projectName }
     },
     {
-      path: join(targetDir, "src", "App.tsx"),
+      path: join(targetDir, "src", "theme.ts"),
       values: { "{{PROJECT_NAME}}": projectName }
     },
     {
