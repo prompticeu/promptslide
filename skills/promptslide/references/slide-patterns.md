@@ -1,6 +1,8 @@
 # Slide Layout Patterns
 
-Reusable patterns for visually diverse slide decks. **Do not use the same pattern on consecutive slides** — mix and match to keep the deck visually engaging.
+These are starting points — not templates to copy verbatim. Adapt, combine, and break these patterns to match the deck's aesthetic direction. The goal is slides that feel intentionally designed, not assembled from a component library.
+
+**Do not use the same pattern on consecutive slides.** More importantly, do not use the same *feeling* on consecutive slides — if slide 3 has cards, slide 4 should use typography, data, or negative space instead.
 
 ---
 
@@ -397,13 +399,15 @@ Match animation types to layout styles for maximum impact:
 
 ## Anti-Patterns
 
-Avoid these common mistakes that make every slide look the same:
+These are the hallmarks of generic AI-generated slides. Avoid them:
 
-- **Same card style everywhere**: Do not use `rounded-xl border border-border bg-card p-8` on every slide. Alternate between glass, gradient, elevated, accent-border, or no card at all.
-- **`slide-up` on everything**: Vary animation types. Use `scale` for grids, `fade` for quotes, `slide-left`/`slide-right` for split layouts.
-- **All equal-width columns**: Not every grid needs `grid-cols-3` with identical tiles. Use asymmetric splits (`grid-cols-5` with `col-span-2` + `col-span-3`) and bento grids.
-- **Icon above text in every card**: Try icons inline with text, large numbers as the visual element, or no icons at all.
-- **Two consecutive slides with the same layout**: If slide 3 is a card grid, slide 4 should be something different (split, timeline, quote, data viz).
+- **Cards on every slide**: `rounded-xl border border-border bg-card p-8` as the default container for all content. Many slides should have NO card — use large typography, data visualizations, full-bleed color, or negative space as the visual element.
+- **`slide-up` on everything**: Vary animation types based on intent. Better yet, leave some slides with zero animation — a static slide between animated ones creates rhythm.
+- **All equal-width columns**: Not every grid needs `grid-cols-3` with identical tiles. Use asymmetric splits, bento grids, or abandon grids entirely.
+- **Icon above text in every card**: This is the most common AI slide pattern. Try icons inline with text, large numbers as the visual, decorative typography, or no icons.
+- **Safe, predictable color**: Don't just use the default primary blue. Override `--primary` in `globals.css` to match the deck's personality. Use bold accent colors.
+- **Same energy on consecutive slides**: If slide 3 is dense with information, slide 4 should breathe. If slide 5 is dramatic and dark, slide 6 can be light and airy. Contrast creates rhythm.
+- **Generic fonts**: If you haven't imported a custom font for the deck, you're probably producing generic output. Every deck deserves typography that matches its personality.
 
 ---
 
