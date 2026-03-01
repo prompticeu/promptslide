@@ -403,16 +403,187 @@ iframe.contentWindow.postMessage({ type: 'setViewMode', mode: 'grid' }, '*')
 
 ---
 
-## 7. An.dev Integration
+## 7. Dependency Model: Fixed Set, No Runtime Installs
 
-### 7.1 Agent Configuration
+### 7.1 The Default Package Set (Already Sufficient)
+
+The scaffolded template (`packages/cli/templates/default/package.json`) ships with:
+
+```json
+{
+  "dependencies": {
+    "promptslide": "^0.2.0",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.23.22",
+    "lucide-react": "^0.552.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.3.1",
+    "tw-animate-css": "^1.4.0"
+  }
+}
+```
+
+**Every example slide and template** (all 8 reference templates + 2 default slides) imports only from:
+- `promptslide` — types, animation components (`Animated`, `AnimatedGroup`, `Morph*`), theme utilities
+- `@/layouts/*` — project-local layout components
+- `lucide-react` — icons (1000+ available)
+- Tailwind CSS classes — all styling
+
+No template imports `clsx`, `tailwind-merge`, `framer-motion`, or `tw-animate-css` directly in slides — those are used internally by `promptslide` core and layouts.
+
+### 7.2 Decision: No Additional Dependencies in SaaS
+
+**Don't allow installing additional npm packages in the SaaS.** Reasons:
+
+1. The existing set covers everything the agent needs (icons, animations, morphs, layouts, full Tailwind CSS)
+2. No `npm install` per session = sandbox starts instantly (just file writes, ~3-5s)
+3. No supply chain risk from arbitrary packages in user sandboxes
+4. Simplifies the pre-warmed template — one image, all deps cached, immutable
+5. Charts/graphs/data viz can be built with SVG + Tailwind + Framer Motion
+
+The CLI's `promptslide add` command _does_ support installing additional npm deps (it auto-detects them from imports in `publish.mjs` and runs the package manager). But in the SaaS context, we skip that entirely.
+
+### 7.3 What "Dependencies" Actually Means in the SaaS
+
+In the SaaS, dependency resolution is purely **file-to-file relationships**:
+
+```
+deck-config.ts  ──imports──►  src/slides/slide-*.tsx      (file must exist)
+slides          ──imports──►  src/layouts/*.tsx            (file must exist)
+slides          ──imports──►  "promptslide"                (pre-installed, always available)
+slides          ──imports──►  "lucide-react"               (pre-installed, always available)
+layouts         ──imports──►  "promptslide"                (pre-installed, always available)
+```
+
+The agent already handles this correctly — it creates layouts first, then slides, then updates `deck-config.ts`. For the code editor, the SaaS app can validate that `@/` imports resolve to files that exist in the sandbox.
+
+### 7.4 Registry Slides in the SaaS
+
+When a user adds a slide from the registry (future Phase 3), the SaaS app:
+1. Fetches the registry item (which includes `files`, `registryDependencies`, and `npmDependencies`)
+2. Recursively resolves `registryDependencies` (other layouts/slides it depends on)
+3. Writes all resolved files to the sandbox via the An.dev file API
+4. **Skips npm dependency installation** — if the slide requires a package not in the fixed set, it's incompatible with the SaaS (the registry could enforce this at publish time)
+
+This means the SaaS registry only accepts slides that use the standard package set. The CLI can still publish/add slides with additional deps for local use.
+
+---
+
+## 8. An.dev API Mapping
+
+### 8.1 Validated Against the API
+
+Every operation we need maps directly to An.dev's API:
+
+| Operation | An.dev API | Notes |
+|---|---|---|
+| Create sandbox | `POST /v1/sandboxes` with `agent`, `setup`, `envs`, `files` | `setup` runs commands during provisioning |
+| Start dev server | `setup: ["cd /home/user/my-deck && promptslide studio --port=5173 &"]` | Runs during sandbox creation as background process |
+| Write slide files | `POST /v1/sandboxes/:id/files` with `files` array | Agent does this via tool calls; editor does this via SaaS API |
+| Read files | `GET /v1/sandboxes/:id/files?path=...` | For editor file tree, snapshot, etc. |
+| Snapshot source files | Multiple `GET /files` calls for each source path | Before hibernation |
+| Restore from snapshot | `POST /v1/sandboxes/:id/files` with all snapshot files | On resume |
+| Chat with agent | `POST /v1/chat/:slug` with `sandboxId` + `threadId` | SSE streaming response |
+| Resume conversation | Same chat endpoint with existing `sandboxId` + `threadId` | Thread maintains history |
+| Build for export | `POST /v1/sandboxes/:id/exec` — `{ command: "promptslide build" }` | Blocking call, returns stdout/stderr |
+| Cleanup | `DELETE /v1/sandboxes/:id` | Cascades to all threads |
+
+### 8.2 Sandbox Creation Flow (Concrete)
+
+```typescript
+import { AnClient } from "@an-sdk/node"
+
+const an = new AnClient({ apiKey: process.env.AN_API_KEY! })
+
+// Step 1: Create sandbox with project files
+const sandbox = await an.sandboxes.create({
+  agent: "promptslide",
+  envs: {
+    PROMPTSLIDE_SANDBOX: "1",
+  },
+  // If resuming, inject source_snapshot files
+  files: isResuming ? sourceSnapshotToFiles(presentation.source_snapshot) : undefined,
+})
+
+// Step 2: Set HMR host (needs sandbox ID) and start dev server
+await an.sandboxes.exec({
+  sandboxId: sandbox.id,
+  command: [
+    `export PROMPTSLIDE_HMR_HOST="${sandbox.sandboxId}-5173.e2b.dev"`,
+    `cd /home/user/my-deck`,
+    `nohup promptslide studio --port=5173 > /tmp/vite.log 2>&1 &`,
+    `echo "started"`,
+  ].join(" && "),
+  timeoutMs: 10000,
+})
+
+// Step 3: Create or resume thread
+const thread = threadId
+  ? await an.threads.get({ sandboxId: sandbox.id, threadId })
+  : await an.threads.create({ sandboxId: sandbox.id, name: presentation.title })
+
+// Step 4: Return to frontend
+return {
+  sandboxId: sandbox.id,
+  previewUrl: `https://${sandbox.sandboxId}-5173.e2b.dev/embed`,
+  threadId: thread.id,
+}
+```
+
+### 8.3 The HMR Host Chicken-and-Egg Problem
+
+We need the E2B sandbox ID for `PROMPTSLIDE_HMR_HOST`, but we don't have it until after creation. Two solutions:
+
+**Option A (recommended): Two-step init** — Create sandbox first, then exec to set env + start server. This is what's shown above. The `exec` call adds ~1-2s.
+
+**Option B: Runtime detection** — Have `createViteConfig()` detect the E2B sandbox ID from the E2B environment at runtime (E2B sets `E2B_SANDBOX_ID` or similar). Then `setup` can start the server immediately during creation.
+
+```javascript
+// In createViteConfig(), if PROMPTSLIDE_SANDBOX=1:
+const sandboxId = process.env.E2B_SANDBOX_ID // Set by E2B runtime
+const hmrHost = sandboxId ? `${sandboxId}-5173.e2b.dev` : undefined
+```
+
+Option B is cleaner if E2B exposes the sandbox ID as an env var. Worth testing.
+
+### 8.4 Chat Integration (Frontend)
+
+Using `@an-sdk/nextjs` or raw AI SDK for the chat panel:
+
+```tsx
+// Using raw AI SDK (framework-agnostic)
+import { Chat, DefaultChatTransport } from "ai"
+import { useChat } from "@ai-sdk/react"
+
+const chat = new Chat({
+  transport: new DefaultChatTransport({
+    api: `https://relay.an.dev/v1/chat/promptslide`,
+    headers: async () => ({
+      Authorization: `Bearer ${apiKey}`,
+    }),
+    body: {
+      sandboxId: presentation.sandboxId,
+      threadId: presentation.threadId,
+    },
+  }),
+})
+```
+
+The SSE stream returns typed events: `text-start`, `text-delta`, `text-end`, `message-metadata` (with cost tracking). The SaaS app renders these in the chat panel and can show cost per message.
+
+---
+
+## 9. An.dev Agent Configuration
+
+### 9.1 Agent Setup
 
 ```typescript
 const agentConfig = {
   model: "claude-sonnet-4-20250514",
   skills: [{
     name: "promptslide",
-    source: adaptedSkillContent  // Modified SKILL.md (see §7.2)
+    source: adaptedSkillContent  // Modified SKILL.md (see §9.2)
   }],
   systemPrompt: `You are PromptSlide AI, an expert presentation designer.
 You are working inside a pre-configured PromptSlide project.
@@ -441,7 +612,7 @@ public/             — Static assets (logos, images)`,
 }
 ```
 
-### 7.2 Adapted Skill Content
+### 9.2 Adapted Skill Content
 
 The existing `skills/promptslide/SKILL.md` needs minor adaptation for SaaS:
 
@@ -451,7 +622,7 @@ The existing `skills/promptslide/SKILL.md` needs minor adaptation for SaaS:
 
 ---
 
-## 8. Sandbox Lifecycle
+## 10. Sandbox Lifecycle
 
 ### 8.1 Pre-warmed Template
 
@@ -495,9 +666,9 @@ Active sandbox ──(5 min idle)──► Warning toast
 
 ---
 
-## 9. Frontend: Editor Page Layout
+## 11. Frontend: Editor Page Layout
 
-### 9.1 Chat Mode (Primary)
+### 11.1 Chat Mode (Primary)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -522,7 +693,7 @@ Active sandbox ──(5 min idle)──► Warning toast
 └─────────────────────────────────────────────────────────┘
 ```
 
-### 9.2 Code Editor Mode (Phase 2)
+### 11.2 Code Editor Mode (Phase 2)
 
 Toggle between Chat and Code via the header button:
 
@@ -545,7 +716,7 @@ Toggle between Chat and Code via the header button:
 
 Code changes → debounce 300ms → write to sandbox via An.dev file API → Vite HMR → iframe updates.
 
-### 9.3 Key Frontend Components
+### 11.3 Key Frontend Components
 
 ```
 components/
@@ -574,7 +745,7 @@ api/
 
 ---
 
-## 10. Database Changes
+## 12. Database Changes
 
 ```sql
 CREATE TABLE presentations (
@@ -608,7 +779,7 @@ CREATE TABLE sandbox_sessions (
 
 ---
 
-## 11. Export Pipeline
+## 13. Export Pipeline
 
 ### PDF Export
 
@@ -622,7 +793,7 @@ Run `promptslide build` in sandbox, read `dist/`, package as `.zip`.
 
 ---
 
-## 12. Changes Required in This Repo
+## 14. Changes Required in This Repo
 
 ### Summary
 
@@ -666,7 +837,7 @@ export function createViteConfig({ cwd, mode = "development" }) {
 
 ---
 
-## 13. Implementation Phases
+## 15. Implementation Phases
 
 ### Phase 1: Core MVP
 
@@ -697,7 +868,7 @@ export function createViteConfig({ cwd, mode = "development" }) {
 
 ---
 
-## 14. Technical Risks & Mitigations
+## 16. Technical Risks & Mitigations
 
 | Risk | Impact | Mitigation |
 |---|---|---|
@@ -710,7 +881,7 @@ export function createViteConfig({ cwd, mode = "development" }) {
 
 ---
 
-## 15. Architectural Decisions Summary
+## 17. Architectural Decisions Summary
 
 1. **Refactor `SlideDeck` into composable parts** — The monolithic component mixing rendering with UI chrome is the root cause of the iframe problem. Separating them enables both the SaaS embed use case and future code editor support.
 
@@ -724,4 +895,8 @@ export function createViteConfig({ cwd, mode = "development" }) {
 
 6. **Code editor writes to sandbox, not compiles in-browser** — Accept the ~200-500ms round-trip. It's good enough (CodeSandbox/StackBlitz have similar latency). Avoids building a browser-side Tailwind v4 + PostCSS pipeline.
 
-7. **An.dev for agent orchestration** — Abstracts Claude + E2B. SaaS app just makes API calls.
+7. **An.dev for agent orchestration** — Abstracts Claude + E2B. SaaS app just makes API calls. Validated against the API: `exec`, `files`, `chat`, `threads` cover every operation.
+
+8. **Fixed dependency set, no runtime installs** — The template ships with everything slides need (promptslide, lucide-react, framer-motion, Tailwind v4, clsx, tailwind-merge). No `npm install` per session. "Dependencies" in the SaaS context means file-to-file imports (`@/layouts/`, `@/slides/`), not package management. This makes sandbox init instant (just file writes).
+
+9. **Registry compatibility gate** — SaaS-published slides must use the standard package set. The CLI can still publish/add slides with additional deps for local use. This is enforced at publish time, not runtime.
