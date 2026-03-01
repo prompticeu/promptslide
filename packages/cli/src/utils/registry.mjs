@@ -66,14 +66,14 @@ export function isFileDirty(cwd, relativePath, storedHash) {
  * @param {string} cwd
  * @param {string} slug
  * @param {number} version
- * @param {Record<string, string>} [files] - Map of relative paths to content hashes
+ * @param {Record<string, string>} files - Map of relative paths to content hashes
  */
 export function updateLockfileItem(cwd, slug, version, files) {
   const lock = readLockfile(cwd)
   lock.items[slug] = {
     version,
     installedAt: new Date().toISOString().split("T")[0],
-    ...(files && { files })
+    files
   }
   writeLockfile(cwd, lock)
 }

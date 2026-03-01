@@ -2,8 +2,7 @@ import { existsSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
 
 import { bold, green, cyan, red, yellow, dim } from "../utils/ansi.mjs"
-import { requireAuth } from "../utils/auth.mjs"
-import { readLockfile, removeLockfileItem, fetchRegistryItem, isFileDirty } from "../utils/registry.mjs"
+import { readLockfile, removeLockfileItem, isFileDirty } from "../utils/registry.mjs"
 import { toPascalCase, removeSlideFromDeckConfig } from "../utils/deck-config.mjs"
 import { confirm, closePrompts } from "../utils/prompts.mjs"
 
@@ -37,29 +36,16 @@ export async function remove(args) {
 
   const lockEntry = lock.items[name]
 
-  // Use lockfile file hashes if available, otherwise fall back to registry
-  const auth = requireAuth()
-  let item = null
-  try {
-    item = await fetchRegistryItem(name, auth)
-  } catch {
-    // Item may have been deleted from registry — that's fine, we'll just remove the lockfile entry
-  }
-
+  // Use lockfile files map as source of truth
   const filesToRemove = []
   let hasDirtyFiles = false
 
-  if (item?.files?.length) {
-    for (const file of item.files) {
-      const targetPath = join(cwd, file.target, file.path)
-      const relativePath = file.target + file.path
-      if (existsSync(targetPath)) {
-        const dirty = lockEntry.files?.[relativePath]
-          ? isFileDirty(cwd, relativePath, lockEntry.files[relativePath])
-          : false
-        if (dirty) hasDirtyFiles = true
-        filesToRemove.push({ path: targetPath, display: relativePath, dirty })
-      }
+  for (const [relativePath, storedHash] of Object.entries(lockEntry.files)) {
+    const targetPath = join(cwd, relativePath)
+    if (existsSync(targetPath)) {
+      const dirty = isFileDirty(cwd, relativePath, storedHash)
+      if (dirty) hasDirtyFiles = true
+      filesToRemove.push({ path: targetPath, display: relativePath, dirty })
     }
   }
 
@@ -71,11 +57,8 @@ export async function remove(args) {
       console.log(`    ${dim("•")} ${f.display}${tag}`)
     }
     console.log()
-  } else if (item) {
-    console.log(`  ${dim("No local files found for this item.")}`)
-    console.log()
   } else {
-    console.log(`  ${dim("Item not found in registry. Removing lockfile entry only.")}`)
+    console.log(`  ${dim("No local files found for this item.")}`)
     console.log()
   }
 
@@ -102,15 +85,14 @@ export async function remove(args) {
     }
   }
 
-  // Remove from deck-config if it's a slide
-  if (item?.type === "slide" && item.files?.length) {
-    for (const file of item.files) {
-      if (file.target.includes("slides")) {
-        const componentName = toPascalCase(file.path.replace(/\.tsx?$/, ""))
-        const updated = removeSlideFromDeckConfig(cwd, componentName)
-        if (updated) {
-          console.log(`  ${green("✓")} Removed ${componentName} from ${cyan("deck-config.ts")}`)
-        }
+  // Remove from deck-config if any files are slides
+  for (const relativePath of Object.keys(lockEntry.files)) {
+    if (relativePath.includes("slides/")) {
+      const fileName = relativePath.split("/").pop().replace(/\.tsx?$/, "")
+      const componentName = toPascalCase(fileName)
+      const updated = removeSlideFromDeckConfig(cwd, componentName)
+      if (updated) {
+        console.log(`  ${green("✓")} Removed ${componentName} from ${cyan("deck-config.ts")}`)
       }
     }
   }
