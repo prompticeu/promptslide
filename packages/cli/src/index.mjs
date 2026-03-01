@@ -29,6 +29,9 @@ function printHelp() {
   console.log(`    logout          Clear stored credentials`)
   console.log(`    add ${dim("<name>")}     Install a slide/deck from the registry`)
   console.log(`    publish ${dim("[file]")} Publish a slide to the registry`)
+  console.log(`    update ${dim("[name]")}  Check for and apply updates`)
+  console.log(`    remove ${dim("<name>")}  Remove an installed item`)
+  console.log(`    info ${dim("<name>")}    Show details about a registry item`)
   console.log(`    search ${dim("<query>")} Search the registry`)
   console.log(`    list ${dim("[--type]")}  List registry items`)
   console.log()
@@ -82,6 +85,11 @@ switch (command) {
     await publish(args)
     break
   }
+  case "update": {
+    const { update } = await import("./commands/update.mjs")
+    await update(args)
+    break
+  }
   case "search": {
     const { search } = await import("./commands/search.mjs")
     await search(args)
@@ -90,6 +98,16 @@ switch (command) {
   case "list": {
     const { list } = await import("./commands/list.mjs")
     await list(args)
+    break
+  }
+  case "remove": {
+    const { remove } = await import("./commands/remove.mjs")
+    await remove(args)
+    break
+  }
+  case "info": {
+    const { info } = await import("./commands/info.mjs")
+    await info(args)
     break
   }
   case "--help":

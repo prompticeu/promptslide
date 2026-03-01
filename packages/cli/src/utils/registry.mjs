@@ -1,5 +1,93 @@
-import { existsSync } from "node:fs"
+import { createHash } from "node:crypto"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+
+const LOCKFILE = ".promptslide-lock.json"
+
+/**
+ * Read the lockfile from a project directory.
+ * @param {string} cwd
+ * @returns {{ items: Record<string, { version: number, installedAt: string }> }}
+ */
+export function readLockfile(cwd) {
+  const path = join(cwd, LOCKFILE)
+  if (!existsSync(path)) return { items: {} }
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"))
+  } catch {
+    return { items: {} }
+  }
+}
+
+/**
+ * Write the lockfile to a project directory.
+ * @param {string} cwd
+ * @param {{ items: Record<string, { version: number, installedAt: string }> }} data
+ */
+export function writeLockfile(cwd, data) {
+  writeFileSync(join(cwd, LOCKFILE), JSON.stringify(data, null, 2) + "\n", "utf-8")
+}
+
+/**
+ * Hash a string with SHA-256 and return the hex digest.
+ * @param {string} content
+ * @returns {string}
+ */
+export function hashContent(content) {
+  return createHash("sha256").update(content, "utf-8").digest("hex")
+}
+
+/**
+ * Hash a file on disk. Returns null if the file doesn't exist.
+ * @param {string} filePath - Absolute path
+ * @returns {string | null}
+ */
+export function hashFile(filePath) {
+  if (!existsSync(filePath)) return null
+  return hashContent(readFileSync(filePath, "utf-8"))
+}
+
+/**
+ * Check if a file on disk differs from its stored hash.
+ * Returns true if the file has been modified or doesn't exist.
+ * @param {string} cwd
+ * @param {string} relativePath - e.g. "src/slides/hero.tsx"
+ * @param {string} storedHash
+ * @returns {boolean}
+ */
+export function isFileDirty(cwd, relativePath, storedHash) {
+  const currentHash = hashFile(join(cwd, relativePath))
+  if (!currentHash) return true
+  return currentHash !== storedHash
+}
+
+/**
+ * Add or update a single item in the lockfile.
+ * @param {string} cwd
+ * @param {string} slug
+ * @param {number} version
+ * @param {Record<string, string>} [files] - Map of relative paths to content hashes
+ */
+export function updateLockfileItem(cwd, slug, version, files) {
+  const lock = readLockfile(cwd)
+  lock.items[slug] = {
+    version,
+    installedAt: new Date().toISOString().split("T")[0],
+    ...(files && { files })
+  }
+  writeLockfile(cwd, lock)
+}
+
+/**
+ * Remove a single item from the lockfile.
+ * @param {string} cwd
+ * @param {string} slug
+ */
+export function removeLockfileItem(cwd, slug) {
+  const lock = readLockfile(cwd)
+  delete lock.items[slug]
+  writeLockfile(cwd, lock)
+}
 
 /**
  * Fetch a registry item JSON from the registry API.
@@ -81,6 +169,21 @@ export async function resolveRegistryDependencies(item, auth, cwd) {
 
   await resolve(item)
   return { items, npmDeps }
+}
+
+/**
+ * Check if a registry item exists (by slug).
+ * @param {string} name - Item slug
+ * @param {{ registry: string, token: string }} auth
+ * @returns {Promise<boolean>}
+ */
+export async function registryItemExists(name, auth) {
+  try {
+    await fetchRegistryItem(name, auth)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**

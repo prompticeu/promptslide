@@ -8,7 +8,10 @@ import {
   fetchRegistryItem,
   resolveRegistryDependencies,
   detectPackageManager,
-  getInstallCommand
+  getInstallCommand,
+  updateLockfileItem,
+  hashContent,
+  hashFile
 } from "../utils/registry.mjs"
 import {
   toPascalCase,
@@ -50,7 +53,8 @@ export async function add(args) {
     process.exit(1)
   }
 
-  console.log(`  Found ${bold(item.title || item.name)} ${dim(`(${item.type})`)}`)
+  const versionTag = item.version ? ` ${dim(`v${item.version}`)}` : ""
+  console.log(`  Found ${bold(item.title || item.name)} ${dim(`(${item.type})`)}${versionTag}`)
 
   // Resolve dependencies
   let resolved
@@ -61,27 +65,44 @@ export async function add(args) {
     process.exit(1)
   }
 
-  // Write files
+  // Write files, grouped by registry item for lockfile tracking
   const written = []
+  const writtenByItem = new Map() // regItem.name -> { regItem, fileHashes }
+
   for (const regItem of resolved.items) {
     if (!regItem.files?.length) continue
+
+    const fileHashes = {}
 
     for (const file of regItem.files) {
       const targetPath = join(cwd, file.target, file.path)
       const targetDir = dirname(targetPath)
+      const relativePath = file.target + file.path
+      const newHash = hashContent(file.content)
 
       if (existsSync(targetPath)) {
-        const overwrite = await confirm(`  Overwrite ${file.target}${file.path}?`, false)
+        const existingHash = hashFile(targetPath)
+        if (existingHash === newHash) {
+          console.log(`  ${dim("Skipped")} ${relativePath} ${dim("(identical)")}`)
+          fileHashes[relativePath] = newHash
+          continue
+        }
+        const overwrite = await confirm(`  Overwrite ${relativePath}? ${dim("(local changes will be lost)")}`, false)
         if (!overwrite) {
-          console.log(`  ${dim("Skipped")} ${file.target}${file.path}`)
+          console.log(`  ${dim("Skipped")} ${relativePath}`)
           continue
         }
       }
 
       mkdirSync(targetDir, { recursive: true })
       writeFileSync(targetPath, file.content, "utf-8")
+      fileHashes[relativePath] = newHash
       written.push({ item: regItem, file })
-      console.log(`  ${green("✓")} Added ${cyan(file.target + file.path)}${regItem !== item ? dim(" (dependency)") : ""}`)
+      console.log(`  ${green("✓")} Added ${cyan(relativePath)}${regItem !== item ? dim(" (dependency)") : ""}`)
+    }
+
+    if (Object.keys(fileHashes).length > 0) {
+      writtenByItem.set(regItem.name, { regItem, fileHashes })
     }
   }
 
@@ -90,6 +111,11 @@ export async function add(args) {
     console.log()
     closePrompts()
     return
+  }
+
+  // Update lockfile for all items (root + dependencies)
+  for (const [name, { regItem, fileHashes }] of writtenByItem) {
+    updateLockfileItem(cwd, name, regItem.version ?? 0, fileHashes)
   }
 
   // Auto-update deck-config.ts

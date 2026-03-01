@@ -125,6 +125,50 @@ export function addSlideToDeckConfig(cwd, { componentName, importPath, steps }) 
  * @param {{ componentName: string, importPath: string, steps: number, section?: string }[]} slides
  * @param {{ transition?: string, directionalTransition?: boolean }} opts
  */
+/**
+ * Remove a slide from deck-config.ts by component name.
+ * Removes the import line and the slides array entry.
+ *
+ * @param {string} cwd - Project root directory
+ * @param {string} componentName - PascalCase component name (e.g. "SlideHeroGradient")
+ * @returns {boolean} Whether any changes were made
+ */
+export function removeSlideFromDeckConfig(cwd, componentName) {
+  const configPath = join(cwd, DECK_CONFIG_PATH)
+  if (!existsSync(configPath)) return false
+
+  let content = readFileSync(configPath, "utf-8")
+  let changed = false
+
+  // Remove import line
+  const importRegex = new RegExp(
+    `^import\\s*\\{\\s*${componentName}\\s*\\}\\s*from\\s*["'][^"']+["']\\s*;?\\s*\\n?`,
+    "m"
+  )
+  if (importRegex.test(content)) {
+    content = content.replace(importRegex, "")
+    changed = true
+  }
+
+  // Remove slide entry from array
+  const entryRegex = new RegExp(
+    `^\\s*\\{[^}]*component:\\s*${componentName}[^}]*\\},?\\s*\\n?`,
+    "m"
+  )
+  if (entryRegex.test(content)) {
+    content = content.replace(entryRegex, "")
+    changed = true
+  }
+
+  if (changed) {
+    // Clean up triple+ blank lines
+    content = content.replace(/\n{3,}/g, "\n\n")
+    writeFileSync(configPath, content, "utf-8")
+  }
+
+  return changed
+}
+
 export function replaceDeckConfig(cwd, slides, opts = {}) {
   const configPath = join(cwd, DECK_CONFIG_PATH)
 
