@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process"
+import { execFileSync } from "node:child_process"
 
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { saveAuth, DEFAULT_REGISTRY } from "../utils/auth.mjs"
@@ -11,7 +11,7 @@ function sleep(ms) {
 function openBrowser(url) {
   try {
     const cmd = process.platform === "darwin" ? "open" : "xdg-open"
-    execSync(`${cmd} "${url}"`, { stdio: "ignore" })
+    execFileSync(cmd, [url], { stdio: "ignore" })
   } catch {}
 }
 
@@ -54,8 +54,9 @@ export async function login(args) {
     process.exit(1)
   }
 
-  const { device_code, user_code, verification_uri_complete, verification_uri, interval: initialInterval } = deviceData
+  const { device_code, user_code, verification_uri_complete, verification_uri, interval: initialInterval, expires_in } = deviceData
   let pollInterval = (initialInterval || 5) * 1000
+  const timeoutMs = (expires_in || 600) * 1000 // Default 10 min
 
   // Step 2: Show verification info
   const verifyUrl = verification_uri_complete || verification_uri || `${registry}/device`
@@ -72,7 +73,8 @@ export async function login(args) {
 
   // Step 3: Poll for authorization
   let tokenData
-  while (true) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
     await sleep(pollInterval)
 
     try {
@@ -104,6 +106,11 @@ export async function login(args) {
       console.error(`\n  ${red("Error:")} ${err.message}`)
       process.exit(1)
     }
+  }
+
+  if (!tokenData) {
+    console.error(`\n  ${red("Error:")} Authorization timed out. Please try again.`)
+    process.exit(1)
   }
 
   const accessToken = tokenData.access_token || tokenData.token

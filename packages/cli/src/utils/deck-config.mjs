@@ -41,8 +41,8 @@ export function addSlideToDeckConfig(cwd, { componentName, importPath, steps }) 
 
   let content = readFileSync(configPath, "utf-8")
 
-  // Check if this component is already imported
-  if (content.includes(`import { ${componentName} }`)) {
+  // Check if this component is already imported (handles spacing variations)
+  if (new RegExp(`import\\s*\\{\\s*${componentName}\\s*\\}`).test(content)) {
     return false // Already exists
   }
 
@@ -119,13 +119,6 @@ export function addSlideToDeckConfig(cwd, { componentName, importPath, steps }) 
 }
 
 /**
- * Replace the entire deck-config.ts with a new slide manifest (for deck type).
- *
- * @param {string} cwd - Project root directory
- * @param {{ componentName: string, importPath: string, steps: number, section?: string }[]} slides
- * @param {{ transition?: string, directionalTransition?: boolean }} opts
- */
-/**
  * Remove a slide from deck-config.ts by component name.
  * Removes the import line and the slides array entry.
  *
@@ -169,6 +162,13 @@ export function removeSlideFromDeckConfig(cwd, componentName) {
   return changed
 }
 
+/**
+ * Replace the entire deck-config.ts with a new slide manifest (for deck type).
+ *
+ * @param {string} cwd - Project root directory
+ * @param {{ componentName: string, importPath: string, steps: number, section?: string }[]} slides
+ * @param {{ transition?: string, directionalTransition?: boolean }} opts
+ */
 export function replaceDeckConfig(cwd, slides, opts = {}) {
   const configPath = join(cwd, DECK_CONFIG_PATH)
 
@@ -185,12 +185,23 @@ export function replaceDeckConfig(cwd, slides, opts = {}) {
     })
     .join("\n")
 
-  const content = `${imports}
+  const configLines = []
+  if (opts.transition) {
+    configLines.push(`export const transition = "${opts.transition}"`)
+  }
+  if (opts.directionalTransition !== undefined) {
+    configLines.push(`export const directionalTransition = ${opts.directionalTransition}`)
+  }
+  const configBlock = configLines.length > 0 ? "\n" + configLines.join("\n") + "\n" : ""
 
-export const slides: SlideConfig[] = [
-${slideEntries}
-]
-`
+  const content = [
+    imports,
+    configBlock,
+    "export const slides: SlideConfig[] = [",
+    slideEntries,
+    "]",
+    ""
+  ].join("\n")
 
   writeFileSync(configPath, content, "utf-8")
   return true

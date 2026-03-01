@@ -1,5 +1,5 @@
 import { existsSync, writeFileSync, mkdirSync } from "node:fs"
-import { join, dirname } from "node:path"
+import { join, dirname, resolve, sep } from "node:path"
 
 import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
@@ -145,13 +145,17 @@ export async function update(args) {
     const fileHashes = {}
 
     for (const file of item.files) {
-      const targetPath = join(cwd, file.target, file.path)
+      const targetPath = resolve(cwd, file.target, file.path)
+      if (!targetPath.startsWith(cwd + sep)) {
+        console.log(`  ${red("Error:")} Invalid file path: ${file.target}${file.path}`)
+        continue
+      }
       const targetDir = dirname(targetPath)
       const relativePath = file.target + file.path
       const newHash = hashContent(file.content)
 
       // Check for local modifications
-      if (existsSync(targetPath) && u.storedFiles[relativePath]) {
+      if (existsSync(targetPath) && u.storedFiles?.[relativePath]) {
         const dirty = isFileDirty(cwd, relativePath, u.storedFiles[relativePath])
         if (dirty) {
           const overwrite = await confirm(
@@ -159,6 +163,8 @@ export async function update(args) {
             false
           )
           if (!overwrite) {
+            // Carry forward old hash so lockfile stays accurate
+            fileHashes[relativePath] = u.storedFiles[relativePath]
             console.log(`  ${dim("Skipped")} ${relativePath}`)
             continue
           }

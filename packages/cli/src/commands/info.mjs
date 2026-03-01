@@ -60,7 +60,7 @@ export async function info(args) {
 
   if (installed) {
     lines.push(["Installed", `${green("yes")} — v${installed.version} (${installed.installedAt})`])
-    if (installed.version < item.version) {
+    if (Number(installed.version) < Number(item.version)) {
       lines.push(["", `${cyan("Update available:")} v${installed.version} → v${item.version}`])
     }
   } else {

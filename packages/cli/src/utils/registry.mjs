@@ -15,6 +15,7 @@ export function readLockfile(cwd) {
   try {
     return JSON.parse(readFileSync(path, "utf-8"))
   } catch {
+    console.warn(`  Warning: ${LOCKFILE} is corrupt or unreadable. Starting fresh.`)
     return { items: {} }
   }
 }
@@ -251,21 +252,27 @@ export function detectPackageManager(cwd) {
 }
 
 /**
- * Get the install command for adding dependencies.
+ * Get the install command and args for adding dependencies.
+ * Returns { cmd, args, display } for safe use with execFileSync.
  * @param {"bun" | "yarn" | "pnpm" | "npm"} pm
  * @param {string[]} packages
- * @returns {string}
+ * @returns {{ cmd: string, args: string[], display: string }}
  */
 export function getInstallCommand(pm, packages) {
-  const pkgStr = packages.join(" ")
+  // Validate package names to prevent injection
+  for (const pkg of packages) {
+    if (!/^@?[a-zA-Z0-9][-a-zA-Z0-9/._]*@[^\s]+$/.test(pkg)) {
+      throw new Error(`Invalid package specifier: ${pkg}`)
+    }
+  }
   switch (pm) {
     case "bun":
-      return `bun add ${pkgStr}`
+      return { cmd: "bun", args: ["add", ...packages], display: `bun add ${packages.join(" ")}` }
     case "yarn":
-      return `yarn add ${pkgStr}`
+      return { cmd: "yarn", args: ["add", ...packages], display: `yarn add ${packages.join(" ")}` }
     case "pnpm":
-      return `pnpm add ${pkgStr}`
+      return { cmd: "pnpm", args: ["add", ...packages], display: `pnpm add ${packages.join(" ")}` }
     default:
-      return `npm install ${pkgStr}`
+      return { cmd: "npm", args: ["install", ...packages], display: `npm install ${packages.join(" ")}` }
   }
 }

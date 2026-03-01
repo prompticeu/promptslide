@@ -38,7 +38,7 @@ export function saveAuth({ registry, token, organizationId, organizationName }) 
     organizationId: organizationId || null,
     organizationName: organizationName || null
   }
-  writeFileSync(AUTH_FILE, JSON.stringify(data, null, 2) + "\n", "utf-8")
+  writeFileSync(AUTH_FILE, JSON.stringify(data, null, 2) + "\n", { encoding: "utf-8", mode: 0o600 })
 }
 
 /**

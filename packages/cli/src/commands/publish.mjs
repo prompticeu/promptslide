@@ -31,11 +31,14 @@ function detectSteps(content) {
 
 function detectNpmDeps(content) {
   const deps = {}
-  const importRegex = /import\s+.*?\s+from\s+["']([^"'@/.][^"']*)["']/g
+  // Match both unscoped (foo) and scoped (@scope/foo) packages, exclude relative imports
+  const importRegex = /import\s+.*?\s+from\s+["']((?:@[a-zA-Z0-9-]+\/)?[a-zA-Z0-9-][^"']*)["']/g
   for (const match of content.matchAll(importRegex)) {
-    const pkg = match[1]
-    // Skip internal packages
-    if (pkg === "react" || pkg === "react-dom" || pkg.startsWith("@promptslide/")) continue
+    // Get the package name (handle deep imports like "framer-motion/client")
+    const full = match[1]
+    const pkg = full.startsWith("@") ? full.split("/").slice(0, 2).join("/") : full.split("/")[0]
+    // Skip relative imports, react, and internal packages
+    if (pkg.startsWith(".") || pkg === "react" || pkg === "react-dom" || pkg.startsWith("@promptslide/")) continue
     deps[pkg] = "latest"
   }
   return deps

@@ -1,6 +1,6 @@
 import { existsSync, writeFileSync, mkdirSync } from "node:fs"
-import { execSync } from "node:child_process"
-import { join, dirname } from "node:path"
+import { execFileSync } from "node:child_process"
+import { join, dirname, resolve, sep } from "node:path"
 
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
@@ -75,7 +75,11 @@ export async function add(args) {
     const fileHashes = {}
 
     for (const file of regItem.files) {
-      const targetPath = join(cwd, file.target, file.path)
+      const targetPath = resolve(cwd, file.target, file.path)
+      if (!targetPath.startsWith(cwd + sep)) {
+        console.log(`  ${red("Error:")} Invalid file path: ${file.target}${file.path}`)
+        continue
+      }
       const targetDir = dirname(targetPath)
       const relativePath = file.target + file.path
       const newHash = hashContent(file.content)
@@ -161,15 +165,15 @@ export async function add(args) {
   if (Object.keys(resolved.npmDeps).length > 0 && existsSync(existingPkg)) {
     const pm = detectPackageManager(cwd)
     const pkgList = Object.entries(resolved.npmDeps).map(([name, ver]) => `${name}@${ver}`)
-    const cmd = getInstallCommand(pm, pkgList)
+    const { cmd, args, display } = getInstallCommand(pm, pkgList)
     console.log()
-    console.log(`  ${dim(`Installing dependencies: ${cmd}`)}`)
+    console.log(`  ${dim(`Installing dependencies: ${display}`)}`)
     try {
-      execSync(cmd, { cwd, stdio: "inherit" })
+      execFileSync(cmd, args, { cwd, stdio: "inherit" })
       console.log(`  ${green("✓")} Dependencies installed`)
     } catch {
       console.log(`  ${red("⚠")} Dependency installation failed. Run manually:`)
-      console.log(`    ${cmd}`)
+      console.log(`    ${display}`)
     }
   }
 
