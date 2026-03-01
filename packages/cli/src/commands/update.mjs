@@ -155,7 +155,7 @@ export async function update(args) {
       const newHash = hashContent(file.content)
 
       // Check for local modifications
-      if (existsSync(targetPath) && u.storedFiles?.[relativePath]) {
+      if (existsSync(targetPath) && u.storedFiles[relativePath]) {
         const dirty = isFileDirty(cwd, relativePath, u.storedFiles[relativePath])
         if (dirty) {
           const overwrite = await confirm(
