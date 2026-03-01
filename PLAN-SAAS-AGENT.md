@@ -65,6 +65,35 @@ The original plan embeds the entire Vite dev server output in an `<iframe>`. But
 4. **Grid view is duplicated** — The SaaS app wants its own slide thumbnail strip/grid, but the iframe already has one that can't be styled or integrated.
 5. **No way to deep-link or control** — The SaaS app can't easily get slide metadata, navigate programmatically, or know the current slide without a postMessage bridge.
 
+### Why Not Render Slides Directly in the SaaS App?
+
+An alternative to the iframe is rendering `SlideRenderer` as a direct React component inside the SaaS Next.js app. This would eliminate the iframe entirely. **This is not safe:**
+
+1. **Security** — Slides are user/AI-generated `.tsx` code. Rendering them directly in the SaaS app's JS context means they can access the DOM, cookies, `localStorage`, auth tokens, and make API calls with the user's session. A malicious or buggy slide could XSS the entire SaaS app. The iframe provides JS execution isolation for free.
+
+2. **Compilation** — Slides require Vite's build pipeline (Tailwind v4 PostCSS, path aliases `@/`, virtual modules). You can't import raw `.tsx` slide files into a running Next.js app — they need Vite to compile them first. The sandbox's Vite server is the only place this happens.
+
+3. **CSS isolation** — Slide `globals.css` uses `@theme inline`, `@custom-variant`, and custom Tailwind config that would conflict with the SaaS app's own styles. The iframe gives each slide deck its own document with isolated styles.
+
+4. **Dependency conflicts** — Different React/Framer Motion versions between the SaaS app and `promptslide` would cause runtime errors.
+
+**Verdict: The iframe IS the sandbox — it provides security, CSS, and runtime isolation.**
+
+### Are Animations Smooth Inside an iframe?
+
+**Yes, fully smooth.** All PromptSlide animations are Framer Motion `motion.div` elements using GPU-composited properties (`transform`, `opacity`):
+
+| Animation Type | Mechanism | Duration | Properties |
+|---|---|---|---|
+| Slide transitions | `AnimatePresence` + motion variants | 0.3s | `translate`, `scale`, `opacity` |
+| Step animations (`Animated`) | Spring physics (stiffness 300, damping 30) | 0.4s | `translate`, `opacity` |
+| Stagger groups (`AnimatedGroup`) | Container `staggerChildren` | 0.1s/child | `translate`, `opacity` |
+| Morph (`Morph*`) | `layoutId` cross-slide morphing | 0.8s | `layout` + `opacity` |
+
+The iframe has its own rendering context and compositor layer. Framer Motion's `requestAnimationFrame` loop runs at full frame rate inside the iframe. The iframe boundary is invisible to the animation engine — no cross-boundary rendering occurs. This is the same architecture used by CodeSandbox, StackBlitz, and Figma embeds.
+
+The only latency is in the `postMessage` bridge for **control** (SaaS → iframe `navigate`/`advance` commands), which adds ~1-2ms — imperceptible.
+
 ### The Solution: Refactor `SlideDeck` → Separate Rendering from Chrome
 
 Split the monolithic `SlideDeck` component into composable parts:
@@ -91,6 +120,12 @@ The good news: **most of the building blocks are already separate**. The `SlideD
 ---
 
 ## 3. Revised Rendering Architecture
+
+### Single iframe, not one per slide
+
+The SaaS app embeds **one** `<iframe>` pointing at the sandbox's `/embed` route. This single iframe is the live rendering surface — the SaaS app controls which slide is displayed via `postMessage`. There is no per-slide iframe (each iframe would spin up a full React + Framer Motion app, which is too expensive for 10-20 slides).
+
+For thumbnail/grid views, the SaaS app uses **static snapshots** — see §3.2 below.
 
 ### Two modes, one compilation pipeline
 
@@ -138,11 +173,12 @@ export function SlideEmbed({ slides }: { slides: SlideConfig[] }) {
 
   // Listen for commands from parent (SaaS app)
   useEffect(() => {
-    const handler = (e: MessageEvent) => {
-      if (e.data?.type === 'navigate')   goToSlide(e.data.slide)
-      if (e.data?.type === 'advance')    advance()
-      if (e.data?.type === 'goBack')     goBack()
-      if (e.data?.type === 'getState')   reportState()
+    const handler = async (e: MessageEvent) => {
+      if (e.data?.type === 'navigate')         goToSlide(e.data.slide)
+      if (e.data?.type === 'advance')          advance()
+      if (e.data?.type === 'goBack')           goBack()
+      if (e.data?.type === 'getState')         reportState()
+      if (e.data?.type === 'captureSnapshot')  await captureAndSendSnapshot()
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
@@ -193,6 +229,65 @@ The SaaS app's preview panel renders:
 2. Its own navigation strip below the iframe (built from `slideState` messages)
 3. Its own grid/thumbnail view (either by requesting screenshots from sandbox, or rendering multiple small iframes)
 4. Its own fullscreen button (fullscreens the iframe element, not the sandbox page)
+
+### 3.2 Thumbnail Generation for Grid/Nav Strip
+
+The SaaS app needs slide thumbnails for the navigation strip and grid view, but there's only one live iframe. Strategy: **cycle-and-capture**.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  On deck load (or after HMR update):                     │
+│                                                          │
+│  1. Send { type: 'navigate', slide: 0 } → iframe         │
+│  2. Wait for { type: 'slideReady' } response              │
+│  3. Send { type: 'captureSnapshot' } → iframe             │
+│  4. Receive { type: 'snapshot', slide: 0, dataUrl: '...' }│
+│  5. Repeat for slides 1..N                                │
+│  6. Store dataUrl thumbnails in SaaS state                │
+│  7. Navigate back to the user's current slide             │
+│                                                          │
+│  The active slide uses the live iframe.                   │
+│  All other slides show static thumbnail images.           │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Implementation in `SlideEmbed`:**
+
+The embed component handles a `captureSnapshot` message by drawing the current slide to a canvas via `html2canvas` (or the simpler approach: use the browser's built-in `OffscreenCanvas` + `document.documentElement` rendering). It then posts back a `snapshot` message with the data URL.
+
+```tsx
+// In SlideEmbed postMessage handler:
+if (e.data?.type === 'captureSnapshot') {
+  // Use html2canvas or a lightweight DOM-to-image approach
+  const canvas = await html2canvas(document.getElementById('slide-root')!)
+  window.parent.postMessage({
+    type: 'snapshot',
+    slide: currentSlide,
+    dataUrl: canvas.toDataURL('image/jpeg', 0.7)
+  }, '*')
+}
+```
+
+**Nav strip rendering in SaaS app:**
+
+```tsx
+// SaaS preview-panel.tsx
+<div className="flex gap-2">
+  {thumbnails.map((thumb, i) => (
+    <button key={i} onClick={() => navigateToSlide(i)}
+            className={i === currentSlide ? 'ring-2 ring-primary' : ''}>
+      {i === currentSlide
+        ? null  // Live iframe is showing this slide
+        : <img src={thumb.dataUrl} className="aspect-video w-24 rounded" />
+      }
+    </button>
+  ))}
+</div>
+```
+
+**When to re-capture:** After any `hmrUpdate` event (agent wrote a file, user edited code), re-cycle through all slides to refresh thumbnails. This adds ~100-200ms per slide (mostly `html2canvas` time). For a 10-slide deck: ~1-2s total, done in the background while the user sees the live slide.
+
+**Alternative for Phase 2:** If `html2canvas` quality isn't sufficient, the sandbox can expose a screenshot endpoint using Puppeteer/Playwright running inside the E2B sandbox, which renders each slide at full resolution. This is heavier but produces pixel-perfect thumbnails.
 
 ### Vite plugin changes for `/embed` route
 
@@ -370,8 +465,8 @@ iframe.contentWindow.postMessage({ type: 'goBack' }, '*')
 // Request current state
 iframe.contentWindow.postMessage({ type: 'getState' }, '*')
 
-// Set view mode (for thumbnail generation)
-iframe.contentWindow.postMessage({ type: 'setViewMode', mode: 'grid' }, '*')
+// Request a snapshot of the current slide (for thumbnails)
+iframe.contentWindow.postMessage({ type: 'captureSnapshot' }, '*')
 ```
 
 ### iframe → SaaS (events)
@@ -391,6 +486,19 @@ iframe.contentWindow.postMessage({ type: 'setViewMode', mode: 'grid' }, '*')
 {
   type: 'hmrUpdate',
   updatedFiles: ['src/slides/slide-market.tsx']
+}
+
+// Emitted when a slide finishes rendering (after navigate)
+{
+  type: 'slideReady',
+  slide: 2
+}
+
+// Emitted in response to captureSnapshot (for thumbnails)
+{
+  type: 'snapshot',
+  slide: 2,
+  dataUrl: 'data:image/jpeg;base64,...'  // ~10-50KB per thumbnail
 }
 
 // Emitted when an error boundary catches
@@ -900,3 +1008,7 @@ export function createViteConfig({ cwd, mode = "development" }) {
 8. **Fixed dependency set, no runtime installs** — The template ships with everything slides need (promptslide, lucide-react, framer-motion, Tailwind v4, clsx, tailwind-merge). No `npm install` per session. "Dependencies" in the SaaS context means file-to-file imports (`@/layouts/`, `@/slides/`), not package management. This makes sandbox init instant (just file writes).
 
 9. **Registry compatibility gate** — SaaS-published slides must use the standard package set. The CLI can still publish/add slides with additional deps for local use. This is enforced at publish time, not runtime.
+
+10. **Single iframe, not direct rendering** — User/AI-generated `.tsx` slides must not run in the SaaS app's JS context (security: DOM/cookie/token access, XSS risk). The iframe provides JS execution isolation, CSS isolation, and crash isolation. Animations (Framer Motion `transform`/`opacity`) run at full frame rate inside the iframe — no cross-boundary rendering penalty. This is the same architecture used by CodeSandbox, StackBlitz, and Figma embeds.
+
+11. **Cycle-and-capture thumbnails** — The SaaS app uses one live iframe, not one per slide. For thumbnails/grid view, it navigates the iframe through each slide, captures a snapshot via `captureSnapshot`/`snapshot` postMessage, and displays static images. Only the active slide uses the live iframe. Re-capture happens after HMR updates (~1-2s for 10 slides, in the background).
