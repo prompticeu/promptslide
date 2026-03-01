@@ -10,8 +10,16 @@ export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
     <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
       {/* Gradient mesh background */}
       <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
-      <div className="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-      <div className="absolute right-10 bottom-1/3 h-64 w-64 rounded-full bg-primary/5 blur-2xl" />
+      <div className="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl print:hidden" />
+      <div className="absolute right-10 bottom-1/3 h-64 w-64 rounded-full bg-primary/5 blur-2xl print:hidden" />
+      {/* Print-friendly gradient replacement (blur doesn't render in PDF) */}
+      <div
+        className="pointer-events-none absolute inset-0 hidden print:block"
+        style={{
+          background:
+            "radial-gradient(ellipse at 30% 40%, oklch(0.6 0.2 250 / 0.12) 0%, transparent 60%), radial-gradient(ellipse at 75% 60%, oklch(0.6 0.2 250 / 0.06) 0%, transparent 50%)"
+        }}
+      />
 
       {/* Content */}
       <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">

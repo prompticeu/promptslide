@@ -26,6 +26,11 @@ const stack = [
     description: "Instant HMR — slides appear the moment the agent saves a file"
   },
   {
+    name: "TypeScript",
+    role: "Type Safety",
+    description: "Full type checking for slide props, themes, and component APIs"
+  },
+  {
     name: "Lucide Icons",
     role: "Iconography",
     description: "1000+ beautiful, consistent icons ready to use in any slide"
@@ -42,20 +47,28 @@ export function SlideTechStack({ slideNumber, totalSlides }: SlideProps) {
     >
       <div className="relative flex h-full items-center">
         {/* Background gradient orbs */}
-        <div className="absolute -top-20 -right-20 h-80 w-80 rounded-full bg-gradient-to-br from-primary/25 to-transparent blur-2xl" />
-        <div className="absolute -bottom-10 -left-10 h-60 w-60 rounded-full bg-gradient-to-tr from-primary/15 to-transparent blur-xl" />
+        <div className="absolute -top-20 -right-20 h-80 w-80 rounded-full bg-gradient-to-br from-primary/20 to-transparent blur-3xl print:hidden" />
+        <div className="absolute -bottom-20 left-1/3 h-60 w-60 rounded-full bg-gradient-to-tr from-primary/10 to-transparent blur-2xl print:hidden" />
+        {/* Print-friendly gradient replacement (blur doesn't render in PDF) */}
+        <div
+          className="pointer-events-none absolute inset-0 hidden print:block"
+          style={{
+            background:
+              "radial-gradient(ellipse at 80% 10%, oklch(0.6 0.2 250 / 0.15) 0%, transparent 50%), radial-gradient(ellipse at 35% 90%, oklch(0.6 0.2 250 / 0.08) 0%, transparent 50%)"
+          }}
+        />
 
         {/* Glass cards */}
         <AnimatedGroup
           startStep={1}
           animation="scale"
           staggerDelay={0.08}
-          className="relative z-10 grid w-full grid-cols-2 gap-5"
+          className="relative z-10 grid w-full grid-cols-3 gap-4"
         >
           {stack.map(item => (
             <div
               key={item.name}
-              className="rounded-2xl border border-white/10 bg-white/5 px-6 py-5 shadow-lg shadow-primary/5 backdrop-blur-md"
+              className="rounded-2xl border border-white/[0.12] bg-white/[0.08] px-5 py-4 shadow-lg shadow-primary/5 backdrop-blur-md print:bg-white/[0.12] print:backdrop-blur-none"
             >
               <div className="flex items-baseline gap-3">
                 <span className="text-lg font-bold text-primary">{item.name}</span>

@@ -6,8 +6,8 @@ import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 const steps = [
   {
-    title: "Clone & Install",
-    description: "git clone, npm install, npm run dev — up and running in seconds"
+    title: "Install & Scaffold",
+    description: "Install the Agent Skill or run bun create slides my-deck — ready in seconds"
   },
   {
     title: "Open Your Agent",

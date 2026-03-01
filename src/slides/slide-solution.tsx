@@ -1,54 +1,87 @@
 import type { SlideProps } from "promptslide"
 
 import { Animated } from "promptslide"
+import { MessageSquare, Eye, Presentation, ChevronRight } from "lucide-react"
 
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
+const steps = [
+  {
+    icon: MessageSquare,
+    label: "Describe it",
+    description: "Tell your coding agent what slides you need in plain language.",
+  },
+  {
+    icon: Eye,
+    label: "See it",
+    description: "Watch components appear in real-time with hot reload.",
+  },
+  {
+    icon: Presentation,
+    label: "Present it",
+    description: "Go fullscreen and present — no export step required.",
+  },
+]
+
 export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
-      <div className="-mx-12 -mt-12 -mb-6 grid h-[calc(100%+4.5rem)] grid-cols-5">
-        {/* Left panel — bold statement on solid primary */}
-        <Animated
-          step={1}
-          animation="slide-right"
-          className="col-span-2 flex flex-col justify-center bg-primary p-12"
-        >
-          <h2 className="text-5xl leading-tight font-bold text-primary-foreground">
-            Describe it.
-            <br />
-            See it.
-            <br />
-            Present it.
-          </h2>
-          <p className="mt-6 text-lg text-primary-foreground/80">
-            Tell your coding agent what slides you need. Watch them appear in real-time.
-          </p>
+    <SlideLayoutCentered
+      slideNumber={slideNumber}
+      totalSlides={totalSlides}
+      eyebrow="THE SOLUTION"
+      title="Describe it. See it. Present it."
+    >
+      <div className="flex h-full flex-col justify-center gap-10">
+        {/* Three-step flow */}
+        <Animated step={1} animation="slide-up">
+          <div className="flex items-stretch gap-3">
+            {steps.map((step, i) => (
+              <div key={step.label} className="flex flex-1 items-stretch gap-3">
+                <div className="relative flex flex-col items-start rounded-2xl border border-border bg-gradient-to-b from-card to-muted/20 p-8">
+                  {/* Large step number as background accent */}
+                  <span className="pointer-events-none absolute top-4 right-5 text-7xl font-black text-primary/[0.07]">
+                    {i + 1}
+                  </span>
+
+                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 ring-1 ring-primary/20">
+                    <step.icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-foreground">{step.label}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {step.description}
+                  </p>
+                </div>
+
+                {/* Connector arrow between cards */}
+                {i < steps.length - 1 && (
+                  <div className="flex shrink-0 items-center">
+                    <ChevronRight className="h-5 w-5 text-primary/40" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </Animated>
 
-        {/* Right panel — terminal demo */}
-        <div className="col-span-3 flex items-center justify-center p-12">
-          <Animated step={2} animation="slide-left" className="w-full">
-            <div className="w-full rounded-xl border border-border bg-card p-6">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-red-500/60" />
-                <div className="h-3 w-3 rounded-full bg-yellow-500/60" />
-                <div className="h-3 w-3 rounded-full bg-green-500/60" />
-                <span className="ml-2 font-mono text-xs text-muted-foreground">terminal</span>
-              </div>
-              <div className="space-y-2 font-mono text-sm">
-                <p className="text-muted-foreground">$ npm run dev</p>
-                <p className="text-green-400">VITE v6.4 ready in 400ms</p>
-                <p className="mt-4 text-muted-foreground">$ claude</p>
-                <p className="text-foreground">
-                  &gt; Create a pitch deck about our AI product with slides for problem, solution,
-                  market, team, and fundraising
-                </p>
-                <p className="mt-2 text-primary">Creating 6 slides...</p>
-              </div>
+        {/* Terminal demo */}
+        <Animated step={2} animation="slide-up">
+          <div className="w-full rounded-xl border border-primary/20 bg-card p-6 shadow-lg shadow-primary/5">
+            <div className="mb-3 flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-red-500/60" />
+              <div className="h-3 w-3 rounded-full bg-yellow-500/60" />
+              <div className="h-3 w-3 rounded-full bg-green-500/60" />
+              <span className="ml-2 font-mono text-xs text-muted-foreground">terminal</span>
             </div>
-          </Animated>
-        </div>
+            <div className="space-y-2 font-mono text-sm">
+              <p className="text-muted-foreground">$ claude</p>
+              <p className="text-foreground">
+                &gt; Create a pitch deck about our AI product with slides for problem, solution,
+                market, team, and fundraising
+              </p>
+              <p className="mt-2 text-primary">Creating 6 slides...</p>
+            </div>
+          </div>
+        </Animated>
       </div>
     </SlideLayoutCentered>
   )
