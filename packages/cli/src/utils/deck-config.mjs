@@ -173,7 +173,7 @@ export function replaceDeckConfig(cwd, slides, opts = {}) {
   const configPath = join(cwd, DECK_CONFIG_PATH)
 
   const imports = [
-    `import type { SlideConfig } from "@promptslide/core"`,
+    `import type { SlideConfig } from "promptslide"`,
     ...slides.map(s => `import { ${s.componentName} } from "${s.importPath}"`)
   ].join("\n")
 

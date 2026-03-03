@@ -187,12 +187,18 @@ export async function publish(args) {
   const auth = requireAuth()
 
   // Determine file to publish
-  let filePath = args.find(a => !a.startsWith("--"))
   let typeOverride = null
   const typeIdx = args.indexOf("--type")
   if (typeIdx !== -1 && args[typeIdx + 1]) {
     typeOverride = args[typeIdx + 1]
   }
+
+  const flagIndices = new Set()
+  if (typeIdx !== -1) {
+    flagIndices.add(typeIdx)
+    flagIndices.add(typeIdx + 1)
+  }
+  let filePath = args.find((a, i) => !a.startsWith("--") && !flagIndices.has(i))
 
   if (!filePath) {
     // Interactive mode: scan for files

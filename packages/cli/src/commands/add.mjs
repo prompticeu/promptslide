@@ -110,7 +110,7 @@ export async function add(args) {
     }
   }
 
-  if (written.length === 0) {
+  if (written.length === 0 && writtenByItem.size === 0) {
     console.log(`  ${dim("All files already exist. Nothing to add.")}`)
     console.log()
     closePrompts()
