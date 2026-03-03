@@ -22,7 +22,7 @@ export function createViteConfig({ cwd, mode = "development" }) {
     configFile: false,
     root: cwd,
     mode,
-    plugins: [react(), promptslidePlugin()],
+    plugins: [react(), promptslidePlugin({ root: cwd })],
     resolve: {
       alias: {
         "@": resolve(cwd, "src"),

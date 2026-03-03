@@ -25,10 +25,60 @@ interface SlideDeckProps {
 }
 
 // =============================================================================
+// EXPORT VIEW (for Playwright screenshot capture)
+// =============================================================================
+
+function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideIndex: number }) {
+  const [ready, setReady] = useState(false)
+  const clampedIndex = Math.max(0, Math.min(slideIndex, slides.length - 1))
+  const slideConfig = slides[clampedIndex]!
+  const SlideComponent = slideConfig.component
+
+  useEffect(() => {
+    setReady(true)
+  }, [])
+
+  return (
+    <div
+      data-export-ready={ready ? "true" : undefined}
+      style={{
+        width: SLIDE_DIMENSIONS.width,
+        height: SLIDE_DIMENSIONS.height,
+        overflow: "hidden",
+        position: "relative",
+        background: "black"
+      }}
+    >
+      <AnimationProvider
+        currentStep={slideConfig.steps}
+        totalSteps={slideConfig.steps}
+        showAllAnimations={true}
+      >
+        <SlideErrorBoundary slideIndex={clampedIndex} slideTitle={slideConfig.title}>
+          <SlideComponent slideNumber={clampedIndex + 1} totalSlides={slides.length} />
+        </SlideErrorBoundary>
+      </AnimationProvider>
+    </div>
+  )
+}
+
+// =============================================================================
 // COMPONENT
 // =============================================================================
 
 export function SlideDeck({ slides, transition, directionalTransition }: SlideDeckProps) {
+  // Check for export mode via URL params
+  const [exportParams] = useState(() => {
+    if (typeof window === "undefined") return null
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("export") !== "true") return null
+    return { slideIndex: parseInt(params.get("slide") || "0", 10) }
+  })
+
+  if (exportParams) {
+    return <SlideExportView slides={slides} slideIndex={exportParams.slideIndex} />
+  }
+
   const [viewMode, setViewMode] = useState<ViewMode>("slide")
   const [isPresentationMode, setIsPresentationMode] = useState(false)
   const [scale, setScale] = useState(1)
