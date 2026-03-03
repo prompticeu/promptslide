@@ -128,7 +128,9 @@ Vite hot-reloads — the new slide appears instantly in the browser.
 ```
 src/
 ├── layouts/                      # Slide layouts (your "master theme" — create freely)
-│   └── slide-layout-centered.tsx # Default layout with header + footer
+│   ├── slide-layout-centered.tsx # Default layout with header + footer
+│   ├── slide-layout-hero.tsx     # Left-aligned hero with gradient mesh
+│   └── slide-layout-split.tsx    # Two-panel side-by-side layout
 ├── slides/            # YOUR SLIDES GO HERE
 ├── theme.ts           # Theme config (brand name, logo, colors, fonts)
 ├── deck-config.ts     # Slide order + step counts (modify this)
@@ -158,6 +160,49 @@ import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 ```
 
 Slide dimensions: **1280x720** (16:9). Design content for this size — it scales automatically in presentation mode.
+
+### SlideLayoutHero API
+
+Left-aligned, bottom-weighted hero layout with gradient mesh background. Use for title slides and section openers.
+
+```tsx
+import { SlideLayoutHero } from "@/layouts/slide-layout-hero"
+
+<SlideLayoutHero
+  slideNumber={slideNumber}
+  totalSlides={totalSlides}
+  eyebrow="RESEARCH TOPIC"    // Optional: small label above title
+  title="Large Hero Title"     // Required: main heading
+  subtitle="Supporting text"   // Optional: subtitle
+  hideFooter                   // Optional: hide footer
+>
+  {/* Optional children below subtitle */}
+</SlideLayoutHero>
+```
+
+### SlideLayoutSplit API
+
+Two-panel side-by-side layout for comparisons, text + visual, or content pairs.
+
+```tsx
+import { SlideLayoutSplit } from "@/layouts/slide-layout-split"
+
+<SlideLayoutSplit
+  slideNumber={slideNumber}
+  totalSlides={totalSlides}
+  leftTitle="Left Heading"     // Optional: title for left panel
+  rightTitle="Right Heading"   // Optional: title for right panel
+  leftAccent                   // Optional: tinted left panel background
+  rightAccent                  // Optional: tinted right panel background
+  ratio="60/40"                // Optional: "50/50" (default) | "40/60" | "60/40"
+  hideFooter                   // Optional: hide footer
+>
+  {{
+    left: <div>Left panel content</div>,
+    right: <div>Right panel content</div>,
+  }}
+</SlideLayoutSplit>
+```
 
 ### Step Animations (click-to-reveal)
 
@@ -254,8 +299,9 @@ Per-slide transitions can be set via the `transition` field on individual slide 
 - Pass layout classes to `<Animated className="...">` to preserve flex/grid layout
 - Semantic color classes: `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border`
 - Icons: Import from `lucide-react` — 1000+ icons available (e.g., `import { ArrowRight, CheckCircle } from "lucide-react"`)
+- **Inline text emphasis**: Use `<span className="font-semibold text-primary">keyword</span>` to highlight key terms. Use `<span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">Label</span>` for inline badges/tokens.
 
-For layout patterns, design recipes, and creating custom layouts (master themes), see [references/slide-patterns.md](references/slide-patterns.md).
+For layout patterns (tables, timelines, flow diagrams, text techniques, card recipes, and more), see [references/slide-patterns.md](references/slide-patterns.md).
 
 ### Visual Diversity Guidelines
 

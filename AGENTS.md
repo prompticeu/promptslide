@@ -52,7 +52,9 @@ Vite will hot-reload — the new slide appears instantly in the browser.
 ```
 src/
 ├── layouts/                      # Slide layouts (your "master theme" — add/edit/delete freely)
-│   └── slide-layout-centered.tsx # Default layout with header + footer
+│   ├── slide-layout-centered.tsx # Default layout with header + footer
+│   ├── slide-layout-hero.tsx     # Left-aligned hero with gradient mesh
+│   └── slide-layout-split.tsx    # Two-panel side-by-side layout
 │
 ├── slides/                       # YOUR SLIDES GO HERE
 │   └── slide-title.tsx           # Example starter slide
@@ -109,6 +111,53 @@ import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 ```
 
 **Slide dimensions**: 1280x720 (16:9 aspect ratio). Design content for this size — it will be scaled to fit the viewport in presentation mode.
+
+---
+
+## 1b. SlideLayoutHero Component
+
+Left-aligned, bottom-weighted hero layout with gradient mesh background. Use for title slides and section openers.
+
+```tsx
+import { SlideLayoutHero } from "@/layouts/slide-layout-hero"
+
+<SlideLayoutHero
+  slideNumber={slideNumber}
+  totalSlides={totalSlides}
+  eyebrow="RESEARCH TOPIC"    // Optional: small label above title
+  title="Large Hero Title"     // Required: main heading
+  subtitle="Supporting text"   // Optional: subtitle
+  hideFooter                   // Optional: hide footer
+>
+  {/* Optional children below subtitle */}
+</SlideLayoutHero>
+```
+
+---
+
+## 1c. SlideLayoutSplit Component
+
+Two-panel side-by-side layout for comparisons, text + visual, or content pairs.
+
+```tsx
+import { SlideLayoutSplit } from "@/layouts/slide-layout-split"
+
+<SlideLayoutSplit
+  slideNumber={slideNumber}
+  totalSlides={totalSlides}
+  leftTitle="Left Heading"     // Optional: title for left panel
+  rightTitle="Right Heading"   // Optional: title for right panel
+  leftAccent                   // Optional: tinted left panel background
+  rightAccent                  // Optional: tinted right panel background
+  ratio="60/40"                // Optional: "50/50" (default) | "40/60" | "60/40"
+  hideFooter                   // Optional: hide footer
+>
+  {{
+    left: <div>Left panel content</div>,
+    right: <div>Right panel content</div>,
+  }}
+</SlideLayoutSplit>
+```
 
 ---
 
@@ -440,6 +489,8 @@ Before generating a multi-slide deck, plan visual diversity. Aim for:
 - At least 1 slide using `AnimatedGroup` instead of manual `Animated` stagger
 - At least 1 asymmetric layout (not all equal-column grids)
 - At least 1 typography-driven slide (where text IS the visual, no cards)
+- At least 1 use of inline colored text (`<span className="text-primary">keyword</span>`) for emphasis
+- Use data tables for comparison-heavy content instead of bullet lists
 - No two consecutive slides using the same layout pattern
 
 ### Layout & Card Recipes
@@ -447,9 +498,12 @@ Before generating a multi-slide deck, plan visual diversity. Aim for:
 Refer to `references/slide-patterns.md` for ready-to-use recipes including:
 - **Backgrounds:** Gradient mesh, split screen, spotlight vignette
 - **Card styles:** Glass (`backdrop-blur-md`), gradient, elevated (shadow), accent-border
-- **Layouts:** Bento grid, vertical timeline, comparison/before-after, asymmetric columns
-- **Data viz:** Big numbers + progress bars, CSS bar charts, SVG donut rings
-- **Typography:** Large quotes, headline-only with accent word
+- **Layouts:** Bento grid, mixed card sizes, vertical/horizontal timelines, comparison/before-after, asymmetric columns
+- **Data viz:** Big numbers + progress bars, CSS bar charts, SVG donut rings, data tables with status badges
+- **Typography:** Large quotes, headline-only with accent word, blockquotes with attribution
+- **Text techniques:** Colored keywords, inline badges/tokens, strikethrough comparisons
+- **Process:** Flow diagrams/pipelines, definition lists with citations
+- **Reference:** Bibliography slide with two-column source list
 
 ### Animation Selection Guide
 
@@ -464,6 +518,10 @@ Match animation types to layout styles:
 | Comparison | `slide-right` + `slide-left` | Opposing directions |
 | Metrics | `slide-up` | Vertical reveal |
 | Quote | `fade` | Let words speak |
+| Data Table | `fade` or `scale` | Table appears as a unit |
+| Horiz. Timeline | `scale` per marker | Nodes pop in along the line |
+| Flow Diagram | `fade` per node | Sequential reveal matches flow |
+| Definition List | `slide-up` per term | Vertical stack suits vertical reveal |
 
 **Prefer `AnimatedGroup`** over manually wrapping each child in `<Animated>` for grids and collections — it's cleaner and produces better stagger timing.
 

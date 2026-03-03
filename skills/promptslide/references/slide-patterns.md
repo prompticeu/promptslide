@@ -133,6 +133,61 @@ Thick left accent line for visual emphasis.
 
 ---
 
+## Inline Text Techniques
+
+Use these within any layout to add visual emphasis without additional components.
+
+### Colored Keywords
+
+Highlight key terms with theme-aware colors:
+
+```tsx
+<p className="text-lg text-muted-foreground">
+  Combine <span className="font-semibold text-primary">retrieval</span> with{" "}
+  <span className="font-semibold text-primary">generation</span> for accurate results.
+</p>
+```
+
+### Inline Badges / Tokens
+
+Small colored labels for categories, tags, or status:
+
+```tsx
+<span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-primary">
+  Retrieval
+</span>
+<span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+  Optional
+</span>
+```
+
+### Blockquote with Attribution
+
+Use for pull-quotes, definitions, or key takeaways:
+
+```tsx
+<blockquote className="border-l-4 border-primary/40 pl-6">
+  <p className="text-lg italic text-foreground/90">
+    "The system decides at each step whether to retrieve, reason, or respond."
+  </p>
+  <footer className="mt-2 text-sm text-muted-foreground">— Paper Title, 2024</footer>
+</blockquote>
+```
+
+### Comparison Row with Strikethrough
+
+Show before/after inline:
+
+```tsx
+<div className="flex items-center gap-4">
+  <span className="text-muted-foreground line-through">Manual pipeline</span>
+  <span className="text-primary">→</span>
+  <span className="font-semibold text-foreground">Autonomous agent</span>
+</div>
+```
+
+---
+
 ## Layout Recipes
 
 ### Bento Grid
@@ -165,6 +220,44 @@ Mixed-size tiles create visual interest. Uses CSS grid with spanning.
 ```
 
 Steps: 1 (use `AnimatedGroup` with `slide-down`)
+
+### Mixed Card Sizes
+
+2 large cards on top + 3 small cards below. Uses different grid tracks per row.
+
+```tsx
+<div className="flex h-full flex-col gap-4">
+  {/* Top row — 2 large cards */}
+  <div className="grid flex-1 grid-cols-2 gap-4">
+    <div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/15 to-transparent p-8">
+      <h3 className="text-xl font-semibold text-foreground">Primary Feature</h3>
+      <p className="mt-3 text-sm text-muted-foreground">Description with more room for detail.</p>
+    </div>
+    <div className="rounded-2xl border border-border bg-card p-8">
+      <h3 className="text-xl font-semibold text-foreground">Secondary Feature</h3>
+      <p className="mt-3 text-sm text-muted-foreground">Another substantial feature area.</p>
+    </div>
+  </div>
+
+  {/* Bottom row — 3 small cards */}
+  <div className="grid grid-cols-3 gap-4">
+    <div className="rounded-xl bg-muted/30 p-5">
+      <h4 className="font-semibold text-foreground">Quick A</h4>
+      <p className="mt-1 text-xs text-muted-foreground">Brief note</p>
+    </div>
+    <div className="rounded-xl bg-muted/30 p-5">
+      <h4 className="font-semibold text-foreground">Quick B</h4>
+      <p className="mt-1 text-xs text-muted-foreground">Brief note</p>
+    </div>
+    <div className="rounded-xl bg-primary p-5">
+      <h4 className="font-semibold text-primary-foreground">Highlight</h4>
+      <p className="mt-1 text-xs text-primary-foreground/80">Accent card</p>
+    </div>
+  </div>
+</div>
+```
+
+Steps: 1 (use `AnimatedGroup` with `scale`)
 
 ### Vertical Timeline
 
@@ -216,6 +309,103 @@ const steps = [
 ```
 
 Steps: equals number of items (one per timeline node)
+
+### Horizontal Timeline
+
+Year markers or phase labels along a horizontal line. Best for 3–5 items.
+
+```tsx
+const phases = [
+  { year: "2020", label: "Rule-Based" },
+  { year: "2022", label: "RAG Pipelines" },
+  { year: "2024", label: "Agentic RAG" },
+]
+
+<div className="flex h-full flex-col items-center justify-center">
+  <div className="relative flex w-full max-w-4xl items-center justify-between">
+    {/* Connecting line */}
+    <div className="absolute left-0 right-0 top-1/2 h-0.5 -translate-y-1/2 bg-gradient-to-r from-primary/20 via-primary to-primary/20" />
+
+    {phases.map((phase, i) => (
+      <Animated key={phase.year} step={i + 1} animation="scale">
+        <div className="relative z-10 flex flex-col items-center gap-3">
+          <div className="h-4 w-4 rounded-full bg-primary ring-4 ring-background" />
+          <div className="text-lg font-bold text-primary">{phase.year}</div>
+          <div className="text-sm text-muted-foreground">{phase.label}</div>
+        </div>
+      </Animated>
+    ))}
+  </div>
+</div>
+```
+
+Steps: equals number of phases
+
+### Flow Diagram / Pipeline
+
+Connected nodes showing a process or architecture. Use flex with arrow separators.
+
+```tsx
+const nodes = [
+  { label: "Query", icon: Search },
+  { label: "Retrieve", icon: Database },
+  { label: "Reason", icon: Brain },
+  { label: "Respond", icon: MessageSquare },
+]
+
+<div className="flex items-center justify-center gap-2">
+  {nodes.map((node, i) => (
+    <Animated key={node.label} step={i + 1} animation="fade">
+      <div className="flex items-center gap-2">
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card px-6 py-4">
+          <node.icon className="h-6 w-6 text-primary" />
+          <span className="text-sm font-semibold text-foreground">{node.label}</span>
+        </div>
+        {i < nodes.length - 1 && (
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        )}
+      </div>
+    </Animated>
+  ))}
+</div>
+```
+
+Steps: equals number of nodes
+
+For corrective/feedback loops, add a dashed curved line back to an earlier node:
+
+```tsx
+{/* Dashed feedback loop — place below the node row */}
+<div className="mx-auto mt-4 w-2/3 border-b-2 border-dashed border-primary/30 rounded-b-full h-6" />
+<div className="text-center text-xs text-primary/60 mt-1">Re-retrieve if insufficient</div>
+```
+
+### Definition List
+
+Stacked term/definition pairs, ideal for research concepts or glossaries:
+
+```tsx
+const terms = [
+  { term: "Agentic RAG", citation: "Smith et al., 2024", definition: "An LLM agent that autonomously decides when and what to retrieve." },
+  { term: "Self-Reflection", citation: "Shinn et al., 2023", definition: "The agent evaluates its own outputs and iterates if quality is low." },
+]
+
+<div className="space-y-6">
+  {terms.map((item, i) => (
+    <Animated key={item.term} step={i + 1} animation="slide-up">
+      <div className="border-l-2 border-primary/30 pl-6">
+        <div className="flex items-baseline gap-3">
+          <h3 className="text-lg font-bold text-foreground">{item.term}</h3>
+          <span className="text-xs text-muted-foreground">{item.citation}</span>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">{item.definition}</p>
+      </div>
+    </Animated>
+  ))}
+</div>
+```
+
+Steps: equals number of terms
 
 ### Comparison / Before-After
 
@@ -325,6 +515,53 @@ Simple percentage ring using two SVG circles.
 <div className="text-3xl font-bold text-primary">75%</div>
 ```
 
+### Data Table
+
+Structured comparison with header row and colored status badges. Keep to 5 columns and 6 rows max for readability.
+
+```tsx
+const rows = [
+  { method: "Naive RAG", complexity: "Low", accuracy: "72%", adaptive: false },
+  { method: "Agentic RAG", complexity: "Medium", accuracy: "91%", adaptive: true },
+]
+
+<div className="overflow-hidden rounded-xl border border-border">
+  <table className="w-full text-left text-sm">
+    <thead>
+      <tr className="border-b border-border bg-muted/30">
+        <th className="px-6 py-3 font-semibold text-foreground">Method</th>
+        <th className="px-6 py-3 font-semibold text-foreground">Complexity</th>
+        <th className="px-6 py-3 font-semibold text-foreground">Accuracy</th>
+        <th className="px-6 py-3 font-semibold text-foreground">Adaptive</th>
+      </tr>
+    </thead>
+    <tbody>
+      {rows.map((row) => (
+        <tr key={row.method} className="border-b border-border/50 last:border-0">
+          <td className="px-6 py-3 font-medium text-foreground">{row.method}</td>
+          <td className="px-6 py-3">
+            <span className={cn(
+              "rounded-full px-2 py-0.5 text-xs font-semibold",
+              row.complexity === "Low" && "bg-green-500/15 text-green-400",
+              row.complexity === "Medium" && "bg-yellow-500/15 text-yellow-400",
+              row.complexity === "High" && "bg-red-500/15 text-red-400"
+            )}>{row.complexity}</span>
+          </td>
+          <td className="px-6 py-3 text-muted-foreground">{row.accuracy}</td>
+          <td className="px-6 py-3">
+            {row.adaptive
+              ? <Check className="h-4 w-4 text-primary" />
+              : <X className="h-4 w-4 text-muted-foreground/40" />}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
+```
+
+Steps: 1 (use `fade` or `scale` on the whole table)
+
 ---
 
 ## Typography-Driven Layouts
@@ -405,6 +642,32 @@ Steps: 0
 
 ---
 
+## Reference / Bibliography Slide
+
+Two-column numbered source list for research or data-heavy decks.
+
+```tsx
+const sources = [
+  "[1] Lewis et al. (2020). Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks.",
+  "[2] Shinn et al. (2023). Reflexion: Language Agents with Verbal Reinforcement Learning.",
+  "[3] Yao et al. (2023). ReAct: Synergizing Reasoning and Acting in Language Models.",
+  "[4] Gao et al. (2024). Retrieval-Augmented Generation for Large Language Models: A Survey.",
+]
+
+<div className="flex h-full flex-col justify-center">
+  <h2 className="mb-8 text-2xl font-bold text-foreground">References</h2>
+  <div className="columns-2 gap-12 text-sm leading-relaxed text-muted-foreground">
+    {sources.map((s, i) => (
+      <p key={i} className="mb-3 break-inside-avoid">{s}</p>
+    ))}
+  </div>
+</div>
+```
+
+Steps: 0 or 1 (use `fade` on the whole list)
+
+---
+
 ## Animation Variety Guide
 
 Match animation types to layout styles for maximum impact:
@@ -419,6 +682,11 @@ Match animation types to layout styles for maximum impact:
 | Big Numbers       | `slide-up` per metric                             | Vertical reveal suits vertical stacks      |
 | Quote             | `fade`                                            | Let the words speak                        |
 | Data/Charts       | `scale`                                           | Drawing attention to the visual element    |
+| Data Table        | `fade` or `scale`                                 | Table appears as a unit                    |
+| Horizontal Timeline | `scale` per marker                              | Nodes pop in along the line                |
+| Flow Diagram      | `fade` per node                                   | Sequential reveal matches process flow     |
+| Definition List   | `slide-up` per term                               | Vertical stack suits vertical reveal       |
+| Blockquote        | `fade`                                            | Let the words speak                        |
 
 ---
 
@@ -446,3 +714,19 @@ Avoid these common mistakes that make every slide look the same:
 8. **Team** — Glass cards on gradient mesh
 9. **Business Model** — Accent-border cards or split layout
 10. **Ask / CTA** — Quote-style closing or headline-only
+
+---
+
+## Recommended Research Deck Order
+
+1. **Title** — Hero layout with topic + subtitle
+2. **Problem / Motivation** — Big quote or headline-only with research question
+3. **Background** — Definition list with key concepts and citations
+4. **Evolution / Timeline** — Horizontal timeline showing progression
+5. **Architecture / Pipeline** — Flow diagram of the system
+6. **How It Works** — Split layout or numbered steps
+7. **Comparison** — Data table or before/after comparing approaches
+8. **Results** — Big numbers or bar chart with key metrics
+9. **Key Takeaways** — Bento grid or mixed card sizes
+10. **Limitations & Future Work** — Accent-border cards
+11. **References** — Two-column bibliography
