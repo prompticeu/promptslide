@@ -27,6 +27,7 @@ function printHelp() {
   console.log(`  ${bold("Registry:")}`)
   console.log(`    login           Authenticate with the slide registry`)
   console.log(`    logout          Clear stored credentials`)
+  console.log(`    org             List and switch organizations`)
   console.log(`    add ${dim("<name>")}     Install a slide/deck from the registry`)
   console.log(`    publish ${dim("[file]")} Publish a slide to the registry`)
   console.log(`    update ${dim("[name]")}  Check for and apply updates`)
@@ -73,6 +74,11 @@ switch (command) {
   case "logout": {
     const { logout } = await import("./commands/logout.mjs")
     await logout(args)
+    break
+  }
+  case "org": {
+    const { org } = await import("./commands/org.mjs")
+    await org(args)
     break
   }
   case "add": {

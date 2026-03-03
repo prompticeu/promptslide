@@ -14,10 +14,10 @@
     "format": "oxfmt --write ."
   },
   "dependencies": {
-    "promptslide": "*",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.22",
     "lucide-react": "^0.552.0",
+    "promptslide": "*",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tailwind-merge": "^3.3.1",

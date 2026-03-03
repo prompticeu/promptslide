@@ -3,7 +3,7 @@ import { join, dirname, resolve, sep } from "node:path"
 
 import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
-import { fetchRegistryItem, readLockfile, updateLockfileItem, isFileDirty, hashContent } from "../utils/registry.mjs"
+import { fetchRegistryItem, readLockfile, updateLockfileItem, removeLockfileItem, isFileDirty, hashContent } from "../utils/registry.mjs"
 import { confirm, closePrompts } from "../utils/prompts.mjs"
 
 export async function update(args) {
@@ -64,14 +64,16 @@ export async function update(args) {
         item: outdated ? latest : null,
         storedFiles: installed.files
       })
-    } catch {
+    } catch (err) {
+      const notFound = err.message?.includes("not found") || err.message?.includes("Not found")
       updates.push({
         slug,
         installed: installed.version,
         latest: "?",
         outdated: false,
         item: null,
-        error: true
+        error: true,
+        notFound
       })
     }
   }
@@ -87,7 +89,7 @@ export async function update(args) {
     const inst = `v${u.installed}`.padEnd(9)
     const lat = (typeof u.latest === "number" ? `v${u.latest}` : u.latest).padEnd(6)
     const status = u.error
-      ? red("error")
+      ? u.notFound ? yellow("removed from registry") : red("error")
       : u.outdated
         ? cyan("update available")
         : green("up to date")
@@ -96,10 +98,30 @@ export async function update(args) {
 
   console.log()
 
+  // Offer to clean up stale lockfile entries (items deleted from registry)
+  const stale = updates.filter(u => u.notFound)
+  if (stale.length > 0) {
+    console.log(`  ${yellow("⚠")} ${bold(`${stale.length}`)} item(s) no longer exist in the registry:`)
+    for (const u of stale) {
+      console.log(`    ${dim("•")} ${u.slug}`)
+    }
+    console.log()
+    const cleanup = await confirm(`  Remove stale entries from lockfile? ${dim("(local files are kept)")}`, true)
+    if (cleanup) {
+      for (const u of stale) {
+        removeLockfileItem(cwd, u.slug)
+      }
+      console.log(`  ${green("✓")} Removed ${stale.length} stale lockfile entry(s).`)
+      console.log()
+    }
+  }
+
   const outdated = updates.filter(u => u.outdated && u.item)
 
   if (outdated.length === 0) {
-    console.log(`  ${green("✓")} All items are up to date.`)
+    if (stale.length === 0) {
+      console.log(`  ${green("✓")} All items are up to date.`)
+    }
     console.log()
     closePrompts()
     return
@@ -154,8 +176,17 @@ export async function update(args) {
       const relativePath = file.target + file.path
       const newHash = hashContent(file.content)
 
-      // Check for local modifications
-      if (existsSync(targetPath) && u.storedFiles[relativePath]) {
+      // Check for local modifications (only if file exists on disk)
+      if (!existsSync(targetPath)) {
+        // File was deleted locally — restore it without prompting
+        mkdirSync(targetDir, { recursive: true })
+        writeFileSync(targetPath, file.content, "utf-8")
+        fileHashes[relativePath] = newHash
+        console.log(`  ${green("✓")} Restored ${cyan(relativePath)}`)
+        continue
+      }
+
+      if (u.storedFiles[relativePath]) {
         const dirty = isFileDirty(cwd, relativePath, u.storedFiles[relativePath])
         if (dirty) {
           const overwrite = await confirm(

@@ -3,7 +3,8 @@ import { join, basename, relative, extname } from "node:path"
 
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
-import { publishToRegistry, registryItemExists, updateLockfileItem, hashContent } from "../utils/registry.mjs"
+import { captureSlideAsDataUri, isPlaywrightAvailable } from "../utils/export.mjs"
+import { publishToRegistry, registryItemExists, updateLockfileItem, hashContent, detectPackageManager } from "../utils/registry.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
 
 function titleCase(slug) {
@@ -115,12 +116,20 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
     tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
     section = await prompt("Section:", "")
     releaseNotes = await prompt("Release notes:", "")
-    const imagePath = await prompt("Preview image path:", "")
+    const imagePath = await prompt("Preview image path (leave empty to auto-generate):", "")
     if (imagePath) {
       const resolved = join(cwd, imagePath)
       previewImage = readPreviewImage(resolved)
       if (!previewImage) {
         console.log(`  ${dim("⚠ Skipping image: file not found, unsupported format, or > 2MB")}`)
+      }
+    } else if (await isPlaywrightAvailable()) {
+      console.log(`  ${dim("Generating preview image...")}`)
+      previewImage = await captureSlideAsDataUri({ cwd, slidePath: filePath })
+      if (previewImage) {
+        console.log(`  ${green("✓")} Preview image generated`)
+      } else {
+        console.log(`  ${dim("⚠ Could not generate preview image")}`)
       }
     }
   } else {
@@ -129,7 +138,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
     tags = []
     section = ""
     releaseNotes = ""
-    previewImage = null
+    previewImage = await captureSlideAsDataUri({ cwd, slidePath: filePath }).catch(() => null)
   }
 
   const payload = {
@@ -308,7 +317,7 @@ export async function publish(args) {
   const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
   const section = await prompt("Section:", "")
   const releaseNotes = await prompt("Release notes:", "")
-  const previewImagePath = await prompt("Preview image path:", "")
+  const previewImagePath = await prompt("Preview image path (leave empty to auto-generate):", "")
   let previewImage = null
   if (previewImagePath) {
     const resolved = join(cwd, previewImagePath)
@@ -316,6 +325,19 @@ export async function publish(args) {
     if (!previewImage) {
       console.log(`  ${dim("⚠ Skipping image: file not found, unsupported format, or > 2MB")}`)
     }
+  } else if (await isPlaywrightAvailable()) {
+    console.log(`  ${dim("Generating preview image...")}`)
+    previewImage = await captureSlideAsDataUri({ cwd, slidePath: filePath })
+    if (previewImage) {
+      console.log(`  ${green("✓")} Preview image generated`)
+    } else {
+      console.log(`  ${dim("⚠ Could not generate preview image")}`)
+    }
+  } else {
+    const pm = detectPackageManager(cwd)
+    const installCmd = pm === "bun" ? "bun add -d playwright" : pm === "pnpm" ? "pnpm add -D playwright" : pm === "yarn" ? "yarn add -D playwright" : "npm install -D playwright"
+    console.log(`  ${dim("Tip: Install playwright for auto-generated preview images")}`)
+    console.log(`  ${dim(`     ${installCmd} && npx playwright install chromium`)}`)
   }
 
   console.log()

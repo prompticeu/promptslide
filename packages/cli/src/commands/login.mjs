@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process"
 
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { saveAuth, DEFAULT_REGISTRY } from "../utils/auth.mjs"
-import { closePrompts } from "../utils/prompts.mjs"
+import { prompt, closePrompts } from "../utils/prompts.mjs"
+import { fetchOrganizations } from "../utils/registry.mjs"
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -114,31 +115,53 @@ export async function login(args) {
   }
 
   const accessToken = tokenData.access_token || tokenData.token
+  console.log(`  ${green("✓")} Authenticated`)
 
-  // Step 4: Fetch session info (org membership etc.)
-  let orgData = { organizationId: null, organizationName: null }
+  // Step 4: Fetch user's organizations and let them pick
+  let organizationId = null
+  let organizationName = null
+
   try {
-    const res = await fetch(`${registry}/api/auth/get-session`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    })
-    if (res.ok) {
-      const session = await res.json()
-      orgData.organizationId = session.session?.activeOrganizationId || null
-      orgData.organizationName = session.session?.activeOrganizationName || null
+    const orgs = await fetchOrganizations({ registry, token: accessToken })
+
+    if (orgs.length === 0) {
+      console.log(`  ${dim("No organizations found. Create one at your dashboard.")}`)
+    } else if (orgs.length === 1) {
+      organizationId = orgs[0].id
+      organizationName = orgs[0].name
+    } else {
+      console.log()
+      console.log(`  ${bold("Select organization:")}`)
+      orgs.forEach((org, i) => {
+        console.log(`    ${dim(`${i + 1}.`)} ${org.name} ${dim(`(${org.slug})`)}`)
+      })
+      console.log()
+
+      const choice = await prompt("Organization number:", "1")
+      const idx = parseInt(choice, 10) - 1
+      if (idx >= 0 && idx < orgs.length) {
+        organizationId = orgs[idx].id
+        organizationName = orgs[idx].name
+      } else {
+        console.error(`  ${red("Error:")} Invalid selection. Using first organization.`)
+        organizationId = orgs[0].id
+        organizationName = orgs[0].name
+      }
     }
-  } catch {}
+  } catch (err) {
+    console.log(`  ${dim("Could not fetch organizations: " + err.message)}`)
+  }
 
   // Step 5: Save credentials
   saveAuth({
     registry,
     token: accessToken,
-    organizationId: orgData.organizationId,
-    organizationName: orgData.organizationName
+    organizationId,
+    organizationName
   })
 
-  console.log(`  ${green("✓")} Authenticated${orgData.organizationName ? ` as ${bold(orgData.organizationName)}` : ""}`)
-  if (orgData.organizationId) {
-    console.log(`  Organization: ${dim(orgData.organizationId)}`)
+  if (organizationName) {
+    console.log(`  Organization: ${bold(organizationName)}`)
   }
   console.log(`  Credentials saved to ${dim("~/.promptslide/auth.json")}`)
   console.log()

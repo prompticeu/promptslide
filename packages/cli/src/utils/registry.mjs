@@ -91,6 +91,40 @@ export function removeLockfileItem(cwd, slug) {
 }
 
 /**
+ * Build common auth headers for registry API requests.
+ * @param {{ token: string, organizationId?: string }} auth
+ * @returns {Record<string, string>}
+ */
+function authHeaders(auth) {
+  const headers = { Authorization: `Bearer ${auth.token}` }
+  if (auth.organizationId) {
+    headers["X-Organization-Id"] = auth.organizationId
+  }
+  return headers
+}
+
+/**
+ * Fetch the user's organizations from the registry.
+ * @param {{ registry: string, token: string }} auth
+ * @returns {Promise<{ id: string, name: string, slug: string, role: string }[]>}
+ */
+export async function fetchOrganizations(auth) {
+  const res = await fetch(`${auth.registry}/api/organizations`, {
+    headers: authHeaders(auth)
+  })
+
+  if (res.status === 401) {
+    throw new Error("Authentication failed. Run `promptslide login` to re-authenticate.")
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to fetch organizations (${res.status}): ${await res.text()}`)
+  }
+
+  const data = await res.json()
+  return data.organizations || []
+}
+
+/**
  * Fetch a registry item JSON from the registry API.
  * @param {string} nameOrUrl - Item name (e.g. "slide-hero-gradient") or full URL
  * @param {{ registry: string, apiKey: string }} auth - Auth credentials
@@ -102,13 +136,20 @@ export async function fetchRegistryItem(nameOrUrl, auth) {
     : `${auth.registry}/api/r/${nameOrUrl}.json`
 
   const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${auth.token}` }
+    headers: authHeaders(auth)
   })
 
   if (res.status === 401) {
     throw new Error("Authentication failed. Run `promptslide login` to re-authenticate.")
   }
   if (res.status === 403) {
+    const body = await res.json().catch(() => ({}))
+    if (body.status === "pending_review") {
+      throw new Error(`Item "${nameOrUrl}" is pending review. An admin must approve it first.`)
+    }
+    if (body.status === "rejected") {
+      throw new Error(`Item "${nameOrUrl}" was rejected by an admin.`)
+    }
     throw new Error("Access denied. This item belongs to a different organization.")
   }
   if (res.status === 404) {
@@ -199,7 +240,7 @@ export async function searchRegistry(params, auth) {
   if (params.type) url.searchParams.set("type", params.type)
 
   const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${auth.token}` }
+    headers: authHeaders(auth)
   })
 
   if (res.status === 401) {
@@ -222,7 +263,7 @@ export async function publishToRegistry(payload, auth) {
   const res = await fetch(`${auth.registry}/api/publish`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${auth.token}`,
+      ...authHeaders(auth),
       "Content-Type": "application/json"
     },
     body: JSON.stringify(payload)
