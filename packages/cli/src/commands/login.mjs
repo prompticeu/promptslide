@@ -11,8 +11,14 @@ function sleep(ms) {
 
 function openBrowser(url) {
   try {
-    const cmd = process.platform === "darwin" ? "open" : "xdg-open"
-    execFileSync(cmd, [url], { stdio: "ignore" })
+    const platform = process.platform
+    if (platform === "darwin") {
+      execFileSync("open", [url], { stdio: "ignore" })
+    } else if (platform === "win32") {
+      execFileSync("cmd", ["/c", "start", "", url], { stdio: "ignore" })
+    } else {
+      execFileSync("xdg-open", [url], { stdio: "ignore" })
+    }
   } catch {}
 }
 
