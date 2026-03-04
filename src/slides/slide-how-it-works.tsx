@@ -33,26 +33,26 @@ export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
       slideNumber={slideNumber}
       totalSlides={totalSlides}
       left={
-        <Animated step={1} animation="fade">
+        <Animated step={1} animation="fade" duration={0.5}>
           <div>
-            <div className="mb-3 text-xs font-bold tracking-[0.2em] text-primary uppercase">
+            <div className="mb-3 text-xs font-semibold tracking-[0.25em] text-primary uppercase">
               HOW IT WORKS
             </div>
-            <h2 className="text-4xl font-bold leading-tight tracking-tight text-foreground">
+            <h2 className="text-4xl font-bold leading-tight tracking-tight text-foreground" style={{ fontFamily: "Space Grotesk" }}>
               From Zero to Presentation in Minutes
             </h2>
-            <div className="mt-6 h-1 w-16 rounded-full bg-primary" />
+            <div className="mt-6 h-1 w-20 bg-primary" />
           </div>
         </Animated>
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-5">
         {steps.map((step, index) => (
-          <Animated key={step.title} step={index + 1} animation="slide-left">
-            <div className="flex items-start gap-6">
-              <span className="text-3xl font-black text-primary/20">{step.number}</span>
-              <div className="border-b border-border pb-5">
-                <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
+          <Animated key={step.title} step={index + 1} animation="slide-left" duration={0.5}>
+            <div className="flex items-start gap-6 bg-white/5 p-5 shadow-2xl">
+              <span className="text-4xl font-black text-primary/20">{step.number}</span>
+              <div>
+                <h3 className="text-lg font-bold text-foreground" style={{ fontFamily: "Space Grotesk" }}>{step.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
               </div>
             </div>

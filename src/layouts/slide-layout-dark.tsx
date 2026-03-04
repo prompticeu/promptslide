@@ -25,26 +25,26 @@ export function SlideLayoutDark({
     : undefined
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-foreground px-12 pt-10 pb-6 text-background">
+    <div className="relative flex h-full w-full flex-col overflow-hidden px-14 pt-12 pb-6" style={{ background: "oklch(0.08 0 0)", color: "oklch(0.95 0 0)" }}>
       {/* Header */}
       {(title || eyebrow) && (
-        <div className="mb-6 shrink-0">
+        <div className="mb-8 shrink-0">
           {eyebrow && (
-            <div className="mb-2 text-xs font-bold tracking-[0.2em] uppercase" style={{ color: "oklch(0.7 0.2 250)" }}>
+            <div className="mb-3 text-xs font-semibold tracking-[0.25em] text-primary uppercase">
               {eyebrow}
             </div>
           )}
           {title && (
-            <h2 className="text-4xl font-bold tracking-tight text-background" style={headingFont}>
+            <h2 className="text-5xl font-bold tracking-tight" style={{ ...headingFont, color: "oklch(0.97 0 0)" }}>
               {title}
             </h2>
           )}
-          {subtitle && <p className="mt-2 max-w-4xl text-lg text-background/60">{subtitle}</p>}
+          {subtitle && <p className="mt-3 max-w-4xl text-lg" style={{ color: "oklch(0.6 0 0)" }}>{subtitle}</p>}
         </div>
       )}
 
       {/* Content Area */}
-      <div className="min-h-0 w-full flex-1 overflow-hidden pt-2">{children}</div>
+      <div className="min-h-0 w-full flex-1 overflow-hidden">{children}</div>
 
       {/* Footer */}
       {!hideFooter && (

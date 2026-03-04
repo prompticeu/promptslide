@@ -45,20 +45,25 @@ export function SlideTechStack({ slideNumber, totalSlides }: SlideProps) {
       eyebrow="TECH STACK"
       title="Built on Modern, Battle-Tested Tools"
     >
-      <div className="flex h-full items-center">
-        <div className="w-full divide-y divide-background/10">
+      <div className="relative flex h-full items-center">
+        {/* Oversized accent */}
+        <span className="pointer-events-none absolute -top-2 -right-2 select-none text-[180px] font-black leading-none text-white/3">
+          06
+        </span>
+
+        <div className="w-full divide-y divide-white/10">
           {stack.map((item, i) => (
-            <Animated key={item.name} step={1} animation="slide-up" delay={i * 0.06}>
+            <Animated key={item.name} step={1} animation="fade" delay={i * 0.08} duration={0.5}>
               <div className="grid grid-cols-5 items-baseline gap-8 py-5">
                 <div className="col-span-2 flex items-baseline gap-3">
-                  <span className="text-2xl font-bold tracking-tight text-background">
+                  <span className="text-2xl font-bold tracking-tight text-white/90" style={{ fontFamily: "Space Grotesk" }}>
                     {item.name}
                   </span>
-                  <span className="text-xs font-medium tracking-wider uppercase" style={{ color: "oklch(0.7 0.2 250)" }}>
+                  <span className="text-xs font-semibold tracking-wider text-primary uppercase">
                     {item.role}
                   </span>
                 </div>
-                <p className="col-span-3 text-sm text-background/60">{item.description}</p>
+                <p className="col-span-3 text-sm text-white/50">{item.description}</p>
               </div>
             </Animated>
           ))}

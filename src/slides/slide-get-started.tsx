@@ -9,43 +9,43 @@ export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
   return (
     <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
       <div className="flex h-full flex-col items-center justify-center text-center">
-        <Animated step={1} animation="fade">
+        <Animated step={1} animation="fade" duration={0.6}>
           <div>
             {/* Decorative quotation mark */}
-            <span className="block font-serif text-[120px] leading-none text-primary/20">
+            <span className="block text-[140px] leading-none text-primary/20" style={{ fontFamily: "Space Grotesk" }}>
               &ldquo;
             </span>
-            <p className="-mt-10 max-w-4xl text-3xl leading-relaxed font-light text-foreground italic">
+            <p className="-mt-12 max-w-4xl text-4xl leading-relaxed font-light text-foreground italic">
               Iterate on your story, not your layouts.
             </p>
           </div>
         </Animated>
 
-        <Animated step={1} animation="slide-up" delay={0.3}>
+        <Animated step={1} animation="scale" delay={0.4} duration={0.5}>
           <div>
-            <div className="mx-auto mt-8 mb-8 h-px w-16 bg-primary/40" />
+            <div className="mx-auto mt-10 mb-10 h-1 w-20 bg-primary" />
 
             {/* Terminal snippet */}
-            <div className="mb-6 w-full max-w-md rounded-xl border border-border bg-card p-4">
-              <div className="space-y-1 text-left font-mono text-xs">
+            <div className="mb-8 w-full max-w-lg bg-white/5 p-5 shadow-2xl">
+              <div className="space-y-1.5 text-left font-mono text-xs">
                 <p className="text-muted-foreground">
                   $ git clone https://github.com/prompticeu/promptslide
                 </p>
                 <p className="text-muted-foreground">
                   $ cd promptslide && npm install && npm run dev
                 </p>
-                <p className="mt-1 text-green-400">VITE ready on http://localhost:5173</p>
+                <p className="mt-2 text-primary">VITE ready on http://localhost:5173</p>
               </div>
             </div>
 
             <div className="flex items-center justify-center gap-3">
               <Github className="h-5 w-5 text-muted-foreground" />
-              <span className="text-lg font-medium text-primary">
+              <span className="text-lg font-bold text-primary" style={{ fontFamily: "Space Grotesk" }}>
                 github.com/prompticeu/promptslide
               </span>
             </div>
 
-            <p className="mt-4 max-w-md text-sm text-muted-foreground">
+            <p className="mt-5 max-w-md text-sm tracking-wider text-muted-foreground uppercase">
               Open source &middot; MIT License &middot; Works with any coding agent
             </p>
           </div>
