@@ -13,7 +13,7 @@ metadata:
 
 # PromptSlide
 
-Create beautiful slide decks with AI coding agents. Each slide is a React component styled with Tailwind CSS, with built-in animations, presentation mode, and PDF export.
+Create slide decks with AI coding agents. Each slide is a React component styled with Tailwind CSS, with built-in animations and PDF export.
 
 ## Detect Mode
 
@@ -30,55 +30,22 @@ grep -q '"promptslide"' package.json 2>/dev/null
 
 ## Creating a New Deck
 
-### Step 1: Scaffold the project
+### Step 1: Scaffold and start
 
 ```bash
-bun create slides my-deck
+bun create slides my-deck -- --yes
 cd my-deck
 bun install
-```
-
-### Step 2: Start the dev server
-
-```bash
 bun run dev
 ```
 
-This runs `promptslide studio` — the development server starts at http://localhost:5173 with hot module replacement. Slides update instantly as files are saved.
+The `--yes` flag skips interactive prompts and uses sensible defaults. Replace `my-deck` with the user's desired name. The dev server starts at http://localhost:5173 with hot module replacement.
 
-### Step 3: Configure branding
+### Step 2: Configure branding
 
-Edit `src/theme.ts`:
+Edit `src/theme.ts` for brand name and logo, and `src/globals.css` for theme colors. See [references/theming-and-branding.md](references/theming-and-branding.md) for details.
 
-```ts
-import type { ThemeConfig } from "promptslide"
-
-export const theme: ThemeConfig = {
-  name: "Your Company",
-  logo: { full: "/logo.svg" },
-}
-```
-
-Replace `public/logo.svg` with your company logo file.
-
-### Step 4: Set theme color
-
-Edit `src/globals.css` and change `--primary`:
-
-```css
-:root {
-  --primary: oklch(0.55 0.2 250); /* Change hue for your brand */
-}
-.dark {
-  --primary: oklch(0.6 0.2 250);
-}
-```
-
-OKLCH format: `oklch(lightness chroma hue)` — hue 0=red, 60=yellow, 120=green, 250=blue, 300=purple.
-
-For full theming details, see [references/theming-and-branding.md](references/theming-and-branding.md).
-
-### Step 5: Create your slides
+### Step 3: Create your slides
 
 Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then follow the authoring instructions below.
 
@@ -86,237 +53,75 @@ Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then f
 
 ## Authoring Slides
 
-### Quick Start
-
-1. Create a file in `src/slides/` (e.g., `slide-market.tsx`)
-2. Use `SlideLayoutCentered` as the wrapper component
-3. Register it in `src/deck-config.ts`
-
-```tsx
-// src/slides/slide-market.tsx
-import type { SlideProps } from "promptslide"
-import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
-
-export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
-  return (
-    <SlideLayoutCentered
-      slideNumber={slideNumber}
-      totalSlides={totalSlides}
-      eyebrow="MARKET OPPORTUNITY"
-      title="$50B Total Addressable Market"
-    >
-      <div className="flex h-full flex-col justify-center">
-        <p className="text-muted-foreground text-lg">Your content here</p>
-      </div>
-    </SlideLayoutCentered>
-  )
-}
-```
-
-```ts
-// src/deck-config.ts
-import type { SlideConfig } from "promptslide"
-import { SlideMarket } from "@/slides/slide-market"
-
-export const slides: SlideConfig[] = [{ component: SlideMarket, steps: 0 }]
-```
-
-Vite hot-reloads — the new slide appears instantly in the browser.
-
 ### Architecture
 
 ```
 src/
-├── layouts/                      # Slide layouts (your "master theme" — create freely)
-│   └── slide-layout-centered.tsx # Default layout with header + footer
-├── slides/            # YOUR SLIDES GO HERE
-├── theme.ts           # Theme config (brand name, logo, colors, fonts)
-├── deck-config.ts     # Slide order + step counts (modify this)
+├── layouts/           # Slide layouts — your "master themes", create freely
+├── slides/            # Your slides go here
+├── theme.ts           # Brand name, logo, fonts
+├── deck-config.ts     # Slide order + step counts
 ├── App.tsx            # Theme provider
-└── globals.css        # Theme colors
-
-promptslide (CLI)      # Dev server, build, preview (owns Vite config)
-promptslide      # Slide engine (npm package — stable, upgradeable)
+└── globals.css        # Theme colors (CSS custom properties)
 ```
 
-### SlideLayoutCentered API
+### Key Constraints
 
-Every slide wraps its content in `SlideLayoutCentered`:
+- **Slide dimensions**: 1280×720 (16:9). Content scales automatically in presentation mode.
+- **Semantic colors**: Use `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border` — these adapt to light/dark mode.
+- **Icons**: Import from `lucide-react` (e.g., `import { ArrowRight } from "lucide-react"`).
+
+### Creating a Slide
+
+Every slide is a React component that receives `SlideProps`:
 
 ```tsx
-import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
-;<SlideLayoutCentered
-  slideNumber={slideNumber}
-  totalSlides={totalSlides}
-  eyebrow="CATEGORY" // Optional: small label above title
-  title="Slide Title" // Optional: main heading
-  subtitle="Description" // Optional: subtitle text
-  hideFooter // Optional: hide footer with logo + slide number
->
-  {/* Your slide content */}
-</SlideLayoutCentered>
-```
+// src/slides/slide-example.tsx
+import type { SlideProps } from "promptslide"
 
-Slide dimensions: **1280x720** (16:9). Design content for this size — it scales automatically in presentation mode.
-
-### Step Animations (click-to-reveal)
-
-Use `<Animated>` to reveal content on clicks:
-
-```tsx
-import { Animated } from "promptslide"
-
-// Always visible (no wrapper needed)
-<h2>Main Title</h2>
-
-// Appears on first click
-<Animated step={1} animation="fade">
-  <p>First point</p>
-</Animated>
-
-// Appears on second click
-<Animated step={2} animation="slide-up">
-  <p>Second point</p>
-</Animated>
-```
-
-**Animation types**: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`
-
-**AnimatedGroup** for staggered children:
-
-```tsx
-import { AnimatedGroup } from "promptslide"
-;<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
-  <Card>First</Card>
-  <Card>Second</Card>
-  <Card>Third</Card>
-</AnimatedGroup>
-```
-
-> **Grid span warning:** `AnimatedGroup` wraps each child in a motion `<div>`. CSS grid span classes (`col-span-*`, `row-span-*`) on the inner children will NOT affect grid placement — they must be on the direct grid children. For bento/spanning grids, use individual `<Animated>` components with `className` for spans instead:
->
-> ```tsx
-> <div className="grid grid-cols-3 grid-rows-2 gap-4">
->   <Animated step={1} animation="slide-down" className="col-span-2">
->     <Card>Wide card</Card>
->   </Animated>
->   <Animated step={1} animation="slide-down" className="row-span-2">
->     <Card>Tall card</Card>
->   </Animated>
-> </div>
-> ```
-
-**Critical rule**: The `steps` value in `deck-config.ts` MUST equal the highest `step` number used in that slide's `<Animated>` components.
-
-```ts
-// If your slide uses step={1}, step={2}, step={3}:
-{ component: MySlide, steps: 3 }
-
-// If your slide has no animations:
-{ component: MySlide, steps: 0 }
-```
-
-For full animation API (props tables, Morph system, config constants), see [references/animation-api.md](references/animation-api.md).
-
-### Deck Configuration
-
-`src/deck-config.ts` controls slide order:
-
-```ts
-import type { SlideConfig } from "promptslide"
-
-export const slides: SlideConfig[] = [
-  { component: SlideTitle, steps: 0 },
-  { component: SlideProblem, steps: 3 },
-  { component: SlideSolution, steps: 0 }
-]
-```
-
-Optional metadata fields:
-
-```ts
-{
-  component: SlideProblem,
-  steps: 2,
-  title: "The Problem",           // Grid view labels, navigation
-  section: "Introduction",        // Chapter grouping in grid view
-  transition: "zoom",             // Per-slide transition override
-  notes: "Talk about market gap", // Speaker notes (future)
+export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
+  return (
+    <div className="bg-background text-foreground flex h-full w-full flex-col p-12">
+      <h2 className="text-4xl font-bold">Your Title</h2>
+      <div className="flex flex-1 items-center">
+        <p className="text-muted-foreground text-lg">Your content</p>
+      </div>
+    </div>
+  )
 }
 ```
 
-- **Add a slide**: Import component, append to array
-- **Remove a slide**: Remove from array
-- **Reorder slides**: Change position in array
+Register it in `src/deck-config.ts`:
 
-### Slide Transitions
+```ts
+import type { SlideConfig } from "promptslide"
+import { SlideExample } from "@/slides/slide-example"
 
-The `SlideDeck` component accepts a `transition` prop in `src/App.tsx`:
-
-```tsx
-<SlideDeck slides={slides} transition="slide-left" directionalTransition />
+export const slides: SlideConfig[] = [{ component: SlideExample, steps: 0 }]
 ```
 
-Options: `fade` (default), `slide-left`, `slide-right`, `slide-up`, `slide-down`, `zoom`, `zoom-fade`, `none`
+### Layouts (Master Themes)
 
-Per-slide transitions can be set via the `transition` field on individual slide configs in `deck-config.ts`.
+Create reusable layout components in `src/layouts/`. A layout wraps slide content and provides consistent structure (headers, footers, backgrounds). Slides import and use layouts — change a layout, every slide using it updates.
 
-### Design Essentials
+The scaffolded project includes `SlideLayoutCentered` as a starter. Create new layouts freely for different slide types.
 
-- Use `flex h-full` on content containers to fill available space
-- Pass layout classes to `<Animated className="...">` to preserve flex/grid layout
-- Semantic color classes: `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border`
-- Icons: Import from `lucide-react` — 1000+ icons available (e.g., `import { ArrowRight, CheckCircle } from "lucide-react"`)
+For the layout API (`useTheme`, `SlideFooter`, `cn`) and examples, see [references/slide-patterns.md](references/slide-patterns.md).
 
-For layout patterns, design recipes, and creating custom layouts (master themes), see [references/slide-patterns.md](references/slide-patterns.md).
+### Animations
 
-### Visual Diversity Guidelines
+Use `<Animated>` for click-to-reveal steps and `<AnimatedGroup>` for staggered reveals. Available animations: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`.
 
-When creating a deck with multiple slides, **vary the visual treatment across slides**. Do not repeat the same layout pattern on consecutive slides.
+**Critical rule**: The `steps` value in `deck-config.ts` MUST equal the highest `step` number used in that slide. `steps: 0` means no animations.
 
-**Rotate backgrounds:** Not every slide needs a plain `bg-background`. Use:
+For the full animation API, see [references/animation-api.md](references/animation-api.md).
 
-- Gradient mesh backgrounds (layered blurred gradient orbs)
-- Split backgrounds (solid primary on one side, content on the other)
-- Subtle radial spotlights
+### Styling Constraints (PDF Compatibility)
 
-**Vary card styles:** Do NOT use `rounded-xl border border-border bg-card` on every slide. Alternate between:
+These rules ensure slides look identical on screen and in PDF export:
 
-- Glass panels: `rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md`
-- Gradient cards: `bg-gradient-to-br from-primary/15 to-transparent border border-primary/10`
-- Elevated cards: `shadow-xl shadow-primary/10` (shadow instead of border)
-- Accent-border cards: `border-l-4 border-l-primary`
-- No cards at all — use large typography, progress bars, or data visualizations directly
+- **No blur**: `filter: blur()` and `backdrop-filter: blur()` are silently dropped by Chromium's PDF pipeline
+- **No gradients**: `bg-gradient-to-*` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., `bg-primary/5`, `bg-muted/20`)
+- **Minimal colored shadows**: `shadow-primary/10` renders heavier in PDF — use plain `shadow-lg` or keep at `/5` max
 
-**Use different animations on different slides:**
-
-- `fade` for quotes, images, subtle reveals
-- `slide-left` / `slide-right` for split-screen content entering from edges
-- `scale` for hero elements and card grids
-- `slide-up` for sequential list items or stat metrics
-- `AnimatedGroup` for grids/collections (preferred over manual stagger delays)
-
-**Layout variety:** Do not make every slide a 3-column equal grid. Use:
-
-- Asymmetric splits (`grid-cols-5` with `col-span-2` + `col-span-3`)
-- Bento grids with mixed tile sizes (`col-span-2`, `row-span-2`)
-- Vertical timelines with alternating left/right content
-- Full-width typography-driven layouts (where text IS the visual)
-- Side-by-side comparisons with contrasting panel styles
-
-### Keyboard Shortcuts
-
-| Key            | Action                                    |
-| -------------- | ----------------------------------------- |
-| `→` or `Space` | Advance (next step or next slide)         |
-| `←`            | Go back (previous step or previous slide) |
-| `F`            | Toggle fullscreen presentation mode       |
-| `G`            | Toggle grid view                          |
-| `Escape`       | Exit fullscreen                           |
-
-### View Modes
-
-1. **Slide view** (default): Single slide with navigation controls
-2. **Grid view**: Thumbnail overview — click any slide to jump to it
-3. **List view**: Vertical scroll — optimized for PDF export via browser print
-
+For more on styling and layout patterns, see [references/slide-patterns.md](references/slide-patterns.md).
