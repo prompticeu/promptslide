@@ -85,30 +85,22 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
         {/* Small tile — Presentation Mode */}
         <Animated step={1} animation="slide-down">
           <div className="flex h-full flex-col justify-center rounded-2xl bg-muted/30 p-6">
-            <div className="flex items-center gap-4">
-              <Fullscreen className="h-7 w-7 shrink-0 text-primary" />
-              <div>
-                <h3 className="font-semibold text-foreground">Presentation Mode</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Fullscreen, grid view, keyboard nav
-                </p>
-              </div>
-            </div>
+            <Fullscreen className="mb-3 h-7 w-7 text-primary" />
+            <h3 className="font-semibold text-foreground">Presentation Mode</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Fullscreen, grid view, keyboard nav
+            </p>
           </div>
         </Animated>
 
         {/* Accent tile — PDF Export */}
         <Animated step={1} animation="slide-down">
           <div className="flex h-full flex-col justify-center rounded-2xl bg-primary p-6">
-            <div className="flex items-center gap-4">
-              <FileDown className="h-7 w-7 shrink-0 text-primary-foreground" />
-              <div>
-                <h3 className="font-semibold text-primary-foreground">PDF Export</h3>
-                <p className="mt-1 text-sm text-primary-foreground/80">
-                  One-click download via browser print
-                </p>
-              </div>
-            </div>
+            <FileDown className="mb-3 h-7 w-7 text-primary-foreground" />
+            <h3 className="font-semibold text-primary-foreground">PDF Export</h3>
+            <p className="mt-1 text-sm text-primary-foreground/80">
+              One-click download via browser print
+            </p>
           </div>
         </Animated>
       </div>
