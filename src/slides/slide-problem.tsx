@@ -1,9 +1,9 @@
 import type { SlideProps } from "promptslide"
 
 import { Animated } from "promptslide"
-import { Check, X } from "lucide-react"
+import { X, Check } from "lucide-react"
 
-import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
+import { SlideLayoutDark } from "@/layouts/slide-layout-dark"
 
 const oldWay = [
   "Drag-and-drop busywork for hours",
@@ -21,7 +21,7 @@ const newWay = [
 
 export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayoutCentered
+    <SlideLayoutDark
       slideNumber={slideNumber}
       totalSlides={totalSlides}
       eyebrow="THE PROBLEM"
@@ -30,17 +30,17 @@ export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
       <div className="relative flex h-full items-center">
         <div className="grid w-full grid-cols-2 gap-8">
           {/* Left — the old way */}
-          <Animated step={1} animation="slide-right">
-            <div className="rounded-2xl border border-border bg-muted/30 p-8">
+          <Animated step={1} animation="slide-up">
+            <div className="rounded-2xl border border-background/10 bg-background/5 p-8">
               <div className="mb-6 flex items-center gap-3">
-                <X className="h-6 w-6 text-muted-foreground" />
-                <h3 className="text-lg font-semibold text-muted-foreground">Traditional Tools</h3>
+                <X className="h-6 w-6 text-background/50" />
+                <h3 className="text-lg font-semibold text-background/50">Traditional Tools</h3>
               </div>
               <ul className="space-y-4">
                 {oldWay.map(item => (
                   <li key={item} className="flex items-start gap-3">
-                    <X className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60" />
-                    <span className="text-muted-foreground line-through decoration-muted-foreground/40">
+                    <X className="mt-0.5 h-4 w-4 shrink-0 text-background/30" />
+                    <span className="text-background/40 line-through decoration-background/20">
                       {item}
                     </span>
                   </li>
@@ -50,17 +50,17 @@ export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
           </Animated>
 
           {/* Right — the new way */}
-          <Animated step={2} animation="slide-left">
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
+          <Animated step={2} animation="scale">
+            <div className="rounded-2xl border border-primary/30 bg-primary/10 p-8">
               <div className="mb-6 flex items-center gap-3">
-                <Check className="h-6 w-6 text-primary" />
-                <h3 className="text-lg font-semibold text-primary">AI-Powered Slides</h3>
+                <Check className="h-6 w-6" style={{ color: "oklch(0.7 0.2 250)" }} />
+                <h3 className="text-lg font-semibold" style={{ color: "oklch(0.7 0.2 250)" }}>AI-Powered Slides</h3>
               </div>
               <ul className="space-y-4">
                 {newWay.map(item => (
                   <li key={item} className="flex items-start gap-3">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <span className="text-foreground">{item}</span>
+                    <Check className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "oklch(0.7 0.2 250)" }} />
+                    <span className="text-background">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -69,10 +69,10 @@ export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
         </div>
 
         {/* VS badge */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-background/20 bg-foreground px-3 py-1.5 text-xs font-bold text-background/60">
           VS
         </div>
       </div>
-    </SlideLayoutCentered>
+    </SlideLayoutDark>
   )
 }

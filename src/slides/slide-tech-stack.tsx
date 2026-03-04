@@ -2,7 +2,7 @@ import type { SlideProps } from "promptslide"
 
 import { Animated } from "promptslide"
 
-import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
+import { SlideLayoutDark } from "@/layouts/slide-layout-dark"
 
 const stack = [
   {
@@ -39,31 +39,31 @@ const stack = [
 
 export function SlideTechStack({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayoutCentered
+    <SlideLayoutDark
       slideNumber={slideNumber}
       totalSlides={totalSlides}
       eyebrow="TECH STACK"
       title="Built on Modern, Battle-Tested Tools"
     >
       <div className="flex h-full items-center">
-        <div className="w-full divide-y divide-border">
+        <div className="w-full divide-y divide-background/10">
           {stack.map((item, i) => (
-            <Animated key={item.name} step={1} animation="fade" delay={i * 0.06}>
+            <Animated key={item.name} step={1} animation="slide-up" delay={i * 0.06}>
               <div className="grid grid-cols-5 items-baseline gap-8 py-5">
                 <div className="col-span-2 flex items-baseline gap-3">
-                  <span className="text-2xl font-bold tracking-tight text-foreground">
+                  <span className="text-2xl font-bold tracking-tight text-background">
                     {item.name}
                   </span>
-                  <span className="text-xs font-medium tracking-wider text-primary uppercase">
+                  <span className="text-xs font-medium tracking-wider uppercase" style={{ color: "oklch(0.7 0.2 250)" }}>
                     {item.role}
                   </span>
                 </div>
-                <p className="col-span-3 text-sm text-muted-foreground">{item.description}</p>
+                <p className="col-span-3 text-sm text-background/60">{item.description}</p>
               </div>
             </Animated>
           ))}
         </div>
       </div>
-    </SlideLayoutCentered>
+    </SlideLayoutDark>
   )
 }

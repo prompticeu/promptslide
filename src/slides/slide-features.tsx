@@ -15,7 +15,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
     >
       <div className="grid h-full grid-cols-4 grid-rows-2 gap-4">
         {/* Wide tile — top left, spans 2 cols */}
-        <Animated step={1} animation="slide-down" className="col-span-2">
+        <Animated step={1} animation="scale" className="col-span-2">
           <div className="flex h-full flex-col justify-center rounded-2xl bg-primary/10 p-8">
             <Sparkles className="mb-3 h-8 w-8 text-primary" />
             <h3 className="text-xl font-semibold text-foreground">Step Animations</h3>
@@ -27,8 +27,8 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
         </Animated>
 
         {/* Tall tile — Themeable, spans 2 rows */}
-        <Animated step={1} animation="slide-down" className="row-span-2">
-          <div className="flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-6">
+        <Animated step={1} animation="scale" delay={0.06} className="row-span-2">
+          <div className="flex h-full flex-col justify-between rounded-none border-l border-primary/15 bg-transparent pl-6">
             <div>
               <Palette className="mb-3 h-8 w-8 text-primary" />
               <h3 className="font-semibold text-foreground">Themeable</h3>
@@ -55,7 +55,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
         </Animated>
 
         {/* Tall tile — Agent Skill, spans 2 rows */}
-        <Animated step={1} animation="slide-down" className="row-span-2">
+        <Animated step={1} animation="scale" delay={0.12} className="row-span-2">
           <div className="flex h-full flex-col justify-between rounded-2xl border border-primary/15 bg-primary/5 p-6">
             <div>
               <Blocks className="mb-3 h-8 w-8 text-primary" />
@@ -83,7 +83,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
         </Animated>
 
         {/* Small tile — Presentation Mode */}
-        <Animated step={1} animation="slide-down">
+        <Animated step={1} animation="scale" delay={0.18}>
           <div className="flex h-full flex-col justify-center rounded-2xl bg-muted/30 p-6">
             <div className="flex items-center gap-4">
               <Fullscreen className="h-7 w-7 shrink-0 text-primary" />
@@ -98,7 +98,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
         </Animated>
 
         {/* Accent tile — PDF Export */}
-        <Animated step={1} animation="slide-down">
+        <Animated step={1} animation="scale" delay={0.24}>
           <div className="flex h-full flex-col justify-center rounded-2xl bg-primary p-6">
             <div className="flex items-center gap-4">
               <FileDown className="h-7 w-7 shrink-0 text-primary-foreground" />

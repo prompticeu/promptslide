@@ -2,22 +2,26 @@ import type { SlideProps } from "promptslide"
 
 import { Animated } from "promptslide"
 
-import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
+import { SlideLayoutSplit } from "@/layouts/slide-layout-split"
 
 const steps = [
   {
+    number: "01",
     title: "Install & Scaffold",
     description: "Install the Agent Skill or run bun create slides my-deck — ready in seconds"
   },
   {
+    number: "02",
     title: "Open Your Agent",
     description: "Claude Code, Cursor, Windsurf — any AI coding agent works"
   },
   {
+    number: "03",
     title: "Describe Your Deck",
     description: '"Create a 10-slide pitch deck for my fintech startup"'
   },
   {
+    number: "04",
     title: "Present & Export",
     description: "Fullscreen presentation mode, grid view, or one-click PDF download"
   }
@@ -25,50 +29,36 @@ const steps = [
 
 export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayoutCentered
+    <SlideLayoutSplit
       slideNumber={slideNumber}
       totalSlides={totalSlides}
-      eyebrow="HOW IT WORKS"
-      title="From Zero to Presentation in Minutes"
+      left={
+        <Animated step={1} animation="fade">
+          <div>
+            <div className="mb-3 text-xs font-bold tracking-[0.2em] text-primary uppercase">
+              HOW IT WORKS
+            </div>
+            <h2 className="text-4xl font-bold leading-tight tracking-tight text-foreground">
+              From Zero to Presentation in Minutes
+            </h2>
+            <div className="mt-6 h-1 w-16 rounded-full bg-primary" />
+          </div>
+        </Animated>
+      }
     >
-      <div className="relative flex h-full items-center justify-center">
-        {/* Center line */}
-        <div className="absolute top-4 bottom-4 left-1/2 w-px -translate-x-1/2 bg-border" />
-
-        <div className="relative w-full max-w-4xl space-y-8">
-          {steps.map((step, index) => {
-            const isLeft = index % 2 === 0
-            return (
-              <Animated key={step.title} step={index + 1} animation="fade">
-                <div className="relative flex items-center">
-                  {/* Dot on center line */}
-                  <div className="absolute left-1/2 h-4 w-4 -translate-x-1/2 rounded-full bg-primary ring-4 ring-background" />
-
-                  {isLeft ? (
-                    <>
-                      <div className="w-1/2 pr-12 text-right">
-                        <div className="mb-1 font-mono text-xs text-primary/60">0{index + 1}</div>
-                        <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
-                        <p className="text-sm text-muted-foreground">{step.description}</p>
-                      </div>
-                      <div className="w-1/2" />
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-1/2" />
-                      <div className="w-1/2 pl-12">
-                        <div className="mb-1 font-mono text-xs text-primary/60">0{index + 1}</div>
-                        <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
-                        <p className="text-sm text-muted-foreground">{step.description}</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </Animated>
-            )
-          })}
-        </div>
+      <div className="space-y-6">
+        {steps.map((step, index) => (
+          <Animated key={step.title} step={index + 1} animation="slide-left">
+            <div className="flex items-start gap-6">
+              <span className="text-3xl font-black text-primary/20">{step.number}</span>
+              <div className="border-b border-border pb-5">
+                <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
+              </div>
+            </div>
+          </Animated>
+        ))}
       </div>
-    </SlideLayoutCentered>
+    </SlideLayoutSplit>
   )
 }

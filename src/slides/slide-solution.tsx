@@ -1,7 +1,7 @@
 import type { SlideProps } from "promptslide"
 
-import { Animated } from "promptslide"
-import { MessageSquare, Eye, Presentation, ChevronRight } from "lucide-react"
+import { Animated, AnimatedGroup } from "promptslide"
+import { MessageSquare, Eye, Presentation } from "lucide-react"
 
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
@@ -33,35 +33,24 @@ export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
     >
       <div className="flex h-full flex-col justify-center gap-10">
         {/* Three-step flow */}
-        <Animated step={1} animation="slide-up">
-          <div className="flex items-stretch gap-3">
-            {steps.map((step, i) => (
-              <div key={step.label} className="flex flex-1 items-stretch gap-3">
-                <div className="relative flex flex-col items-start rounded-2xl border border-border bg-card p-8">
-                  {/* Large step number as background accent */}
-                  <span className="pointer-events-none absolute top-4 right-5 text-7xl font-black text-primary/[0.07]">
-                    {i + 1}
-                  </span>
+        <AnimatedGroup startStep={1} animation="scale" staggerDelay={0.08} className="flex items-stretch gap-6">
+          {steps.map((step, i) => (
+            <div key={step.label} className="relative flex flex-1 flex-col items-start rounded-2xl border border-primary/15 bg-primary/5 p-8">
+              {/* Large step number as background accent */}
+              <span className="pointer-events-none absolute top-4 right-5 text-7xl font-black text-primary/[0.07]">
+                {i + 1}
+              </span>
 
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 ring-1 ring-primary/20">
-                    <step.icon className="h-5 w-5 text-primary" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-foreground">{step.label}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    {step.description}
-                  </p>
-                </div>
-
-                {/* Connector arrow between cards */}
-                {i < steps.length - 1 && (
-                  <div className="flex shrink-0 items-center">
-                    <ChevronRight className="h-5 w-5 text-primary/40" />
-                  </div>
-                )}
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/15 ring-1 ring-primary/20">
+                <step.icon className="h-5 w-5 text-primary" />
               </div>
-            ))}
-          </div>
-        </Animated>
+              <h3 className="text-xl font-semibold text-foreground">{step.label}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {step.description}
+              </p>
+            </div>
+          ))}
+        </AnimatedGroup>
 
         {/* Terminal demo */}
         <Animated step={2} animation="slide-up">
