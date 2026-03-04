@@ -56,21 +56,33 @@ export async function create(args) {
   console.log(`  ${bold("promptslide")} ${dim("create")}`)
   console.log()
 
+  // Parse flags
+  const useDefaults = args.includes("--yes") || args.includes("-y")
+  const filteredArgs = args.filter(a => a !== "--yes" && a !== "-y")
+
   // 1. Parse directory name from args or prompt
-  let dirName = args[0]
+  let dirName = filteredArgs[0]
 
   if (dirName === "--help" || dirName === "-h") {
-    console.log(`  ${bold("Usage:")} promptslide create ${dim("<project-directory>")}`)
+    console.log(`  ${bold("Usage:")} promptslide create ${dim("<project-directory>")} ${dim("[options]")}`)
     console.log()
     console.log(`  Scaffolds a new PromptSlide slide deck project.`)
     console.log()
+    console.log(`  ${bold("Options:")}`)
+    console.log(`    -y, --yes    Skip prompts and use defaults`)
+    console.log()
     console.log(`  ${bold("Example:")}`)
     console.log(`    promptslide create my-pitch-deck`)
+    console.log(`    promptslide create my-pitch-deck --yes`)
     console.log()
     process.exit(0)
   }
 
   if (!dirName) {
+    if (useDefaults) {
+      console.error(`  ${red("Error:")} Please provide a project directory name when using --yes.`)
+      process.exit(1)
+    }
     dirName = await prompt("Project directory:")
   }
 
@@ -95,13 +107,16 @@ export async function create(args) {
 
   // 2. Ask for project/brand name
   const defaultName = titleCase(dirName)
-  const projectName = await prompt("Project name:", defaultName)
+  const projectName = useDefaults ? defaultName : await prompt("Project name:", defaultName)
 
   // 3. Ask for primary brand color (optional)
-  let primaryHex = await prompt("Primary brand color (hex):", "#3B82F6")
-  if (!isValidHex(primaryHex)) {
-    console.log(`  ${dim("Invalid hex color, using default #3B82F6")}`)
-    primaryHex = "#3B82F6"
+  let primaryHex = "#3B82F6"
+  if (!useDefaults) {
+    primaryHex = await prompt("Primary brand color (hex):", "#3B82F6")
+    if (!isValidHex(primaryHex)) {
+      console.log(`  ${dim("Invalid hex color, using default #3B82F6")}`)
+      primaryHex = "#3B82F6"
+    }
   }
 
   console.log()
@@ -161,8 +176,8 @@ export async function create(args) {
   // 7. Generate tsconfig.json for editor support
   ensureTsConfig(targetDir)
 
-  // 8. Install PromptSlide agent skill
-  const installSkill = await confirm("Install PromptSlide agent skill?")
+  // 8. Install PromptSlide agent skill (skip when using defaults — skill is likely already installed)
+  const installSkill = useDefaults ? false : await confirm("Install PromptSlide agent skill?")
 
   if (installSkill) {
     console.log()
