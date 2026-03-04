@@ -28,7 +28,10 @@ export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
                 $ bun create slides my-deck
               </p>
               <p className="text-muted-foreground">
-                $ cd my-deck && bun run dev
+                $ cd my-deck && bun install
+              </p>
+              <p className="text-muted-foreground">
+                $ bun run dev
               </p>
               <p className="mt-1 text-green-400">VITE ready on http://localhost:5173</p>
             </div>
