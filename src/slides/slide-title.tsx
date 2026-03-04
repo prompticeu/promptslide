@@ -8,13 +8,7 @@ import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
   return (
     <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
-      {/* Gradient mesh background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
-      <div className="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-      <div className="absolute right-10 bottom-1/3 h-64 w-64 rounded-full bg-primary/5 blur-2xl" />
-
-      {/* Content */}
-      <div className="relative z-10 flex h-full w-full flex-col items-center justify-center text-center">
+      <div className="flex h-full w-full flex-col items-center justify-center text-center">
         <Animated step={1} animation="scale">
           <Presentation className="mx-auto mb-6 h-14 w-14 text-primary" />
           <h1 className="max-w-5xl text-7xl font-bold tracking-tight text-foreground">
