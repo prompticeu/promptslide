@@ -25,10 +25,10 @@ export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
           <div className="w-full max-w-lg rounded-xl border border-border bg-card p-4">
             <div className="space-y-1 text-left font-mono text-xs">
               <p className="text-muted-foreground">
-                $ npx create-promptslide my-deck
+                $ bun create slides my-deck
               </p>
               <p className="text-muted-foreground">
-                $ cd my-deck && npm run dev
+                $ cd my-deck && bun run dev
               </p>
               <p className="mt-1 text-green-400">VITE ready on http://localhost:5173</p>
             </div>
