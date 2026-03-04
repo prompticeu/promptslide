@@ -8,46 +8,43 @@ import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
   return (
     <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
-      <div className="flex h-full flex-col items-center justify-center text-center">
+      <div className="flex h-full items-center justify-center">
         <Animated step={1} animation="fade">
+          <div className="flex flex-col items-center gap-6 text-center">
           <div>
-            {/* Decorative quotation mark */}
-            <span className="block font-serif text-[120px] leading-none text-primary/20">
+            <span className="block font-serif text-[80px] leading-none text-primary/20">
               &ldquo;
             </span>
-            <p className="-mt-10 max-w-4xl text-3xl leading-relaxed font-light text-foreground italic">
+            <p className="-mt-6 max-w-3xl text-2xl leading-relaxed font-light text-foreground italic">
               Iterate on your story, not your layouts.
             </p>
           </div>
-        </Animated>
 
-        <Animated step={1} animation="slide-up" delay={0.3}>
-          <div>
-            <div className="mx-auto mt-8 mb-8 h-px w-16 bg-primary/40" />
+          <div className="h-px w-16 bg-primary/40" />
 
-            {/* Terminal snippet */}
-            <div className="mb-6 w-full max-w-md rounded-xl border border-border bg-card p-4">
-              <div className="space-y-1 text-left font-mono text-xs">
-                <p className="text-muted-foreground">
-                  $ git clone https://github.com/prompticeu/promptslide
-                </p>
-                <p className="text-muted-foreground">
-                  $ cd promptslide && npm install && npm run dev
-                </p>
-                <p className="mt-1 text-green-400">VITE ready on http://localhost:5173</p>
-              </div>
+          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-4">
+            <div className="space-y-1 text-left font-mono text-xs">
+              <p className="text-muted-foreground">
+                $ npx create-promptslide my-deck
+              </p>
+              <p className="text-muted-foreground">
+                $ cd my-deck && npm run dev
+              </p>
+              <p className="mt-1 text-green-400">VITE ready on http://localhost:5173</p>
             </div>
+          </div>
 
-            <div className="flex items-center justify-center gap-3">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-3">
               <Github className="h-5 w-5 text-muted-foreground" />
               <span className="text-lg font-medium text-primary">
                 github.com/prompticeu/promptslide
               </span>
             </div>
-
-            <p className="mt-4 max-w-md text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Open source &middot; MIT License &middot; Works with any coding agent
             </p>
+          </div>
           </div>
         </Animated>
       </div>

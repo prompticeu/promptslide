@@ -36,6 +36,9 @@ function printHelp() {
   console.log(`    search ${dim("<query>")} Search the registry`)
   console.log(`    list ${dim("[--type]")}  List registry items`)
   console.log()
+  console.log(`  ${bold("Tools:")}`)
+  console.log(`    to-image ${dim("<slide>")} Export a slide as a PNG image`)
+  console.log()
   console.log(`  ${bold("Options:")}`)
   console.log(`    --help, -h      Show this help message`)
   console.log(`    --version, -v   Show version number`)
@@ -114,6 +117,11 @@ switch (command) {
   case "info": {
     const { info } = await import("./commands/info.mjs")
     await info(args)
+    break
+  }
+  case "to-image": {
+    const { toImage } = await import("./commands/to-image.mjs")
+    await toImage(args)
     break
   }
   case "--help":
