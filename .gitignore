@@ -140,6 +140,9 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
+# Playwright
+.playwright-cli/
+
 # Project specific
 .promptslide
 *.local

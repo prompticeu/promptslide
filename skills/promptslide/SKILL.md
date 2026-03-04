@@ -195,6 +195,19 @@ import { AnimatedGroup } from "promptslide"
 </AnimatedGroup>
 ```
 
+> **Grid span warning:** `AnimatedGroup` wraps each child in a motion `<div>`. CSS grid span classes (`col-span-*`, `row-span-*`) on the inner children will NOT affect grid placement — they must be on the direct grid children. For bento/spanning grids, use individual `<Animated>` components with `className` for spans instead:
+>
+> ```tsx
+> <div className="grid grid-cols-3 grid-rows-2 gap-4">
+>   <Animated step={1} animation="slide-down" className="col-span-2">
+>     <Card>Wide card</Card>
+>   </Animated>
+>   <Animated step={1} animation="slide-down" className="row-span-2">
+>     <Card>Tall card</Card>
+>   </Animated>
+> </div>
+> ```
+
 **Critical rule**: The `steps` value in `deck-config.ts` MUST equal the highest `step` number used in that slide's `<Animated>` components.
 
 ```ts
