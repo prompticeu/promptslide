@@ -30,7 +30,22 @@ grep -q '"promptslide"' package.json 2>/dev/null
 
 ## Creating a New Deck
 
-### Step 1: Scaffold and start
+### Step 1: Content Discovery
+
+Before writing any code, ask the user:
+
+1. **What is this presentation about?** (topic, key message)
+2. **Who is the audience?** (investors, team, customers, conference)
+3. **How many slides?** (suggest 5–10 for a focused deck, 10–15 for a detailed one)
+4. **Do you have content ready?** (outline, bullet points, or should the agent draft it)
+
+Use the answers to plan slide structure before scaffolding.
+
+### Step 2: Style Direction
+
+Suggest a visual direction based on the audience and topic. See [references/style-presets.md](references/style-presets.md) for curated presets. Briefly describe 2–3 options and let the user pick, or ask if they have brand guidelines.
+
+### Step 3: Scaffold and start
 
 ```bash
 bun create slides my-deck -- --yes
@@ -41,11 +56,11 @@ bun run dev
 
 The `--yes` flag skips interactive prompts and uses sensible defaults. Replace `my-deck` with the user's desired name. The dev server starts at http://localhost:5173 with hot module replacement.
 
-### Step 2: Configure branding
+### Step 4: Configure branding
 
 Edit `src/theme.ts` for brand name and logo, and `src/globals.css` for theme colors. See [references/theming-and-branding.md](references/theming-and-branding.md) for details.
 
-### Step 3: Create your slides
+### Step 5: Create your slides
 
 Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then follow the authoring instructions below.
 

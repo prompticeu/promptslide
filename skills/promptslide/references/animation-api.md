@@ -199,6 +199,27 @@ The `as` prop accepts: `"h1"`, `"h2"`, `"h3"`, `"h4"`, `"p"`, `"span"` (default:
 
 ---
 
+## Animation Intent Guide
+
+Choose animations based on the mood and purpose of the presentation, not just technical preference.
+
+| Mood | Recommended Animations | Timing | Notes |
+|------|----------------------|--------|-------|
+| **Professional / Corporate** | `fade`, `slide-up` | `duration: 0.3`, short delays | Subtle and fast. Don't distract from the message. |
+| **Dramatic / Cinematic** | `fade`, `scale` | `duration: 0.6–0.8`, `delay: 0.1–0.2` | Slow reveals build tension. Use `scale` for hero moments. |
+| **Playful / Startup** | `scale`, `slide-up` | `duration: 0.4`, `staggerDelay: 0.08` | Bouncy feel. Use `AnimatedGroup` with tight stagger for energy. |
+| **Techy / Developer** | `fade`, `slide-left` | `duration: 0.3`, sequential steps | Clean directional motion. Step-by-step reveals suit technical content. |
+| **Calm / Minimal** | `fade` | `duration: 0.5–0.6`, `delay: 0.1` | Gentle, slow fades only. Avoid slide/scale — less is more. |
+| **Editorial / Storytelling** | `slide-up`, `fade` | `duration: 0.4`, staggered | Reveal text in reading order. Stagger headlines then body content. |
+
+**General rules:**
+- Faster animations (0.2–0.3s) feel professional; slower (0.5–0.8s) feel dramatic
+- Match stagger direction to reading direction (top-to-bottom = `slide-up`, left-to-right = `slide-left`)
+- Use `scale` sparingly — it draws the most attention, so reserve it for key moments
+- A slide with no animations (`steps: 0`) is perfectly fine for simple content slides
+
+---
+
 ## Animation Config Constants
 
 All timing values from `src/framework/animation-config.ts`:
