@@ -43,7 +43,19 @@ Use the answers to plan slide structure before scaffolding.
 
 ### Step 2: Style Direction
 
-Suggest a visual direction based on the audience and topic. See [references/style-presets.md](references/style-presets.md) for curated presets. Briefly describe 2–3 options and let the user pick, or ask if they have brand guidelines.
+Determine the visual direction before writing any code:
+
+1. **Ask if they have brand guidelines** — logo, colors, fonts. If yes, use those directly.
+2. **If no brand guidelines**, suggest 2–3 presets from [references/style-presets.md](references/style-presets.md). Briefly describe each (one sentence + mood), let the user pick or mix.
+3. **If the user wants something custom**, ask: dark or light? What mood? (professional, playful, dramatic, techy). Then build a custom direction from the building blocks in the presets.
+
+The chosen direction determines what you configure in Steps 3–4:
+- **Colors** → `src/globals.css` (`--primary` and other CSS variables)
+- **Fonts** → `<link>` in `index.html` + `fonts` in `src/theme.ts`
+- **Layouts** → Custom React components in `src/layouts/` (see [Layouts](#layouts-master-themes) below)
+- **Card styles & animations** → Applied per-slide based on the direction
+
+Presets are starting points, not rigid templates. The user can change everything — it's all just React components and CSS variables.
 
 ### Step 3: Scaffold and start
 
@@ -117,9 +129,16 @@ export const slides: SlideConfig[] = [{ component: SlideExample, steps: 0 }]
 
 ### Layouts (Master Themes)
 
-Create reusable layout components in `src/layouts/`. A layout wraps slide content and provides consistent structure (headers, footers, backgrounds). Slides import and use layouts — change a layout, every slide using it updates.
+Layouts are React components in `src/layouts/` that wrap slide content. They control structure (headers, footers, backgrounds, padding) and are the closest thing to "master slides" in traditional tools. Change a layout once, every slide using it updates.
 
-The scaffolded project includes `SlideLayoutCentered` as a starter. Create new layouts freely for different slide types.
+**Create 2–4 layouts per deck for visual variety.** A typical set:
+
+- **Centered** — standard layout with eyebrow, title, content area, footer
+- **Dark/Inverted** — dark background for contrast breaks (use `SlideFooter variant="light"`)
+- **Split** — asymmetric two-column (e.g., 35% accent panel + 65% content)
+- **Full-bleed** — no padding, edge-to-edge content for hero/image slides
+
+The scaffolded project includes `SlideLayoutCentered` as a starter. Create new ones freely — they're just React components. Users can customize padding, backgrounds, header styles, or add entirely new structural patterns.
 
 For the layout API (`useTheme`, `SlideFooter`, `cn`) and examples, see [references/slide-patterns.md](references/slide-patterns.md).
 

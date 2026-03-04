@@ -6,7 +6,7 @@ Curated visual directions for slide decks. Use these as starting points — adju
 
 ## Dark Themes
 
-### 1. Bold Signal
+### 1. Electric Noir
 
 High-contrast dark background with a single vivid accent color. Large section numbers or oversized typography as visual anchors.
 
@@ -92,7 +92,7 @@ Friendly, approachable light theme with soft pastels.
 
 ## Specialty Themes
 
-### 7. Swiss Modern
+### 7. Grid Rational
 
 Bauhaus/Swiss design. Geometric precision, strong grid, bold color blocks.
 

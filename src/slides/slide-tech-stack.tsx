@@ -1,8 +1,8 @@
 import type { SlideProps } from "promptslide"
 
-import { Animated } from "promptslide"
+import { AnimatedGroup } from "promptslide"
 
-import { SlideLayoutDark } from "@/layouts/slide-layout-dark"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 const stack = [
   {
@@ -26,11 +26,6 @@ const stack = [
     description: "Instant HMR — slides appear the moment the agent saves a file"
   },
   {
-    name: "TypeScript",
-    role: "Type Safety",
-    description: "Full type checking for slide props, themes, and component APIs"
-  },
-  {
     name: "Lucide Icons",
     role: "Iconography",
     description: "1000+ beautiful, consistent icons ready to use in any slide"
@@ -39,36 +34,40 @@ const stack = [
 
 export function SlideTechStack({ slideNumber, totalSlides }: SlideProps) {
   return (
-    <SlideLayoutDark
+    <SlideLayoutCentered
       slideNumber={slideNumber}
       totalSlides={totalSlides}
       eyebrow="TECH STACK"
       title="Built on Modern, Battle-Tested Tools"
     >
       <div className="relative flex h-full items-center">
-        {/* Oversized accent */}
-        <span className="pointer-events-none absolute -top-2 -right-2 select-none text-[180px] font-black leading-none text-white/3">
-          06
-        </span>
+        {/* Background gradient orbs */}
+        <div className="absolute -top-20 -right-20 h-80 w-80 rounded-full bg-gradient-to-br from-primary/25 to-transparent blur-2xl" />
+        <div className="absolute -bottom-10 -left-10 h-60 w-60 rounded-full bg-gradient-to-tr from-primary/15 to-transparent blur-xl" />
 
-        <div className="w-full divide-y divide-white/10">
-          {stack.map((item, i) => (
-            <Animated key={item.name} step={1} animation="fade" delay={i * 0.08} duration={0.5}>
-              <div className="grid grid-cols-5 items-baseline gap-8 py-5">
-                <div className="col-span-2 flex items-baseline gap-3">
-                  <span className="text-2xl font-bold tracking-tight text-white/90" style={{ fontFamily: "Space Grotesk" }}>
-                    {item.name}
-                  </span>
-                  <span className="text-xs font-semibold tracking-wider text-primary uppercase">
-                    {item.role}
-                  </span>
-                </div>
-                <p className="col-span-3 text-sm text-white/50">{item.description}</p>
+        {/* Glass cards */}
+        <AnimatedGroup
+          startStep={1}
+          animation="scale"
+          staggerDelay={0.08}
+          className="relative z-10 grid w-full grid-cols-2 gap-5"
+        >
+          {stack.map(item => (
+            <div
+              key={item.name}
+              className="rounded-2xl border border-white/10 bg-white/5 px-6 py-5 shadow-lg shadow-primary/5 backdrop-blur-md"
+            >
+              <div className="flex items-baseline gap-3">
+                <span className="text-lg font-bold text-primary">{item.name}</span>
+                <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                  {item.role}
+                </span>
               </div>
-            </Animated>
+              <p className="mt-2 text-sm text-muted-foreground">{item.description}</p>
+            </div>
           ))}
-        </div>
+        </AnimatedGroup>
       </div>
-    </SlideLayoutDark>
+    </SlideLayoutCentered>
   )
 }
