@@ -1,3 +1,7 @@
+import { execSync } from "node:child_process"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+
 import { createServer } from "vite"
 
 import { ensureTsConfig } from "./tsconfig.mjs"
@@ -17,6 +21,26 @@ export async function isPlaywrightAvailable() {
 }
 
 /**
+ * Ensure the Chromium browser binary is installed.
+ * Attempts a launch and auto-installs if the binary is missing.
+ * @param {import("playwright").BrowserType} chromium
+ */
+async function ensureChromium(chromium) {
+  try {
+    const browser = await chromium.launch({ headless: true })
+    await browser.close()
+  } catch (err) {
+    if (err.message && err.message.includes("Executable doesn't exist")) {
+      const pwIndex = fileURLToPath(import.meta.resolve("playwright"))
+      const cliPath = join(dirname(pwIndex), "cli.js")
+      execSync(`node "${cliPath}" install chromium`, { stdio: "inherit" })
+    } else {
+      throw err
+    }
+  }
+}
+
+/**
  * Capture a screenshot of a specific slide.
  * @param {{ cwd: string, slidePath: string, width?: number, height?: number }} opts
  * @returns {Promise<Buffer | null>} PNG buffer, or null if Playwright is not installed
@@ -29,6 +53,8 @@ export async function captureSlideScreenshot({ cwd, slidePath, width = 1280, hei
   } catch {
     return null
   }
+
+  await ensureChromium(chromium)
 
   ensureTsConfig(cwd)
 
