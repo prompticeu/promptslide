@@ -37,7 +37,7 @@ export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
           <div className="flex items-stretch gap-3">
             {steps.map((step, i) => (
               <div key={step.label} className="flex flex-1 items-stretch gap-3">
-                <div className="relative flex flex-col items-start rounded-2xl border border-border bg-gradient-to-b from-card to-muted/20 p-8">
+                <div className="relative flex flex-col items-start rounded-2xl border border-border bg-card p-8">
                   {/* Large step number as background accent */}
                   <span className="pointer-events-none absolute top-4 right-5 text-7xl font-black text-primary/[0.07]">
                     {i + 1}
@@ -65,7 +65,7 @@ export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
 
         {/* Terminal demo */}
         <Animated step={2} animation="slide-up">
-          <div className="w-full rounded-xl border border-primary/20 bg-card p-6 shadow-lg shadow-primary/5">
+          <div className="w-full rounded-xl border border-border bg-card p-6">
             <div className="mb-3 flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-red-500/60" />
               <div className="h-3 w-3 rounded-full bg-yellow-500/60" />

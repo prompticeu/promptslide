@@ -16,7 +16,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
       <div className="grid h-full grid-cols-4 grid-rows-2 gap-4">
         {/* Wide tile — top left, spans 2 cols */}
         <Animated step={1} animation="slide-down" className="col-span-2">
-          <div className="flex h-full flex-col justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-transparent print:to-primary/5 p-8">
+          <div className="flex h-full flex-col justify-center rounded-2xl bg-primary/10 p-8">
             <Sparkles className="mb-3 h-8 w-8 text-primary" />
             <h3 className="text-xl font-semibold text-foreground">Step Animations</h3>
             <p className="mt-2 max-w-md text-muted-foreground">
@@ -56,7 +56,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
 
         {/* Tall tile — Agent Skill, spans 2 rows */}
         <Animated step={1} animation="slide-down" className="row-span-2">
-          <div className="flex h-full flex-col justify-between rounded-2xl border border-primary/20 bg-gradient-to-b from-primary/10 to-card p-6 shadow-lg shadow-primary/5">
+          <div className="flex h-full flex-col justify-between rounded-2xl border border-primary/15 bg-primary/5 p-6">
             <div>
               <Blocks className="mb-3 h-8 w-8 text-primary" />
               <h3 className="font-semibold text-foreground">Agent Skill</h3>

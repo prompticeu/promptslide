@@ -51,7 +51,7 @@ export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
 
           {/* Right — the new way */}
           <Animated step={2} animation="slide-left">
-            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8 shadow-lg shadow-primary/10">
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
               <div className="mb-6 flex items-center gap-3">
                 <Check className="h-6 w-6 text-primary" />
                 <h3 className="text-lg font-semibold text-primary">AI-Powered Slides</h3>
