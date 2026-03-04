@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "promptslide": {
+      "source": "/Users/danielschroter/conductor/workspaces/promptslide/marseille",
+      "sourceType": "local",
+      "computedHash": "ab6a0b23e446a304f9380967669677d3823528c924624af0039471c326102013"
+    }
+  }
+}
