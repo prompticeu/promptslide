@@ -16,7 +16,7 @@ export function SlideGetStarted({ slideNumber, totalSlides }: SlideProps) {
               &ldquo;
             </span>
             <p className="-mt-10 max-w-4xl text-3xl leading-relaxed font-light text-foreground italic">
-              The best presentation is the one you didn't spend twenty hours making.
+              Iterate on your story, not your layouts.
             </p>
           </div>
         </Animated>

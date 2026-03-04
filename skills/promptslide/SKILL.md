@@ -33,10 +33,12 @@ grep -q '"promptslide"' package.json 2>/dev/null
 ### Step 1: Scaffold the project
 
 ```bash
-bun create slides my-deck
+bun create slides my-deck -- --yes
 cd my-deck
 bun install
 ```
+
+The `--yes` flag skips interactive prompts and uses sensible defaults (title-cased directory name, blue brand color). Replace `my-deck` with the user's desired name.
 
 ### Step 2: Start the dev server
 
