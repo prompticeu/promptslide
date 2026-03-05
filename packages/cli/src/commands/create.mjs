@@ -174,21 +174,25 @@ export async function create(args) {
   // 7. Generate tsconfig.json for editor support
   ensureTsConfig(targetDir)
 
-  // 8. Install PromptSlide agent skill (skip when using defaults — skill is likely already installed)
-  const installSkill = useDefaults ? false : await confirm("Install PromptSlide agent skill?")
+  // 8. Install PromptSlide agent skill (defaults to yes; skipped with --yes since skills CLI is interactive)
+  if (useDefaults) {
+    console.log(`  ${dim("Tip: Run")} npx skills add prompticeu/promptslide ${dim("to install the agent skill")}`)
+  } else {
+    const installSkill = await confirm("Install PromptSlide agent skill?")
 
-  if (installSkill) {
-    console.log()
-    console.log(`  ${dim("Running: npx skills add prompticeu/promptslide")}`)
-    try {
-      execSync("npx skills add prompticeu/promptslide", {
-        cwd: targetDir,
-        stdio: "inherit"
-      })
-      console.log(`  ${green("✓")} PromptSlide skill installed`)
-    } catch {
-      console.log(`  ${red("⚠")} Skill installation failed. You can install it later with:`)
-      console.log(`    npx skills add prompticeu/promptslide`)
+    if (installSkill) {
+      console.log()
+      console.log(`  ${dim("Running: npx skills add prompticeu/promptslide")}`)
+      try {
+        execSync("npx skills add prompticeu/promptslide", {
+          cwd: targetDir,
+          stdio: "inherit"
+        })
+        console.log(`  ${green("✓")} PromptSlide skill installed`)
+      } catch {
+        console.log(`  ${red("⚠")} Skill installation failed. You can install it later with:`)
+        console.log(`    npx skills add prompticeu/promptslide`)
+      }
     }
   }
 
@@ -203,7 +207,6 @@ export async function create(args) {
   console.log(`    bun run dev`)
   console.log()
   console.log(`  Then open your coding agent and start building slides!`)
-  console.log(`  The agent will read ${cyan("AGENTS.md")} to understand the framework.`)
   console.log()
 
   closePrompts()

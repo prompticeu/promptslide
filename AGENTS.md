@@ -1,16 +1,44 @@
-# PromptSlide — Agent Documentation
+# PromptSlide
 
-This file documents the slide presentation framework for coding agents (Claude Code, Cursor, Windsurf, etc.). Read this before creating or modifying slides.
+Slide deck framework: Vite + React 19 + Tailwind v4 + Framer Motion. Each slide is a React component styled with Tailwind CSS.
 
-> For guided style selection, design recipes, and content planning, install the [PromptSlide skill](https://github.com/prompticeu/promptslide).
+> **Recommended**: Install the [PromptSlide skill](https://github.com/prompticeu/promptslide) for guided slide authoring, style presets, design recipes, and best practices: `npx skills add prompticeu/promptslide`
+
+---
+
+## Architecture
+
+```
+src/
+├── layouts/                      # Slide layouts — your "master themes"
+│   └── slide-layout-centered.tsx # Default layout with header + footer
+│
+├── slides/                       # YOUR SLIDES GO HERE
+│   └── slide-title.tsx           # Example starter slide
+│
+├── theme.ts                      # Theme config (brand name, logo, colors, fonts)
+├── deck-config.ts                # Slide order + step counts
+├── App.tsx                       # Root component (theme provider)
+└── globals.css                   # Theme colors (CSS custom properties)
+
+promptslide (npm package)          # CLI + slide engine
+├── Animated, AnimatedGroup       # Step animations (click-to-reveal)
+├── Morph, MorphGroup, MorphItem  # Shared element transitions
+├── SlideDeck                     # Presentation viewer/controller
+├── SlideThemeProvider, useTheme  # Theme context
+├── SlideFooter                   # Footer with logo + slide number
+├── SlideProps, SlideConfig       # TypeScript types
+└── Layouts                       # ContentLayout, TitleLayout, SectionLayout,
+                                  # TwoColumnLayout, ImageLayout, QuoteLayout
+```
+
+---
 
 ## Quick Start
 
-To create a new slide:
-
 1. Create a file in `src/slides/` (e.g., `src/slides/slide-market.tsx`)
-2. Import from `promptslide` and `@/layouts/slide-layout-centered`
-3. Add it to `src/deck-config.ts`
+2. Export a React component that receives `SlideProps`
+3. Register it in `src/deck-config.ts`
 
 ```tsx
 // src/slides/slide-market.tsx
@@ -45,417 +73,13 @@ export const slides: SlideConfig[] = [
 ];
 ```
 
-Vite will hot-reload — the new slide appears instantly in the browser.
-
 ---
 
-## Architecture
-
-```
-src/
-├── layouts/                      # Slide layouts (your "master theme" — add/edit/delete freely)
-│   └── slide-layout-centered.tsx # Default layout with header + footer
-│
-├── slides/                       # YOUR SLIDES GO HERE
-│   └── slide-title.tsx           # Example starter slide
-│
-├── theme.ts                      # Theme config (brand name, logo, colors, fonts, assets)
-├── deck-config.ts                # Slide order + step counts (modify this)
-├── App.tsx                       # Root component (theme provider)
-└── globals.css                   # Theme colors (customize here)
-
-promptslide (npm package)          # CLI + slide engine — stable, upgradeable
-├── Animated, AnimatedGroup       # Step animations (click-to-reveal)
-├── Morph, MorphGroup, MorphItem  # Shared element transitions
-├── SlideDeck                     # Presentation viewer/controller
-├── SlideThemeProvider, useTheme  # Theme context (brand identity)
-├── SlideFooter                   # Footer with logo + slide number
-├── useSlideNavigation            # Navigation state machine
-├── SlideProps, SlideConfig       # TypeScript types
-├── ThemeConfig                   # Theme configuration type
-└── Layouts                       # ContentLayout, TitleLayout, SectionLayout,
-                                  # TwoColumnLayout, ImageLayout, QuoteLayout
-```
-
-**Key principle**: The presentation engine and CLI live in `promptslide` (stable, upgradeable via npm). Layouts and slides are local files you customize freely.
-
----
-
-## Animation System
-
-The framework provides three types of animations:
-
-| Type                  | Purpose                                          | Import                              |
-| --------------------- | ------------------------------------------------ | ----------------------------------- |
-| **Slide Transitions** | Animations between slides (fade, slide, zoom)    | `promptslide`                 |
-| **Step Animations**   | Within-slide reveal animations (click to reveal) | `Animated` from `promptslide` |
-| **Morph Animations**  | Shared element transitions across slides         | `Morph` from `promptslide`    |
-
----
-
-## 1. SlideLayoutCentered Component
-
-Every slide should use `SlideLayoutCentered` as its wrapper. It provides consistent padding, header, and footer.
-
-```tsx
-import { SlideLayoutCentered } from "@/layouts/slide-layout-centered";
-
-<SlideLayoutCentered
-  slideNumber={slideNumber}
-  totalSlides={totalSlides}
-  eyebrow="CATEGORY"        // Optional small label above title
-  title="Slide Title"       // Optional main heading
-  subtitle="Description"    // Optional subtitle
-  hideFooter               // Optional: hide footer with logo + slide number
->
-  {/* Your slide content */}
-</SlideLayoutCentered>
-```
-
-**Slide dimensions**: 1280x720 (16:9 aspect ratio). Design content for this size — it will be scaled to fit the viewport in presentation mode.
-
----
-
-## 2. Step Animations (click-to-reveal)
-
-Use `<Animated>` to reveal content on clicks:
-
-```tsx
-import { Animated } from "promptslide";
-
-// Always visible content (no wrapper needed)
-<h2>Main Title</h2>
-
-// Appears on first click
-<Animated step={1} animation="fade">
-  <p>First point</p>
-</Animated>
-
-// Appears on second click
-<Animated step={2} animation="slide-up">
-  <p>Second point</p>
-</Animated>
-```
-
-**Animation types**: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`
-
-**Props:**
-
-| Prop        | Type          | Default       | Description                          |
-| ----------- | ------------- | ------------- | ------------------------------------ |
-| `step`      | number        | required      | Which click reveals this (1-indexed) |
-| `animation` | AnimationType | `"slide-up"`  | Animation style                      |
-| `duration`  | number        | `0.4`         | Duration in seconds                  |
-| `delay`     | number        | `0`           | Delay after trigger                  |
-| `className` | string        | —             | Additional CSS classes               |
-
-### AnimatedGroup (staggered children)
-
-```tsx
-import { AnimatedGroup } from "promptslide";
-
-<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
-  <Card>First</Card>
-  <Card>Second</Card>
-  <Card>Third</Card>
-</AnimatedGroup>
-```
-
-### Step Count Rules
-
-- Steps are **1-indexed** (step 1 = first click)
-- Multiple elements can share the same step (appear together)
-- **Critical**: The `steps` value in `deck-config.ts` must equal the highest step number used
-
-```ts
-// If your slide uses step={1} and step={2}:
-{ component: MySlide, steps: 2 }
-
-// If your slide has no animations:
-{ component: MySlide, steps: 0 }
-```
-
----
-
-## 3. Morph Animations
-
-Morph animations smoothly transition shared elements between consecutive slides.
-
-```tsx
-import { Morph, MorphText } from "promptslide";
-
-// Slide 1 - Large version
-<Morph layoutId="hero-title">
-  <h1 className="text-6xl">Title</h1>
-</Morph>
-
-// Slide 2 - Small version (same layoutId = morphs between them)
-<Morph layoutId="hero-title">
-  <h1 className="text-2xl">Title</h1>
-</Morph>
-```
-
-**Note**: Morph is currently disabled in fullscreen presentation mode due to CSS transform conflicts with Framer Motion's layoutId calculations.
-
-### MorphGroup + MorphItem
-
-```tsx
-import { MorphGroup, MorphItem } from "promptslide";
-
-<MorphGroup groupId="card">
-  <MorphItem id="icon">
-    <Icon />
-  </MorphItem>
-  <MorphItem id="title">
-    <h2>Title</h2>
-  </MorphItem>
-</MorphGroup>
-// Generates layoutIds: "card-icon", "card-title"
-```
-
----
-
-## 4. Deck Configuration (`deck-config.ts`)
-
-This file controls which slides appear and in what order.
-
-```ts
-import type { SlideConfig } from "promptslide";
-import { SlideTitle } from "@/slides/slide-title";
-import { SlideProblem } from "@/slides/slide-problem";
-import { SlideSolution } from "@/slides/slide-solution";
-
-export const slides: SlideConfig[] = [
-  { component: SlideTitle, steps: 0 },
-  { component: SlideProblem, steps: 2 },    // Has 2 click-to-reveal steps
-  { component: SlideSolution, steps: 0 },
-];
-```
-
-### Enriched SlideConfig (optional)
-
-Each slide config supports optional metadata fields:
-
-```ts
-{
-  component: SlideProblem,
-  steps: 2,
-  title: "The Problem",           // Grid view labels, navigation
-  section: "Introduction",        // Chapter grouping in grid view
-  transition: "zoom",             // Per-slide transition override
-  notes: "Talk about market gap", // Speaker notes (future)
-}
-```
-
-### Managing slides
-
-- **Add a slide**: Import it and add to the array
-- **Remove a slide**: Remove from the array (keep the file if you want it later)
-- **Reorder**: Change position in the array
-- **The `steps` value** must match the highest `step` number in `<Animated>` components
-
----
-
-## 5. Theme Customization (`globals.css`)
-
-Colors use OKLCH format in CSS variables. Edit `src/globals.css` to change the theme.
-
-**Change your brand color** by modifying `--primary`:
-
-```css
-:root {
-  /* Blue brand (default) */
-  --primary: oklch(0.55 0.2 250);
-
-  /* Orange brand */
-  /* --primary: oklch(0.661 0.201 41.38); */
-
-  /* Green brand */
-  /* --primary: oklch(0.6 0.2 145); */
-
-  /* Purple brand */
-  /* --primary: oklch(0.55 0.2 300); */
-}
-```
-
-OKLCH format: `oklch(lightness chroma hue)`
-
-- **Lightness**: 0 (black) to 1 (white)
-- **Chroma**: 0 (gray) to ~0.4 (vivid)
-- **Hue**: 0–360 (color wheel: 0=red, 120=green, 250=blue)
-
----
-
-## 6. Theme & Branding (`theme.ts`)
-
-Configure your brand identity in `src/theme.ts`:
-
-```ts
-import type { ThemeConfig } from "promptslide";
-
-export const theme: ThemeConfig = {
-  name: "Acme Inc",
-  tagline: "Building the future",
-  logo: {
-    full: "/logo.svg",            // Footer logo
-    icon: "/icon.svg",            // Compact variant (title slides)
-    fullLight: "/logo-white.svg", // For dark backgrounds
-  },
-  colors: {
-    primary: "oklch(0.55 0.2 250)",     // Override --primary
-    secondary: "oklch(0.6 0.15 200)",   // Override --secondary
-    accent: "oklch(0.7 0.2 50)",        // Override --accent
-  },
-  assets: {
-    backgroundImage: "/brand/hero-bg.jpg",  // Used by TitleLayout
-    patternImage: "/brand/pattern.svg",
-  },
-  fonts: {
-    heading: "Inter",   // Load via <link> in index.html
-    body: "Inter",
-  },
-};
-```
-
-Everything is optional except `name`. Omitted values fall back to `globals.css` defaults. Colors use OKLCH format and are injected as CSS variable overrides at runtime.
-
-Logo files go in `public/`. The logo appears in the footer of each slide (unless `hideFooter` is set).
-
----
-
-## 7. Custom Layouts
-
-Layouts live in `src/layouts/`. Create new layout files to build a "master theme" for the deck. Each layout is a React component that uses `useTheme()` for brand identity and `SlideFooter` for consistent footers.
-
-### Creating a Layout
-
-```tsx
-// src/layouts/my-custom-layout.tsx
-import { useTheme, SlideFooter, cn } from "promptslide";
-import type { SlideProps } from "promptslide";
-
-interface MyLayoutProps extends SlideProps {
-  children?: React.ReactNode;
-  title?: string;
-  hideFooter?: boolean;
-}
-
-export function MyCustomLayout({ children, slideNumber, totalSlides, title, hideFooter }: MyLayoutProps) {
-  const theme = useTheme();
-
-  return (
-    <div className="bg-background text-foreground relative flex h-full w-full flex-col overflow-hidden px-12 pt-10 pb-6">
-      {title && <h2 className="text-4xl font-bold tracking-tight">{title}</h2>}
-      <div className="min-h-0 flex-1">{children}</div>
-      {!hideFooter && <SlideFooter slideNumber={slideNumber} totalSlides={totalSlides} />}
-    </div>
-  );
-}
-```
-
-### Key building blocks
-
-- **`useTheme()`** — returns `ThemeConfig` with `name`, `logo`, `colors`, `fonts`, `assets`
-- **`SlideFooter`** — renders logo + name + slide number. Pass `variant="light"` for dark backgrounds
-- **`cn()`** — Tailwind class merge utility
-
-### Tips
-
-- Read `theme.ts` to understand the brand identity, then create layouts that reflect it
-- Use `theme.logo`, `theme.fonts`, `theme.assets.backgroundImage` to incorporate brand elements
-- For dark backgrounds, use `<SlideFooter variant="light" />` and `theme.logo.fullLight`
-- Layouts go in `src/layouts/`, slides go in `src/slides/` — keep them separate
-
----
-
-## 8. Slide Transitions
-
-The `SlideDeck` component accepts a `transition` prop:
-
-```tsx
-<SlideDeck
-  slides={slides}
-  transition="slide-left"            // Transition type
-  directionalTransition={true}       // Reverse on back navigation
-/>
-```
-
-**Available transitions**: `fade` (default), `slide-left`, `slide-right`, `slide-up`, `slide-down`, `zoom`, `zoom-fade`, `none`
-
-Per-slide transitions can also be set in `deck-config.ts` via the `transition` field on individual slide configs.
-
----
-
-## 9. Design Best Practices
-
-### Layout tips
-
-- Use `flex h-full` on content containers to fill available space
-- Use Tailwind's responsive classes (`md:`, `lg:`) for adaptive layouts
-- Content should look good at 1280x720 — it's scaled in presentation mode
-
-### Preserve layout with className
-
-```tsx
-// BAD — animation wrapper breaks flex centering
-<div className="flex justify-center">
-  <Animated step={1}>
-    <Content />
-  </Animated>
-</div>
-
-// GOOD — pass layout classes to Animated
-<Animated step={1} className="flex justify-center">
-  <Content />
-</Animated>
-```
-
-### Color classes
-
-Use semantic color classes from the theme:
-
-- `text-foreground` — primary text
-- `text-muted-foreground` — secondary text
-- `text-primary` — brand color text
-- `bg-background` — page background
-- `bg-card` — card backgrounds
-- `border-border` — borders
-
-### Styling Constraints (PDF Compatibility)
-
-These rules ensure slides look identical on screen and in PDF export:
-
-- **No blur**: `filter: blur()` and `backdrop-filter: blur()` are silently dropped by Chromium's PDF pipeline
-- **No gradients**: `bg-gradient-to-*` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., `bg-primary/5`, `bg-muted/20`)
-- **Minimal colored shadows**: `shadow-primary/10` renders heavier in PDF — use plain `shadow-lg` or keep at `/5` max
-
----
-
-## 10. Animation Configuration Constants
-
-From `promptslide`:
-
-```ts
-SLIDE_TRANSITION_DURATION = 0.3;  // Between slides
-MORPH_DURATION = 0.8;             // Layout morphs
-STEP_ANIMATION_DURATION = 0.4;    // Within-slide steps
-STAGGER_DELAY = 0.1;              // Group stagger
-
-SPRING_SNAPPY = { stiffness: 300, damping: 30 };
-SPRING_SMOOTH = { stiffness: 200, damping: 25 };
-SPRING_BOUNCY = { stiffness: 400, damping: 20 };
-
-SLIDE_DIMENSIONS = { width: 1280, height: 720 };
-```
-
----
-
-## 11. Available Icon Library
-
-[Lucide React](https://lucide.dev) is included. Import icons directly:
-
-```tsx
-import { ArrowRight, CheckCircle, TrendingUp } from "lucide-react";
-
-<TrendingUp className="h-6 w-6 text-primary" />
-```
+## Key Constraints
+
+- **Slide dimensions**: 1280×720 (16:9). Content scales automatically in presentation mode.
+- **Semantic colors**: Use `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border`.
+- **Icons**: Import from `lucide-react` (e.g., `import { ArrowRight } from "lucide-react"`).
+- **Animations**: Use `<Animated step={n}>` for click-to-reveal. The `steps` value in `deck-config.ts` must equal the highest step number used. Available: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`.
+- **PDF compatibility**: No `blur()` or `backdrop-filter` (dropped by Chromium). No gradients (use solid colors with opacity). Keep colored shadows at `/5` max.
+- **Brand color**: Edit `--primary` in `src/globals.css`. Configure logo and fonts in `src/theme.ts`.
