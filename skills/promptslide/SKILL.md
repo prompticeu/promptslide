@@ -152,4 +152,4 @@ These rules ensure slides look identical on screen and in PDF export:
 - **No gradients**: `bg-gradient-to-*` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., `bg-primary/5`, `bg-muted/20`)
 - **Minimal colored shadows**: `shadow-primary/10` renders heavier in PDF — use plain `shadow-lg` or keep at `/5` max
 
-For content density rules, design principles, and visual anti-patterns, see [references/slide-patterns.md](references/slide-patterns.md).
+For content density rules, design principles, and visual anti-patterns, see [references/slide-design-guide.md](references/slide-design-guide.md).
