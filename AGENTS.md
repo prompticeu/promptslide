@@ -386,27 +386,7 @@ Per-slide transitions can also be set in `deck-config.ts` via the `transition` f
 
 ---
 
-## 9. Keyboard Shortcuts
-
-| Key            | Action                                    |
-| -------------- | ----------------------------------------- |
-| `→` or `Space` | Advance (next step or next slide)         |
-| `←`            | Go back (previous step or previous slide) |
-| `F`            | Toggle fullscreen presentation mode       |
-| `G`            | Toggle grid view                          |
-| `Escape`       | Exit fullscreen                           |
-
----
-
-## 10. View Modes
-
-1. **Slide view** (default): Single slide with navigation controls
-2. **Grid view**: Thumbnail overview — click any slide to jump to it
-3. **List view**: Vertical scroll — optimized for PDF export via browser print
-
----
-
-## 11. Design Best Practices
+## 9. Design Best Practices
 
 ### Layout tips
 
@@ -449,37 +429,9 @@ These rules ensure slides look identical on screen and in PDF export:
 - **No gradients**: `bg-gradient-to-*` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., `bg-primary/5`, `bg-muted/20`)
 - **Minimal colored shadows**: `shadow-primary/10` renders heavier in PDF — use plain `shadow-lg` or keep at `/5` max
 
-### Visual Variety Checklist
-
-Before generating a multi-slide deck, plan visual diversity. Aim for:
-
-- At least 2 different background treatments across the deck (plain, gradient mesh, split solid, spotlight)
-- At least 2 different card/panel styles (not all `rounded-xl border border-border bg-card`)
-- At least 3 different animation types used (not all `slide-up`)
-- At least 1 slide using `AnimatedGroup` instead of manual `Animated` stagger
-- At least 1 asymmetric layout (not all equal-column grids)
-- At least 1 typography-driven slide (where text IS the visual, no cards)
-- No two consecutive slides using the same layout pattern
-
-### Animation Selection Guide
-
-Match animation types to layout styles:
-
-| Layout       | Animation                    | Why                       |
-| ------------ | ---------------------------- | ------------------------- |
-| Hero/Title   | `scale` or `fade`            | Dramatic, non-directional |
-| Split Screen | `slide-right` + `slide-left` | Panels enter from edges   |
-| Card Grids   | `AnimatedGroup` + `scale`    | Uniform pop-in            |
-| Timeline     | `fade`                       | Clean, no movement        |
-| Comparison   | `slide-right` + `slide-left` | Opposing directions       |
-| Metrics      | `slide-up`                   | Vertical reveal           |
-| Quote        | `fade`                       | Let words speak           |
-
-**Prefer `AnimatedGroup`** over manually wrapping each child in `<Animated>` for grids and collections — it's cleaner and produces better stagger timing.
-
 ---
 
-## 12. Animation Configuration Constants
+## 10. Animation Configuration Constants
 
 From `promptslide`:
 
@@ -498,7 +450,7 @@ SLIDE_DIMENSIONS = { width: 1280, height: 720 };
 
 ---
 
-## 13. Available Icon Library
+## 11. Available Icon Library
 
 [Lucide React](https://lucide.dev) is included. Import icons directly:
 

@@ -122,7 +122,7 @@ Rich dark theme with deep blue-to-purple color palette. Polished and modern.
 
 ## Using a Preset
 
-1. Set the `--primary` color in `src/globals.css` (both `:root` and `.dark`)
+1. Set the `--primary` color in `src/globals.css` (in the `:root` block)
 2. Load fonts via `<link>` in `index.html` (Google Fonts or Fontshare)
 3. Set `fonts.heading` and `fonts.body` in `src/theme.ts`
 4. Follow the card style and animation recommendations when building slides

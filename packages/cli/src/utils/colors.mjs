@@ -32,13 +32,6 @@ export function hexToOklch(hex) {
   return `oklch(${round(L)} ${round(C)} ${round(H)})`
 }
 
-export function hexToOklchDark(hex) {
-  const oklch = hexToOklch(hex)
-  const match = oklch.match(/oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)/)
-  const L = Math.min(1, parseFloat(match[1]) + 0.05)
-  return `oklch(${+L.toFixed(3)} ${match[2]} ${match[3]})`
-}
-
 export function isValidHex(hex) {
   return /^#?[0-9a-fA-F]{6}$/.test(hex)
 }

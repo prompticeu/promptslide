@@ -50,6 +50,7 @@ Determine the visual direction before writing any code:
 3. **If the user wants something custom**, ask: dark or light? What mood? (professional, playful, dramatic, techy). Then build a custom direction from the building blocks in the presets.
 
 The chosen direction determines what you configure in Steps 3–4:
+
 - **Colors** → `src/globals.css` (`--primary` and other CSS variables)
 - **Fonts** → `<link>` in `index.html` + `fonts` in `src/theme.ts`
 - **Layouts** → Custom React components in `src/layouts/` (see [Layouts](#layouts-master-themes) below)
@@ -95,7 +96,7 @@ src/
 ### Key Constraints
 
 - **Slide dimensions**: 1280×720 (16:9). Content scales automatically in presentation mode.
-- **Semantic colors**: Use `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border` — these adapt to light/dark mode.
+- **Semantic colors**: Use `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border` — these map to the theme's CSS custom properties.
 - **Icons**: Import from `lucide-react` (e.g., `import { ArrowRight } from "lucide-react"`).
 
 ### Creating a Slide
@@ -104,7 +105,7 @@ Every slide is a React component that receives `SlideProps`:
 
 ```tsx
 // src/slides/slide-example.tsx
-import type { SlideProps } from "promptslide"
+import type { SlideProps } from "promptslide";
 
 export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
   return (
@@ -114,29 +115,24 @@ export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
         <p className="text-muted-foreground text-lg">Your content</p>
       </div>
     </div>
-  )
+  );
 }
 ```
 
 Register it in `src/deck-config.ts`:
 
 ```ts
-import type { SlideConfig } from "promptslide"
-import { SlideExample } from "@/slides/slide-example"
+import type { SlideConfig } from "promptslide";
+import { SlideExample } from "@/slides/slide-example";
 
-export const slides: SlideConfig[] = [{ component: SlideExample, steps: 0 }]
+export const slides: SlideConfig[] = [{ component: SlideExample, steps: 0 }];
 ```
 
 ### Layouts (Master Themes)
 
 Layouts are React components in `src/layouts/` that wrap slide content. They control structure (headers, footers, backgrounds, padding) and are the closest thing to "master slides" in traditional tools. Change a layout once, every slide using it updates.
 
-**Create 2–4 layouts per deck for visual variety.** A typical set:
-
-- **Centered** — standard layout with eyebrow, title, content area, footer
-- **Dark/Inverted** — dark background for contrast breaks (use `SlideFooter variant="light"`)
-- **Split** — asymmetric two-column (e.g., 35% accent panel + 65% content)
-- **Full-bleed** — no padding, edge-to-edge content for hero/image slides
+**Create 2–4 layouts per deck for visual variety.**
 
 The scaffolded project includes `SlideLayoutCentered` as a starter. Create new ones freely — they're just React components. Users can customize padding, backgrounds, header styles, or add entirely new structural patterns.
 

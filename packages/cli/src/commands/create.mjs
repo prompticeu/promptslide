@@ -4,7 +4,7 @@ import { join, resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
-import { hexToOklch, hexToOklchDark, isValidHex } from "../utils/colors.mjs"
+import { hexToOklch, isValidHex } from "../utils/colors.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 
@@ -131,7 +131,6 @@ export async function create(args) {
 
   // 5. Replace placeholders
   const primaryOklch = hexToOklch(primaryHex)
-  const primaryOklchDark = hexToOklchDark(primaryHex)
 
   const replacements = [
     {
@@ -153,8 +152,7 @@ export async function create(args) {
     {
       path: join(targetDir, "src", "globals.css"),
       values: {
-        "{{PRIMARY_COLOR}}": primaryOklch,
-        "{{PRIMARY_COLOR_DARK}}": primaryOklchDark
+        "{{PRIMARY_COLOR}}": primaryOklch
       }
     }
   ]
