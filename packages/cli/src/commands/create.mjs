@@ -63,7 +63,7 @@ export async function create(args) {
   const useDefaults = args.includes("--yes") || args.includes("-y")
   const fromIdx = args.findIndex(a => a === "--from")
   const fromSlug = fromIdx >= 0 ? args[fromIdx + 1] : null
-  const filteredArgs = args.filter((a, i) => a !== "--yes" && a !== "-y" && a !== "--from" && i !== fromIdx + 1)
+  const filteredArgs = args.filter((a, i) => a !== "--yes" && a !== "-y" && a !== "--from" && !(fromIdx >= 0 && i === fromIdx + 1))
 
   // 1. Parse directory name from args or prompt
   let dirName = filteredArgs[0]
