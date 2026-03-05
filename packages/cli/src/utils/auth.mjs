@@ -5,7 +5,7 @@ import { homedir } from "node:os"
 const AUTH_DIR = join(homedir(), ".promptslide")
 const AUTH_FILE = join(AUTH_DIR, "auth.json")
 
-const DEFAULT_REGISTRY = "https://registry.promptslide.dev"
+const DEFAULT_REGISTRY = "https://promptslide.eu"
 
 /**
  * Load stored auth credentials.

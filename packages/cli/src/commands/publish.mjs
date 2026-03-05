@@ -4,9 +4,33 @@ import { join, basename, relative, extname } from "node:path"
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { captureSlideAsDataUri, isPlaywrightAvailable } from "../utils/export.mjs"
-import { publishToRegistry, registryItemExists, updateLockfileItem, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob } from "../utils/registry.mjs"
+import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob } from "../utils/registry.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
 import { parseDeckConfig } from "../utils/deck-config.mjs"
+
+function readDeckPrefix(cwd) {
+  try {
+    const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf-8"))
+    return pkg.name || ""
+  } catch {
+    return ""
+  }
+}
+
+async function promptDeckPrefix(cwd, interactive) {
+  const defaultPrefix = readDeckPrefix(cwd)
+  if (!interactive) {
+    if (!defaultPrefix) throw new Error("Deck prefix is required. Set a name in package.json or publish interactively.")
+    return defaultPrefix
+  }
+  let prefix
+  while (true) {
+    prefix = await prompt("Deck prefix:", defaultPrefix)
+    if (prefix && /^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(prefix)) break
+    console.log(`  ${red("Error:")} Deck prefix is required (lowercase alphanumeric with hyphens, min 2 chars)`)
+  }
+  return prefix
+}
 
 function titleCase(slug) {
   return slug
@@ -254,10 +278,10 @@ function scanForFiles(cwd) {
 
 /**
  * Publish a single item to the registry.
- * @param {{ filePath: string, cwd: string, auth: object, typeOverride?: string, interactive?: boolean }} opts
+ * @param {{ filePath: string, cwd: string, auth: object, typeOverride?: string, interactive?: boolean, deckPrefix?: string }} opts
  * @returns {Promise<{ slug: string, status: string }>}
  */
-async function publishItem({ filePath, cwd, auth, typeOverride, interactive = true }) {
+async function publishItem({ filePath, cwd, auth, typeOverride, interactive = true, deckPrefix }) {
   const fullPath = join(cwd, filePath)
   if (!existsSync(fullPath)) {
     throw new Error(`File not found: ${filePath}`)
@@ -265,7 +289,9 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
 
   const content = readFileSync(fullPath, "utf-8")
   const fileName = basename(fullPath)
-  const slug = fileName.replace(/\.tsx?$/, "")
+  const baseSlug = fileName.replace(/\.tsx?$/, "")
+  const prefix = deckPrefix || await promptDeckPrefix(cwd, interactive)
+  const slug = `${prefix}/${baseSlug}`
 
   const type = typeOverride || detectType(filePath) || "slide"
   const steps = detectSteps(content)
@@ -276,7 +302,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
   let title, description, tags, section, releaseNotes, previewImage
 
   if (interactive) {
-    title = await prompt("Title:", titleCase(slug))
+    title = await prompt("Title:", titleCase(baseSlug))
     description = await prompt("Description:", "")
     const tagsInput = await prompt("Tags (comma-separated):", "")
     tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
@@ -299,7 +325,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
       }
     }
   } else {
-    title = titleCase(slug)
+    title = titleCase(baseSlug)
     description = ""
     tags = []
     section = ""
@@ -307,6 +333,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
     previewImage = await captureSlideAsDataUri({ cwd, slidePath: filePath }).catch(() => null)
   }
 
+  const prefixedDeps = registryDeps.map(d => `${prefix}/${d}`)
   const payload = {
     type,
     slug,
@@ -317,7 +344,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
     section: section || undefined,
     files: [{ path: fileName, target, content }],
     npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
-    registryDependencies: registryDeps.length ? registryDeps : undefined,
+    registryDependencies: prefixedDeps.length ? prefixedDeps : undefined,
     releaseNotes: releaseNotes || undefined,
     previewImage: previewImage || undefined
   }
@@ -423,11 +450,6 @@ export async function publish(args) {
       }
     }
 
-    // Derive slug from directory name (format: deck-name/deck-name)
-    const dirName = basename(cwd)
-    const deckName = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
-    const defaultSlug = `${deckName}/${deckName}`
-
     // Display summary
     const slideCount = files.filter(f => f.target === "src/slides/").length
     const layoutCount = files.filter(f => f.target === "src/layouts/").length
@@ -449,8 +471,13 @@ export async function publish(args) {
     console.log()
 
     // Collect metadata
-    const slug = await prompt("Slug (deck-name/item-name):", defaultSlug)
-    const title = await prompt("Title:", titleCase(slug.split("/").pop() || slug))
+    const deckPrefix = await promptDeckPrefix(cwd, true)
+    const dirName = basename(cwd)
+    const baseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    const slug = `${deckPrefix}/${baseSlug}`
+    console.log(`  Slug: ${cyan(slug)}`)
+    console.log()
+    const title = await prompt("Title:", titleCase(baseSlug))
     const description = await prompt("Description:", "")
     const tagsInput = await prompt("Tags (comma-separated):", "")
     const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
@@ -553,7 +580,7 @@ export async function publish(args) {
 
   const content = readFileSync(fullPath, "utf-8")
   const fileName = basename(fullPath)
-  const slug = fileName.replace(/\.tsx?$/, "")
+  const baseSlug = fileName.replace(/\.tsx?$/, "")
 
   // Detect metadata
   const type = typeOverride || detectType(filePath) || "slide"
@@ -573,12 +600,34 @@ export async function publish(args) {
   }
   console.log()
 
+  // Prompt for deck prefix (required)
+  const deckPrefix = await promptDeckPrefix(cwd, true)
+  const slug = `${deckPrefix}/${baseSlug}`
+  console.log(`  Slug: ${cyan(slug)}`)
+  console.log()
+
+  // Warn if same base slug exists under a different prefix
+  try {
+    const { items: results } = await searchRegistry({ search: baseSlug, type }, auth)
+    const conflicts = (results || []).filter(r => r.name !== slug && r.name.endsWith(`/${baseSlug}`))
+    if (conflicts.length) {
+      console.log(`  ${bold("Note:")} ${baseSlug} also exists as:`)
+      for (const c of conflicts) {
+        console.log(`    ${dim("·")} ${c.name} ${dim(`(${c.title || "untitled"})`)}`)
+      }
+      console.log()
+    }
+  } catch {
+    // Search failure is non-blocking
+  }
+
   // Check if registry dependencies exist and offer to publish missing ones
   if (registryDeps.length) {
     const missing = []
 
     for (const depSlug of registryDeps) {
-      const exists = await registryItemExists(depSlug, auth)
+      const prefixedDepSlug = `${deckPrefix}/${depSlug}`
+      const exists = await registryItemExists(prefixedDepSlug, auth)
       if (!exists) {
         missing.push(depSlug)
       }
@@ -614,7 +663,8 @@ export async function publish(args) {
                 cwd,
                 auth,
                 typeOverride: depType,
-                interactive: true
+                interactive: true,
+                deckPrefix
               })
               console.log()
               const depVer = result.version ? ` ${dim(`v${result.version}`)}` : ""
@@ -631,13 +681,13 @@ export async function publish(args) {
         }
       }
 
-      console.log(`  ${dim("─── Main item:")} ${bold(slug)} ${dim("───")}`)
+      console.log(`  ${dim("─── Main item:")} ${bold(baseSlug)} ${dim("───")}`)
       console.log()
     }
   }
 
   // Collect metadata for main item
-  const title = await prompt("Title:", titleCase(slug))
+  const title = await prompt("Title:", titleCase(baseSlug))
   const description = await prompt("Description:", "")
   const tagsInput = await prompt("Tags (comma-separated):", "")
   const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
@@ -669,6 +719,7 @@ export async function publish(args) {
   console.log()
 
   // Publish main item
+  const prefixedRegistryDeps = registryDeps.map(d => `${deckPrefix}/${d}`)
   const payload = {
     type,
     slug,
@@ -679,7 +730,7 @@ export async function publish(args) {
     section: section || undefined,
     files: [{ path: fileName, target, content }],
     npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
-    registryDependencies: registryDeps.length ? registryDeps : undefined,
+    registryDependencies: prefixedRegistryDeps.length ? prefixedRegistryDeps : undefined,
     releaseNotes: releaseNotes || undefined,
     previewImage: previewImage || undefined
   }
