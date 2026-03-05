@@ -94,7 +94,7 @@ Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then f
 
 ### Before Writing Slides
 
-Whether this is a new deck or an existing one, confirm the visual direction before creating slide files. Check: are theme colors set in `globals.css`? Are fonts configured in `theme.ts`? Has the user agreed on a style direction?
+Whether this is a new deck or an existing one, confirm the visual direction before creating slide files. Check: are theme colors set in `globals.css`? Are fonts configured in `theme.ts`? Has the user agreed on a style direction? The user's primary color may already be configured from scaffolding — don't overwrite it without asking.
 
 Then, for each slide, think about what the content wants to be — don't default to the first layout that comes to mind. A stat might want to be huge and alone. A comparison wants two sides. A list might just need clean typography. Let the content shape the layout. See [references/slide-design-guide.md](references/slide-design-guide.md) for design principles.
 
