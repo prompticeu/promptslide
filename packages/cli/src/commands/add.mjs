@@ -1,4 +1,4 @@
-import { existsSync, writeFileSync, mkdirSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { execFileSync } from "node:child_process"
 import { join, dirname, resolve, sep } from "node:path"
 
@@ -85,8 +85,17 @@ export async function add(args) {
       const newHash = hashContent(file.content)
 
       if (existsSync(targetPath)) {
-        const existingHash = hashFile(targetPath)
-        if (existingHash === newHash) {
+        // For binary files (data URIs), compare decoded bytes directly
+        const dataUriMatch = file.content.match(/^data:[^;]+;base64,/)
+        let identical
+        if (dataUriMatch) {
+          const newBuf = Buffer.from(file.content.slice(dataUriMatch[0].length), "base64")
+          const existingBuf = readFileSync(targetPath)
+          identical = newBuf.equals(existingBuf)
+        } else {
+          identical = hashFile(targetPath) === newHash
+        }
+        if (identical) {
           console.log(`  ${dim("Skipped")} ${relativePath} ${dim("(identical)")}`)
           fileHashes[relativePath] = newHash
           continue
@@ -99,7 +108,12 @@ export async function add(args) {
       }
 
       mkdirSync(targetDir, { recursive: true })
-      writeFileSync(targetPath, file.content, "utf-8")
+      const dataUriPrefix = file.content.match(/^data:[^;]+;base64,/)
+      if (dataUriPrefix) {
+        writeFileSync(targetPath, Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64"))
+      } else {
+        writeFileSync(targetPath, file.content, "utf-8")
+      }
       fileHashes[relativePath] = newHash
       written.push({ item: regItem, file })
       console.log(`  ${green("✓")} Added ${cyan(relativePath)}${regItem !== item ? dim(" (dependency)") : ""}`)

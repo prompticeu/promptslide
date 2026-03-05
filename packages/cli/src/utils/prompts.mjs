@@ -28,10 +28,12 @@ export function prompt(question, defaultValue) {
   if (!rl) return Promise.resolve(defaultValue || "")
   return new Promise(resolve => {
     const suffix = defaultValue ? ` ${dim(`(${defaultValue})`)} ` : " "
+    const onClose = () => resolve(defaultValue || "")
+    rl.once("close", onClose)
     rl.question(`  ${question}${suffix}`, answer => {
+      rl.removeListener("close", onClose)
       resolve(answer.trim() || defaultValue || "")
     })
-    rl.once("close", () => resolve(defaultValue || ""))
   })
 }
 
@@ -40,11 +42,13 @@ export function confirm(question, defaultYes = true) {
   if (!rl) return Promise.resolve(defaultYes)
   return new Promise(resolve => {
     const hint = defaultYes ? "Y/n" : "y/N"
+    const onClose = () => resolve(defaultYes)
+    rl.once("close", onClose)
     rl.question(`  ${question} ${dim(`(${hint})`)} `, answer => {
+      rl.removeListener("close", onClose)
       const a = answer.trim().toLowerCase()
       if (!a) return resolve(defaultYes)
       resolve(a === "y" || a === "yes")
     })
-    rl.once("close", () => resolve(defaultYes))
   })
 }
