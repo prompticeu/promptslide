@@ -1,6 +1,6 @@
 # Style Presets
 
-Curated visual directions for slide decks. Use these as starting points — adjust colors, fonts, and card styles to match the brand. Each preset specifies the primary OKLCH color for `globals.css`, recommended fonts, card treatment, and animation style.
+Curated visual directions for slide decks. Use these as inspiration, not as a spec to follow row by row. Each preset describes a mood, suggests fonts and visual treatments, and shows what works well together — but the actual design of each slide should come from thinking about what the content needs (see the Design Thinking step and [slide-design-guide.md](slide-design-guide.md)).
 
 ---
 
@@ -10,18 +10,22 @@ Curated visual directions for slide decks. Use these as starting points — adju
 
 High-contrast dark background with a single vivid accent color. Large section numbers or oversized typography as visual anchors.
 
+**Design philosophy:** Let bold scale contrasts do the heavy lifting — oversized numbers next to small labels, huge headlines against dark space. Slides should feel cinematic, not busy.
+
 | Property | Value |
 |----------|-------|
 | **Primary** | `oklch(0.65 0.25 250)` (electric blue) |
 | **Background** | Near-black (`oklch(0.13 0 0)`) |
 | **Fonts** | Heading: **Space Grotesk**, Body: **Inter** |
-| **Cards** | No borders. Subtle `bg-white/5` tint with `shadow-2xl`. |
+| **Cards** | No borders. Subtle `bg-white/5` tint. |
 | **Animations** | `fade` and `scale` — slow (0.5s). Dramatic reveals. |
 | **Signature** | Oversized numbers (`text-8xl text-primary/20`) as slide accents |
 
 ### 2. Midnight Studio
 
 Warm dark theme with amber/gold accents. Sophisticated and editorial.
+
+**Design philosophy:** The serif/sans contrast carries the visual weight — let typography be the design element. Reach for pull quotes, editorial layouts, and whitespace over card grids.
 
 | Property | Value |
 |----------|-------|
@@ -35,6 +39,8 @@ Warm dark theme with amber/gold accents. Sophisticated and editorial.
 ### 3. Neon Terminal
 
 Developer/hacker aesthetic. Monospace type, green-on-dark, terminal feel.
+
+**Design philosophy:** Lean into the code aesthetic — monospace text, command-line prefixes, and tight structure are the visuals. Slides should feel like well-formatted terminal output, not design artifacts.
 
 | Property | Value |
 |----------|-------|
@@ -53,18 +59,22 @@ Developer/hacker aesthetic. Monospace type, green-on-dark, terminal feel.
 
 Minimal, professional white theme. No visual noise.
 
+**Design philosophy:** Restraint is the design. Use generous whitespace and clean typography to convey authority. Let data and key numbers be the visual anchors — the absence of decoration is the style.
+
 | Property | Value |
 |----------|-------|
 | **Primary** | `oklch(0.5 0.2 250)` (classic blue) |
 | **Background** | Pure white |
 | **Fonts** | Heading: **Inter**, Body: **Inter** |
-| **Cards** | `border border-border bg-card` with `shadow-sm`. |
+| **Cards** | `border border-border bg-card`. |
 | **Animations** | `slide-up` — fast (0.3s). Professional, no-nonsense. |
 | **Signature** | Generous whitespace. Let typography and data carry the slide. |
 
 ### 5. Warm Editorial
 
 Magazine-inspired layout with warm neutrals and serif headings.
+
+**Design philosophy:** Think magazine spread, not slide deck. Use asymmetric text layouts, horizontal rules as structure, and pull quotes as visual anchors. Cards would fight the editorial feel — let typography and spacing do the work.
 
 | Property | Value |
 |----------|-------|
@@ -78,6 +88,8 @@ Magazine-inspired layout with warm neutrals and serif headings.
 ### 6. Pastel Soft
 
 Friendly, approachable light theme with soft pastels.
+
+**Design philosophy:** Warmth through color, not complexity. Tinted card backgrounds and rounded shapes create friendliness — lean into playful color variety across slides rather than uniform structure.
 
 | Property | Value |
 |----------|-------|
@@ -96,6 +108,8 @@ Friendly, approachable light theme with soft pastels.
 
 Bauhaus/Swiss design. Geometric precision, strong grid, bold color blocks.
 
+**Design philosophy:** The grid *is* the design. Use bold color blocks, sharp edges, and geometric layouts. Every element should feel placed with intention — asymmetric grids and strong vertical/horizontal divisions over soft cards.
+
 | Property | Value |
 |----------|-------|
 | **Primary** | `oklch(0.6 0.25 30)` (bold red) |
@@ -105,9 +119,11 @@ Bauhaus/Swiss design. Geometric precision, strong grid, bold color blocks.
 | **Animations** | `slide-left` and `slide-up` — fast (0.25s). Geometric, directional. |
 | **Signature** | Grid-based layouts. Black/red/white only. Bold geometric dividers. |
 
-### 8. Gradient Night
+### 8. Deep Night
 
 Rich dark theme with deep blue-to-purple color palette. Polished and modern.
+
+**Design philosophy:** Depth through layered opacity — cards at different transparency levels create a sense of dimension. Vary visual weight across slides with solid primary accents as focal points. Use solid colors with opacity (e.g., `bg-white/5`, `bg-primary/10`) — not gradients.
 
 | Property | Value |
 |----------|-------|
