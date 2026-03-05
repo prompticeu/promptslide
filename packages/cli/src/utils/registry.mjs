@@ -317,3 +317,68 @@ export function getInstallCommand(pm, packages) {
       return { cmd: "npm", args: ["install", ...packages], display: `npm install ${packages.join(" ")}` }
   }
 }
+
+/**
+ * Request pre-signed upload tokens for binary files.
+ * Returns empty array if registry doesn't support direct upload (local dev).
+ *
+ * @param {string} slug - Item slug
+ * @param {{ path: string, contentType: string, size: number }[]} files
+ * @param {{ registry: string, token: string }} auth
+ * @returns {Promise<{ path: string, clientToken: string, pathname: string }[]>}
+ */
+export async function requestUploadTokens(slug, files, auth) {
+  const res = await fetch(`${auth.registry}/api/publish/upload-tokens`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(auth),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ slug, files })
+  })
+
+  if (res.status === 404) {
+    // Registry doesn't have this endpoint (older version) — fall back to inline
+    return []
+  }
+  if (res.status === 401) {
+    throw new Error("Authentication failed. Run `promptslide login` to re-authenticate.")
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to get upload tokens (${res.status}): ${await res.text()}`)
+  }
+
+  const data = await res.json()
+  return data.tokens || []
+}
+
+/**
+ * Upload a binary file directly to Vercel Blob using a scoped client token.
+ * Uses raw fetch — no @vercel/blob dependency needed.
+ *
+ * @param {Buffer} buffer - Raw file bytes
+ * @param {string} pathname - Target pathname in blob storage
+ * @param {string} contentType - MIME type
+ * @param {string} clientToken - Scoped Vercel Blob client token
+ * @returns {Promise<string>} The permanent blob URL
+ */
+export async function uploadBinaryToBlob(buffer, pathname, contentType, clientToken) {
+  const res = await fetch(`https://blob.vercel-storage.com/${pathname}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${clientToken}`,
+      "x-content-type": contentType,
+      "x-api-version": "7",
+      "x-vercel-blob-access": "private"
+    },
+    body: buffer
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Blob upload failed (${res.status}): ${text}`)
+  }
+
+  const result = await res.json()
+  return result.url
+}

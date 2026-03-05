@@ -206,3 +206,58 @@ export function replaceDeckConfig(cwd, slides, opts = {}) {
   writeFileSync(configPath, content, "utf-8")
   return true
 }
+
+/**
+ * Parse deck-config.ts and extract the deckConfig structure for publishing.
+ * Returns { transition?, directionalTransition?, slides } where slides is
+ * an array of { slug, steps, section? }.
+ *
+ * @param {string} cwd - Project root directory
+ * @returns {{ transition?: string, directionalTransition?: boolean, slides: { slug: string, steps: number, section?: string }[] } | null}
+ */
+export function parseDeckConfig(cwd) {
+  const configPath = join(cwd, DECK_CONFIG_PATH)
+  if (!existsSync(configPath)) return null
+
+  const content = readFileSync(configPath, "utf-8")
+
+  // 1. Parse imports to build componentName -> slug map
+  //    Pattern: import { SlideTitle } from "@/slides/slide-title"
+  const componentToSlug = {}
+  const importRegex = /import\s*\{\s*(\w+)\s*\}\s*from\s*["']@\/slides\/([^"']+)["']/g
+  for (const match of content.matchAll(importRegex)) {
+    componentToSlug[match[1]] = match[2].replace(/\.tsx?$/, "")
+  }
+
+  // 2. Parse transition exports
+  let transition
+  const transitionMatch = content.match(/export\s+const\s+transition\s*=\s*["']([^"']+)["']/)
+  if (transitionMatch) transition = transitionMatch[1]
+
+  let directionalTransition
+  const dirMatch = content.match(/export\s+const\s+directionalTransition\s*=\s*(true|false)/)
+  if (dirMatch) directionalTransition = dirMatch[1] === "true"
+
+  // 3. Parse slides array entries (order-independent matching)
+  const slides = []
+  const entryRegex = /\{([^}]+)\}/g
+  for (const match of content.matchAll(entryRegex)) {
+    const body = match[1]
+    const componentMatch = body.match(/component:\s*(\w+)/)
+    const stepsMatch = body.match(/steps:\s*(\d+)/)
+    if (!componentMatch || !stepsMatch) continue
+    const slug = componentToSlug[componentMatch[1]]
+    if (!slug) continue // layout or unknown import — skip
+    const entry = { slug, steps: parseInt(stepsMatch[1], 10) }
+    const sectionMatch = body.match(/section:\s*["']([^"']+)["']/)
+    if (sectionMatch) entry.section = sectionMatch[1]
+    slides.push(entry)
+  }
+
+  if (slides.length === 0) return null
+
+  const result = { slides }
+  if (transition) result.transition = transition
+  if (directionalTransition !== undefined) result.directionalTransition = directionalTransition
+  return result
+}

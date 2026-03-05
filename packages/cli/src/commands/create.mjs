@@ -1,11 +1,14 @@
 import { execSync } from "node:child_process"
-import { existsSync, cpSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, cpSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { join, resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
+import { requireAuth } from "../utils/auth.mjs"
 import { hexToOklch, isValidHex } from "../utils/colors.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
+import { fetchRegistryItem, resolveRegistryDependencies } from "../utils/registry.mjs"
+import { toPascalCase, replaceDeckConfig } from "../utils/deck-config.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -58,7 +61,9 @@ export async function create(args) {
 
   // Parse flags
   const useDefaults = args.includes("--yes") || args.includes("-y")
-  const filteredArgs = args.filter(a => a !== "--yes" && a !== "-y")
+  const fromIdx = args.findIndex(a => a === "--from")
+  const fromSlug = fromIdx >= 0 ? args[fromIdx + 1] : null
+  const filteredArgs = args.filter((a, i) => a !== "--yes" && a !== "-y" && a !== "--from" && i !== fromIdx + 1)
 
   // 1. Parse directory name from args or prompt
   let dirName = filteredArgs[0]
@@ -69,11 +74,13 @@ export async function create(args) {
     console.log(`  Scaffolds a new PromptSlide slide deck project.`)
     console.log()
     console.log(`  ${bold("Options:")}`)
-    console.log(`    -y, --yes    Skip prompts and use defaults`)
+    console.log(`    -y, --yes              Skip prompts and use defaults`)
+    console.log(`    --from <deck-slug>     Start from a published deck`)
     console.log()
-    console.log(`  ${bold("Example:")}`)
+    console.log(`  ${bold("Examples:")}`)
     console.log(`    promptslide create my-pitch-deck`)
     console.log(`    promptslide create my-pitch-deck --yes`)
+    console.log(`    promptslide create my-deck --from promptic-pitch-deck`)
     console.log()
     process.exit(0)
   }
@@ -109,9 +116,9 @@ export async function create(args) {
   const defaultName = titleCase(dirName)
   const projectName = useDefaults ? defaultName : await prompt("Project name:", defaultName)
 
-  // 3. Ask for primary brand color (optional)
+  // 3. Ask for primary brand color (optional, skipped when using --from since deck provides its own)
   let primaryHex = "#3B82F6"
-  if (!useDefaults) {
+  if (!useDefaults && !fromSlug) {
     primaryHex = await prompt("Primary brand color (hex):", "#3B82F6")
     if (!isValidHex(primaryHex)) {
       console.log(`  ${dim("Invalid hex color, using default #3B82F6")}`)
@@ -161,7 +168,87 @@ export async function create(args) {
     replaceInFile(path, values)
   }
 
-  // 6. If running from local dev, rewrite deps to use file: paths
+  // 6. Overlay deck files if --from was specified
+  if (fromSlug) {
+    const auth = requireAuth()
+
+    let item
+    try {
+      item = await fetchRegistryItem(fromSlug, auth)
+    } catch (err) {
+      console.error(`  ${red("Error:")} ${err.message}`)
+      closePrompts()
+      process.exit(1)
+    }
+
+    if (item.type !== "deck") {
+      console.error(`  ${red("Error:")} "${fromSlug}" is a ${item.type}, not a deck. Use --from with a published deck.`)
+      closePrompts()
+      process.exit(1)
+    }
+
+    const versionTag = item.version ? ` ${dim(`v${item.version}`)}` : ""
+    console.log(`  Using deck ${bold(item.title || item.name)}${versionTag}`)
+
+    let resolved
+    try {
+      resolved = await resolveRegistryDependencies(item, auth, targetDir)
+    } catch (err) {
+      console.error(`  ${red("Error:")} ${err.message}`)
+      closePrompts()
+      process.exit(1)
+    }
+
+    // Write all deck files (no conflict prompts — fresh project)
+    for (const regItem of resolved.items) {
+      if (!regItem.files?.length) continue
+      for (const file of regItem.files) {
+        const targetPath = join(targetDir, file.target, file.path)
+        const targetFileDir = dirname(targetPath)
+        mkdirSync(targetFileDir, { recursive: true })
+
+        const dataUriPrefix = file.content.match(/^data:[^;]+;base64,/)
+        if (dataUriPrefix) {
+          writeFileSync(targetPath, Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64"))
+        } else {
+          writeFileSync(targetPath, file.content, "utf-8")
+        }
+        console.log(`  ${green("✓")} Added ${cyan(file.target + file.path)}`)
+      }
+    }
+
+    // Reconstruct deck-config.ts from deckConfig metadata
+    if (item.meta?.slides) {
+      const slides = item.meta.slides.map(s => ({
+        componentName: toPascalCase(s.slug),
+        importPath: `@/slides/${s.slug}`,
+        steps: s.steps,
+        section: s.section
+      }))
+      replaceDeckConfig(targetDir, slides, {
+        transition: item.meta.transition,
+        directionalTransition: item.meta.directionalTransition
+      })
+      console.log(`  ${green("✓")} Generated ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`)
+    }
+
+    // Add npm dependencies from the deck to package.json
+    if (Object.keys(resolved.npmDeps).length > 0) {
+      const pkgList = Object.entries(resolved.npmDeps).map(([name, ver]) => `${name}@${ver}`)
+      const pkgPath = join(targetDir, "package.json")
+      const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"))
+      for (const [name, ver] of Object.entries(resolved.npmDeps)) {
+        pkg.dependencies = pkg.dependencies || {}
+        pkg.dependencies[name] = ver
+      }
+      writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8")
+      console.log(`  ${green("✓")} Added ${dim(pkgList.join(", "))} to package.json`)
+    }
+
+    console.log()
+  }
+
+  // 7. If running from local dev, rewrite deps to use file: paths (must run after --from to not overwrite)
   const localPaths = getLocalPackagePaths()
   if (localPaths) {
     const pkgPath = join(targetDir, "package.json")
@@ -171,10 +258,10 @@ export async function create(args) {
     console.log(`  ${dim("Local dev detected — using file: paths for packages")}`)
   }
 
-  // 7. Generate tsconfig.json for editor support
+  // 8. Generate tsconfig.json for editor support
   ensureTsConfig(targetDir)
 
-  // 8. Install PromptSlide agent skill (defaults to yes; skipped with --yes since skills CLI is interactive)
+  // 9. Install PromptSlide agent skill (defaults to yes; skipped with --yes since skills CLI is interactive)
   if (useDefaults) {
     console.log(`  ${dim("Tip: Run")} npx skills add prompticeu/promptslide ${dim("to install the agent skill")}`)
   } else {
@@ -196,7 +283,7 @@ export async function create(args) {
     }
   }
 
-  // 9. Success output
+  // 10. Success output
   console.log()
   console.log(`  ${green("✓")} Created ${bold(projectName)} in ${cyan(dirName)}/`)
   console.log()
