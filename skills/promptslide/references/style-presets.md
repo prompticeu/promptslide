@@ -1,6 +1,6 @@
 # Style Presets
 
-Curated visual directions for slide decks. Use these as starting points — adjust colors, fonts, and card styles to match the brand. Each preset specifies the primary OKLCH color for `globals.css`, recommended fonts, card treatment, and animation style.
+Curated visual directions for slide decks. Use these as inspiration, not as a spec to follow row by row. Each preset describes a mood, suggests fonts and visual treatments, and shows what works well together — but the actual design of each slide should come from thinking about what the content needs (see the Design Thinking step and [slide-design-guide.md](slide-design-guide.md)).
 
 ---
 
