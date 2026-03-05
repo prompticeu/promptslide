@@ -1,6 +1,6 @@
 {
   "name": "create-slides",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Scaffold a new PromptSlide slide deck project",
   "bin": {
     "create-slides": "./index.mjs"
@@ -24,7 +24,7 @@
     "create"
   ],
   "dependencies": {
-    "promptslide": "^0.2.3"
+    "promptslide": "^0.2.4"
   },
   "engines": {
     "node": ">=18.0.0"
