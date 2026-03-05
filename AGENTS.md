@@ -4,6 +4,12 @@ Slide deck framework: Vite + React 19 + Tailwind v4 + Framer Motion. Each slide 
 
 > **Recommended**: Install the [PromptSlide skill](https://github.com/prompticeu/promptslide) for guided slide authoring, style presets, design recipes, and best practices: `npx skills add prompticeu/promptslide`
 
+## Before You Start
+
+Do not jump straight to writing slides. First confirm the visual direction with the user — theme colors, fonts, and overall style. Then, for each slide, think about what design approach fits the content before coding. Not everything needs cards or grids — let the content shape the layout.
+
+If the PromptSlide skill is installed, follow its workflow — it includes design planning steps that should happen before writing any slides.
+
 ---
 
 ## Architecture
@@ -83,5 +89,5 @@ Layouts in `src/layouts/` and theme colors in `src/globals.css` are yours to cus
 - **Semantic colors**: Use `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border`.
 - **Icons**: Import from `lucide-react` (e.g., `import { ArrowRight } from "lucide-react"`).
 - **Animations**: Use `<Animated step={n}>` for click-to-reveal. The `steps` value in `deck-config.ts` must equal the highest step number used. Available: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`.
-- **PDF compatibility**: No `blur()` or `backdrop-filter` (dropped by Chromium). No gradients (use solid colors with opacity). Keep colored shadows at `/5` max.
+- **PDF compatibility**: No `blur()` or `backdrop-filter` (dropped by Chromium). No gradients (use solid colors with opacity). No `box-shadow` (doesn't export correctly) — use borders or background tints instead.
 - **Brand color**: Edit `--primary` in `src/globals.css`. Configure logo and fonts in `src/theme.ts`.
