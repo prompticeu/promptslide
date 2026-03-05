@@ -4,8 +4,9 @@ description: >-
   Creates and authors slide deck presentations using the PromptSlide framework
   (Vite + React 19 + Tailwind v4 + Framer Motion). Use when the user wants to
   create a new slide deck, add or edit slides, customize themes or branding,
-  or work with slide animations and transitions. Triggers on mentions of slides,
-  decks, presentations, PromptSlide, or slide-related tasks.
+  work with slide animations and transitions, capture slides as images, or
+  visually verify slide appearance. Triggers on mentions of slides, decks,
+  presentations, PromptSlide, slide screenshots, or slide-related tasks.
 metadata:
   author: prompticeu
   version: "2.0"
@@ -153,3 +154,7 @@ These rules ensure slides look identical on screen and in PDF export:
 - **Minimal colored shadows**: `shadow-primary/10` renders heavier in PDF — use plain `shadow-lg` or keep at `/5` max
 
 For content density rules, design principles, and visual anti-patterns, see [references/slide-design-guide.md](references/slide-design-guide.md).
+
+### Visual Verification
+
+After creating or modifying a slide, you can capture a screenshot to visually verify it renders correctly. See [references/visual-verification.md](references/visual-verification.md) for the `promptslide to-image` command and workflow.
