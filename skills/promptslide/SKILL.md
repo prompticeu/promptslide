@@ -136,8 +136,6 @@ Layouts are React components in `src/layouts/` that wrap slide content. They con
 
 The scaffolded project includes `SlideLayoutCentered` as a starter. Create new ones freely — they're just React components. Users can customize padding, backgrounds, header styles, or add entirely new structural patterns.
 
-For the layout API (`useTheme`, `SlideFooter`, `cn`) and examples, see [references/slide-patterns.md](references/slide-patterns.md).
-
 ### Animations
 
 Use `<Animated>` for click-to-reveal steps and `<AnimatedGroup>` for staggered reveals. Available animations: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`.
@@ -154,4 +152,4 @@ These rules ensure slides look identical on screen and in PDF export:
 - **No gradients**: `bg-gradient-to-*` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., `bg-primary/5`, `bg-muted/20`)
 - **Minimal colored shadows**: `shadow-primary/10` renders heavier in PDF — use plain `shadow-lg` or keep at `/5` max
 
-For more on styling and layout patterns, see [references/slide-patterns.md](references/slide-patterns.md).
+For content density rules, design principles, and visual anti-patterns, see [references/slide-patterns.md](references/slide-patterns.md).
