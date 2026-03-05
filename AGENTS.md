@@ -73,6 +73,8 @@ export const slides: SlideConfig[] = [
 ];
 ```
 
+Layouts in `src/layouts/` and theme colors in `src/globals.css` are yours to customize freely — create new layouts, modify existing ones, and adjust CSS variables to make the deck look unique.
+
 ---
 
 ## Key Constraints
