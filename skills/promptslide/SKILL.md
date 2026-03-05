@@ -84,6 +84,8 @@ Before writing any slide code, pause and think about design for the deck as a wh
 
 Don't default to the first layout that comes to mind. Consider 2–3 options for each slide and pick the one that best serves the message.
 
+**Share your design plan with the user before coding.** Briefly describe the style direction and your layout approach for each slide. Let them approve or adjust — don't just decide and start building.
+
 ### Step 6: Create your slides
 
 Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then follow the authoring instructions below.
@@ -94,9 +96,11 @@ Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then f
 
 ### Before Writing Slides
 
-Whether this is a new deck or an existing one, confirm the visual direction before creating slide files. Check: are theme colors set in `globals.css`? Are fonts configured in `theme.ts`? Has the user agreed on a style direction? The user's primary color may already be configured from scaffolding — don't overwrite it without asking.
+Whether this is a new deck or an existing one, confirm the visual direction with the user before creating slide files. The user's primary color may already be configured from scaffolding — don't overwrite it without asking.
 
-Then, for each slide, think about what the content wants to be — don't default to the first layout that comes to mind. A stat might want to be huge and alone. A comparison wants two sides. A list might just need clean typography. Let the content shape the layout. See [references/slide-design-guide.md](references/slide-design-guide.md) for design principles.
+**Present your design plan to the user before writing any slide code.** Briefly describe the style direction you're considering, the font pairing, and your layout idea for each slide (e.g., "slide 3: side-by-side comparison", "slide 5: hero stat with oversized number"). Let the user approve or adjust before you start building. Don't just decide internally and start coding.
+
+For each slide, think about what the content wants to be — a stat might want to be huge and alone, a comparison wants two sides, a list might just need clean typography. Let the content shape the layout. See [references/slide-design-guide.md](references/slide-design-guide.md) for design principles.
 
 ### Architecture
 
