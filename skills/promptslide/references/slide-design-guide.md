@@ -30,12 +30,17 @@ Slides are projected, not read. Enforce strict limits per slide type — if cont
 
 ## Design Principles
 
-- **No two consecutive slides should use the same layout.** If slide 3 is a card grid, slide 4 should be something completely different.
-- **Vary card styles.** Don't use `rounded-xl border border-border bg-card p-8` on every slide. Mix bordered, tinted, elevated, accent-border, or no cards at all.
-- **Vary animations.** Don't use `slide-up` on everything. Match the animation to the content.
-- **Use asymmetry.** Not every grid needs equal columns. Try `grid-cols-5` with `col-span-2` + `col-span-3`.
-- **Let content breathe.** Whitespace is a design tool. Not every slide needs to be packed with elements.
-- **Typography can be the visual.** A large quote, a bold number, or a headline with a highlighted word can carry a slide without any cards or icons.
+**Let the content shape the layout.** Before coding each slide, ask: what is this content trying to say, and what's the best way to show it?
+
+- A single important number → make it huge, give it the whole slide
+- A comparison or before/after → side by side, not stacked cards
+- A list of features → maybe clean typography with whitespace is enough — not everything needs cards
+- A key message or quote → let it breathe with generous space around it
+- A process or timeline → show the flow visually, not as a grid of boxes
+
+**Create rhythm across the deck.** A dense data slide followed by a spacious quote creates contrast. Alternate between structured and freeform, tight and airy. Every deck should have 1–2 "hero moments" — slides that break the pattern with oversized typography, a bold color block, or a single idea given the whole canvas.
+
+**Use visual variety as a tool, not a rule.** Mix card treatments (bordered, tinted, accent-border, none), try asymmetric grids (`col-span-2` + `col-span-3`), vary heading sizes, and match animations to the content's energy. The goal isn't variety for its own sake — it's that each slide feels intentionally designed for what it's showing.
 
 ---
 

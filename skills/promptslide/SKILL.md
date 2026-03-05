@@ -74,13 +74,29 @@ The `--yes` flag skips interactive prompts and uses sensible defaults. Replace `
 
 Edit `src/theme.ts` for brand name and logo, and `src/globals.css` for theme colors. See [references/theming-and-branding.md](references/theming-and-branding.md) for details.
 
-### Step 5: Create your slides
+### Step 5: Design Thinking
+
+Before writing any slide code, pause and think about design for the deck as a whole and for each slide individually. Consider:
+
+- **What does this content want to be?** A single powerful stat deserves to be big and alone on the slide. A comparison wants two sides. A list of features might work as clean typography with whitespace — not everything needs cards. Let the content shape the layout, not the other way around.
+- **What's the rhythm of the deck?** Alternate between dense and spacious, structured and freeform. A tight data slide followed by a big bold quote creates contrast and keeps attention.
+- **Where are the hero moments?** Every deck should have 1–2 slides that break the pattern — an oversized number, a full-bleed color block, a single sentence with generous whitespace. These give the deck personality.
+
+Don't default to the first layout that comes to mind. Consider 2–3 options for each slide and pick the one that best serves the message.
+
+### Step 6: Create your slides
 
 Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then follow the authoring instructions below.
 
 ---
 
 ## Authoring Slides
+
+### Before Writing Slides
+
+Whether this is a new deck or an existing one, confirm the visual direction before creating slide files. Check: are theme colors set in `globals.css`? Are fonts configured in `theme.ts`? Has the user agreed on a style direction?
+
+Then, for each slide, think about what the content wants to be — don't default to the first layout that comes to mind. A stat might want to be huge and alone. A comparison wants two sides. A list might just need clean typography. Let the content shape the layout. See [references/slide-design-guide.md](references/slide-design-guide.md) for design principles.
 
 ### Architecture
 
@@ -151,7 +167,7 @@ These rules ensure slides look identical on screen and in PDF export:
 
 - **No blur**: `filter: blur()` and `backdrop-filter: blur()` are silently dropped by Chromium's PDF pipeline
 - **No gradients**: `bg-gradient-to-*` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., `bg-primary/5`, `bg-muted/20`)
-- **Minimal colored shadows**: `shadow-primary/10` renders heavier in PDF — use plain `shadow-lg` or keep at `/5` max
+- **No shadows**: `box-shadow` (including `shadow-sm`, `shadow-lg`, `shadow-2xl`) does not export correctly to PDF — use borders or background tints instead (e.g., `border border-border`, `bg-white/5`)
 
 For content density rules, design principles, and visual anti-patterns, see [references/slide-design-guide.md](references/slide-design-guide.md).
 
