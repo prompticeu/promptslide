@@ -1,11 +1,6 @@
----
-name: slide-to-image
-description: Capture a PromptSlide slide as a PNG screenshot for visual verification. Use this skill proactively after creating or modifying a slide to visually check the result. Also use when the user asks to see what a slide looks like, export a slide as an image, or verify slide appearance. Triggers on requests like "check how this slide looks", "show me the slide", "does this look right", "export as PNG", or after any slide code change to confirm it renders correctly.
----
+# Visual Verification
 
-# Slide To Image
-
-Capture a slide as a PNG to visually verify it renders correctly.
+Capture a slide as a PNG screenshot to visually verify it renders correctly.
 
 ## Usage
 
@@ -23,9 +18,8 @@ npx promptslide to-image <slide-path> [-o <output-file>]
 3. Read the resulting PNG with the Read tool to visually inspect it.
 4. If the slide has visual issues (layout, spacing, content), fix the code and re-capture.
 
-## Proactive Visual Check
+## What to Check
 
-After creating or editing a slide, capture a screenshot to verify:
 - Layout and spacing look correct
 - Text is readable and not clipped
 - Colors and styling match expectations
