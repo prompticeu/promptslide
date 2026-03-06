@@ -34,7 +34,7 @@ export async function org(args) {
 
   if (orgs.length === 1) {
     if (auth.organizationId !== orgs[0].id) {
-      saveAuth({ ...auth, organizationId: orgs[0].id, organizationName: orgs[0].name })
+      saveAuth({ ...auth, organizationId: orgs[0].id, organizationName: orgs[0].name, organizationSlug: orgs[0].slug })
       console.log(`  ${green("✓")} Switched to ${bold(orgs[0].name)}`)
     } else {
       console.log(`  Already using ${bold(orgs[0].name)}.`)
@@ -60,7 +60,7 @@ export async function org(args) {
   }
 
   const selected = orgs[idx]
-  saveAuth({ ...auth, organizationId: selected.id, organizationName: selected.name })
+  saveAuth({ ...auth, organizationId: selected.id, organizationName: selected.name, organizationSlug: selected.slug })
   console.log(`  ${green("✓")} Switched to ${bold(selected.name)}`)
   console.log()
 

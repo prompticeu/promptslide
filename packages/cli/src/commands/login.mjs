@@ -126,6 +126,7 @@ export async function login(args) {
   // Step 4: Fetch user's organizations and let them pick
   let organizationId = null
   let organizationName = null
+  let organizationSlug = null
 
   try {
     const orgs = await fetchOrganizations({ registry, token: accessToken })
@@ -135,6 +136,7 @@ export async function login(args) {
     } else if (orgs.length === 1) {
       organizationId = orgs[0].id
       organizationName = orgs[0].name
+      organizationSlug = orgs[0].slug
     } else {
       console.log()
       console.log(`  ${bold("Select organization:")}`)
@@ -148,10 +150,12 @@ export async function login(args) {
       if (idx >= 0 && idx < orgs.length) {
         organizationId = orgs[idx].id
         organizationName = orgs[idx].name
+        organizationSlug = orgs[idx].slug
       } else {
         console.error(`  ${red("Error:")} Invalid selection. Using first organization.`)
         organizationId = orgs[0].id
         organizationName = orgs[0].name
+        organizationSlug = orgs[0].slug
       }
     }
   } catch (err) {
@@ -163,7 +167,8 @@ export async function login(args) {
     registry,
     token: accessToken,
     organizationId,
-    organizationName
+    organizationName,
+    organizationSlug
   })
 
   if (organizationName) {
