@@ -4,11 +4,16 @@ import { join, basename, relative, extname } from "node:path"
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { captureSlideAsDataUri, isPlaywrightAvailable } from "../utils/export.mjs"
-import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, readLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent } from "../utils/registry.mjs"
-import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
+import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent } from "../utils/registry.mjs"
+import { prompt, confirm, select, closePrompts } from "../utils/prompts.mjs"
 import { parseDeckConfig } from "../utils/deck-config.mjs"
 
 function readDeckPrefix(cwd) {
+  // Prefer stored prefix from lockfile (user's previous choice)
+  const lock = readLockfile(cwd)
+  if (lock.deckPrefix) return lock.deckPrefix
+
+  // Fall back to package.json name
   try {
     const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf-8"))
     return (pkg.name || "").toLowerCase()
@@ -402,22 +407,17 @@ export async function publish(args) {
       process.exit(1)
     }
 
-    console.log(`  ${bold("Available files:")}`)
-    available.forEach((f, i) => {
-      console.log(`    ${dim(`${i + 1}.`)} ${f.target}${f.path}`)
-    })
-    console.log(`    ${dim("─".repeat(30))}`)
-    console.log(`    ${dim(`${available.length + 1}.`)} ${bold("Entire deck")}`)
+    console.log(`  ${bold("What do you want to publish?")}`)
     console.log()
 
-    const choice = await prompt("Select file number:", "1")
-    const idx = parseInt(choice, 10) - 1
+    const options = [
+      ...available.map(f => `${f.target}${f.path}`),
+      "Entire deck"
+    ]
+    const idx = await select(options, options.length - 1)
 
     if (idx === available.length) {
       typeOverride = "deck"
-    } else if (idx < 0 || idx >= available.length) {
-      console.error(`  ${red("Error:")} Invalid selection.`)
-      process.exit(1)
     } else {
       filePath = relative(cwd, available[idx].fullPath)
     }
@@ -432,10 +432,34 @@ export async function publish(args) {
       process.exit(1)
     }
 
-    const deckPrefix = await promptDeckPrefix(cwd, true)
-    const dirName = basename(cwd)
-    const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
-    const deckSlug = `${deckPrefix}/${deckBaseSlug}`
+    // Check if a deck slug already exists in the lockfile
+    const existingLock = readLockfile(cwd)
+    const existingSlug = existingLock.deckSlug
+    let deckPrefix, deckSlug
+
+    if (existingSlug) {
+      console.log(`  ${dim("Previously published as")} ${cyan(existingSlug)}`)
+      console.log()
+      const reuse = await confirm(`  Publish to ${bold(existingSlug)}?`)
+
+      if (reuse) {
+        deckSlug = existingSlug
+        deckPrefix = existingSlug.split("/")[0]
+      } else {
+        deckPrefix = await promptDeckPrefix(cwd, true)
+        const dirName = basename(cwd)
+        const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+        deckSlug = `${deckPrefix}/${deckBaseSlug}`
+      }
+    } else {
+      deckPrefix = await promptDeckPrefix(cwd, true)
+      const dirName = basename(cwd)
+      const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+      deckSlug = `${deckPrefix}/${deckBaseSlug}`
+    }
+
+    // Persist prefix for next time (slug is saved after successful publish)
+    updateLockfilePublishConfig(cwd, { deckPrefix })
 
     // Walk public/ to collect assets and build reference set
     const publicDir = join(cwd, "public")
@@ -736,6 +760,7 @@ export async function publish(args) {
       }, auth)
       console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} deck ${cyan(deckSlug)} ${dim(`v${result.version}`)}`)
       updateLockfileItem(cwd, deckSlug, result.version ?? 0, {})
+      updateLockfilePublishConfig(cwd, { deckSlug })
       published++
     } catch (err) {
       console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} deck ${dim(deckSlug)}: ${err.message}`)
@@ -782,6 +807,10 @@ export async function publish(args) {
   // Prompt for deck prefix (required)
   const deckPrefix = await promptDeckPrefix(cwd, true)
   const slug = `${deckPrefix}/${baseSlug}`
+
+  // Persist prefix for next time
+  updateLockfilePublishConfig(cwd, { deckPrefix })
+
   console.log(`  Slug: ${cyan(slug)}`)
   console.log()
 
