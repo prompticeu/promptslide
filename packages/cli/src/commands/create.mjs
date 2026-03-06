@@ -15,6 +15,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 const CLI_ROOT = join(__dirname, "..", "..")
 const TEMPLATE_DIR = join(CLI_ROOT, "templates", "default")
+const CLI_VERSION = JSON.parse(readFileSync(join(CLI_ROOT, "package.json"), "utf-8")).version
 
 function titleCase(slug) {
   return slug.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
@@ -120,7 +121,7 @@ export async function create(args) {
   const replacements = [
     {
       path: join(targetDir, "package.json"),
-      values: { "{{PROJECT_SLUG}}": dirName, "{{PROJECT_NAME}}": projectName }
+      values: { "{{PROJECT_SLUG}}": dirName, "{{PROJECT_NAME}}": projectName, "{{PROMPTSLIDE_VERSION}}": `^${CLI_VERSION}` }
     },
     {
       path: join(targetDir, "src", "theme.ts"),
