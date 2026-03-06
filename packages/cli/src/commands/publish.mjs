@@ -745,6 +745,7 @@ export async function publish(args) {
     const assetSlugs = publicAssets.map(a => assetFileToSlug(deckPrefix, a.relativePath))
     const allDeckDeps = [...slideSlugs, ...assetSlugs]
 
+    let deckItemId = null
     try {
       const result = await publishToRegistry({
         type: "deck",
@@ -761,6 +762,7 @@ export async function publish(args) {
       console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} deck ${cyan(deckSlug)} ${dim(`v${result.version}`)}`)
       updateLockfileItem(cwd, deckSlug, result.version ?? 0, {})
       updateLockfilePublishConfig(cwd, { deckSlug })
+      deckItemId = result.id
       published++
     } catch (err) {
       console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} deck ${dim(deckSlug)}: ${err.message}`)
@@ -769,6 +771,9 @@ export async function publish(args) {
 
     console.log()
     console.log(`  ${bold("Done:")} ${green(`${published} published`)}${skipped ? `, ${skipped} unchanged` : ""}${failed ? `, ${red(`${failed} failed`)}` : ""}`)
+    if (auth.organizationSlug && deckItemId) {
+      console.log(`  View: ${cyan(`${auth.registry}/${auth.organizationSlug}/items/${deckItemId}`)}`)
+    }
     console.log(`  Install: ${cyan(`promptslide add ${deckSlug}`)}`)
     console.log()
     closePrompts()
@@ -948,6 +953,9 @@ export async function publish(args) {
     const verTag = result.version ? ` v${result.version}` : ""
     console.log(`  ${green("✓")} Published ${bold(slug)}${verTag} to ${auth.organizationName || "registry"}`)
     console.log(`  Status: ${result.status || "published"}`)
+    if (auth.organizationSlug && result.id) {
+      console.log(`  View: ${cyan(`${auth.registry}/${auth.organizationSlug}/items/${result.id}`)}`)
+    }
     console.log(`  Install: ${cyan(`promptslide add ${slug}`)}`)
 
     // Track in lockfile
