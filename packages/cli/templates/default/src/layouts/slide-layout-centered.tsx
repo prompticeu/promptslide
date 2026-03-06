@@ -48,7 +48,7 @@ export function SlideLayoutCentered({
       )}
 
       {/* Content Area */}
-      <div className="min-h-0 w-full flex-1 overflow-hidden pt-2">{children}</div>
+      <div className="flex min-h-0 w-full flex-1 flex-col justify-center overflow-hidden">{children}</div>
 
       {/* Footer */}
       {!hideFooter && (

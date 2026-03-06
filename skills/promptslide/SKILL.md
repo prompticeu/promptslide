@@ -4,8 +4,9 @@ description: >-
   Creates and authors slide deck presentations using the PromptSlide framework
   (Vite + React 19 + Tailwind v4 + Framer Motion). Use when the user wants to
   create a new slide deck, add or edit slides, customize themes or branding,
-  or work with slide animations and transitions. Triggers on mentions of slides,
-  decks, presentations, PromptSlide, or slide-related tasks.
+  work with slide animations and transitions, capture slides as images, or
+  visually verify slide appearance. Triggers on mentions of slides, decks,
+  presentations, PromptSlide, slide screenshots, or slide-related tasks.
 metadata:
   author: prompticeu
   version: "2.0"
@@ -13,7 +14,7 @@ metadata:
 
 # PromptSlide
 
-Create beautiful slide decks with AI coding agents. Each slide is a React component styled with Tailwind CSS, with built-in animations, presentation mode, and PDF export.
+Create slide decks with AI coding agents. Each slide is a React component styled with Tailwind CSS, with built-in animations and PDF export.
 
 ## Detect Mode
 
@@ -30,55 +31,62 @@ grep -q '"promptslide"' package.json 2>/dev/null
 
 ## Creating a New Deck
 
-### Step 1: Scaffold the project
+### Step 1: Content Discovery
+
+Before writing any code, ask the user:
+
+1. **What is this presentation about?** (topic, key message)
+2. **Who is the audience?** (investors, team, customers, conference)
+3. **How many slides?** (suggest 5–10 for a focused deck, 10–15 for a detailed one)
+4. **Do you have content ready?** (outline, bullet points, or should the agent draft it)
+
+Use the answers to plan slide structure before scaffolding.
+
+### Step 2: Style Direction
+
+Determine the visual direction before writing any code:
+
+1. **Ask if they have brand guidelines** — logo, colors, fonts. If yes, use those directly.
+2. **If no brand guidelines**, suggest 2–3 presets from [references/style-presets.md](references/style-presets.md). Briefly describe each (one sentence + mood), let the user pick or mix.
+3. **If the user wants something custom**, ask: dark or light? What mood? (professional, playful, dramatic, techy). Then build a custom direction from the building blocks in the presets.
+
+The chosen direction determines what you configure in Steps 3–4:
+
+- **Colors** → `src/globals.css` (`--primary` and other CSS variables)
+- **Fonts** → `<link>` in `index.html` + `fonts` in `src/theme.ts`
+- **Layouts** → Custom React components in `src/layouts/` (see [Layouts](#layouts-master-themes) below)
+- **Card styles & animations** → Applied per-slide based on the direction
+
+Presets are starting points, not rigid templates. The user can change everything — it's all just React components and CSS variables.
+
+### Step 3: Scaffold and start
 
 ```bash
-bun create slides my-deck
+bun create slides my-deck -- --yes
 cd my-deck
 bun install
-```
-
-### Step 2: Start the dev server
-
-```bash
 bun run dev
 ```
 
-This runs `promptslide studio` — the development server starts at http://localhost:5173 with hot module replacement. Slides update instantly as files are saved.
+The `--yes` flag skips interactive prompts and uses sensible defaults. Replace `my-deck` with the user's desired name. The dev server starts at http://localhost:5173 with hot module replacement.
 
-### Step 3: Configure branding
+### Step 4: Configure branding
 
-Edit `src/theme.ts`:
+Edit `src/theme.ts` for brand name and logo, and `src/globals.css` for theme colors. See [references/theming-and-branding.md](references/theming-and-branding.md) for details.
 
-```ts
-import type { ThemeConfig } from "promptslide"
+### Step 5: Design Thinking
 
-export const theme: ThemeConfig = {
-  name: "Your Company",
-  logo: { full: "/logo.svg" },
-}
-```
+Before writing any slide code, pause and think about design for the deck as a whole and for each slide individually. Consider:
 
-Replace `public/logo.svg` with your company logo file.
+- **What does this content want to be?** A single powerful stat deserves to be big and alone on the slide. A comparison wants two sides. A list of features might work as clean typography with whitespace — not everything needs cards. Let the content shape the layout, not the other way around.
+- **What's the rhythm of the deck?** Alternate between dense and spacious, structured and freeform. A tight data slide followed by a big bold quote creates contrast and keeps attention.
+- **Where are the hero moments?** Every deck should have 1–2 slides that break the pattern — an oversized number, a full-bleed color block, a single sentence with generous whitespace. These give the deck personality.
 
-### Step 4: Set theme color
+Don't default to the first layout that comes to mind. Consider 2–3 options for each slide and pick the one that best serves the message.
 
-Edit `src/globals.css` and change `--primary`:
+**Share your design plan with the user before coding.** Briefly describe the style direction and your layout approach for each slide. Let them approve or adjust — don't just decide and start building.
 
-```css
-:root {
-  --primary: oklch(0.55 0.2 250); /* Change hue for your brand */
-}
-.dark {
-  --primary: oklch(0.6 0.2 250);
-}
-```
-
-OKLCH format: `oklch(lightness chroma hue)` — hue 0=red, 60=yellow, 120=green, 250=blue, 300=purple.
-
-For full theming details, see [references/theming-and-branding.md](references/theming-and-branding.md).
-
-### Step 5: Create your slides
+### Step 6: Create your slides
 
 Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then follow the authoring instructions below.
 
@@ -86,224 +94,87 @@ Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then f
 
 ## Authoring Slides
 
-### Quick Start
+### Before Writing Slides
 
-1. Create a file in `src/slides/` (e.g., `slide-market.tsx`)
-2. Use `SlideLayoutCentered` as the wrapper component
-3. Register it in `src/deck-config.ts`
+Whether this is a new deck or an existing one, confirm the visual direction with the user before creating slide files. The user's primary color may already be configured from scaffolding — don't overwrite it without asking.
 
-```tsx
-// src/slides/slide-market.tsx
-import type { SlideProps } from "promptslide"
-import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
+**Present your design plan to the user before writing any slide code.** Briefly describe the style direction you're considering, the font pairing, and your layout idea for each slide (e.g., "slide 3: side-by-side comparison", "slide 5: hero stat with oversized number"). Let the user approve or adjust before you start building. Don't just decide internally and start coding.
 
-export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
-  return (
-    <SlideLayoutCentered
-      slideNumber={slideNumber}
-      totalSlides={totalSlides}
-      eyebrow="MARKET OPPORTUNITY"
-      title="$50B Total Addressable Market"
-    >
-      <div className="flex h-full flex-col justify-center">
-        <p className="text-muted-foreground text-lg">Your content here</p>
-      </div>
-    </SlideLayoutCentered>
-  )
-}
-```
-
-```ts
-// src/deck-config.ts
-import type { SlideConfig } from "promptslide"
-import { SlideMarket } from "@/slides/slide-market"
-
-export const slides: SlideConfig[] = [{ component: SlideMarket, steps: 0 }]
-```
-
-Vite hot-reloads — the new slide appears instantly in the browser.
+For each slide, think about what the content wants to be — a stat might want to be huge and alone, a comparison wants two sides, a list might just need clean typography. Let the content shape the layout. See [references/slide-design-guide.md](references/slide-design-guide.md) for design principles.
 
 ### Architecture
 
 ```
 src/
-├── layouts/                      # Slide layouts (your "master theme" — create freely)
-│   └── slide-layout-centered.tsx # Default layout with header + footer
-├── slides/            # YOUR SLIDES GO HERE
-├── theme.ts           # Theme config (brand name, logo, colors, fonts)
-├── deck-config.ts     # Slide order + step counts (modify this)
+├── layouts/           # Slide layouts — your "master themes", create freely
+├── slides/            # Your slides go here
+├── theme.ts           # Brand name, logo, fonts
+├── deck-config.ts     # Slide order + step counts
 ├── App.tsx            # Theme provider
-└── globals.css        # Theme colors
-
-promptslide (CLI)      # Dev server, build, preview (owns Vite config)
-promptslide      # Slide engine (npm package — stable, upgradeable)
+└── globals.css        # Theme colors (CSS custom properties)
 ```
 
-### SlideLayoutCentered API
+### Key Constraints
 
-Every slide wraps its content in `SlideLayoutCentered`:
+- **Slide dimensions**: 1280×720 (16:9). Content scales automatically in presentation mode.
+- **Semantic colors**: Use `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border` — these map to the theme's CSS custom properties.
+- **Icons**: Import from `lucide-react` (e.g., `import { ArrowRight } from "lucide-react"`).
+
+### Creating a Slide
+
+Every slide is a React component that receives `SlideProps`:
 
 ```tsx
-import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
-;<SlideLayoutCentered
-  slideNumber={slideNumber}
-  totalSlides={totalSlides}
-  eyebrow="CATEGORY" // Optional: small label above title
-  title="Slide Title" // Optional: main heading
-  subtitle="Description" // Optional: subtitle text
-  hideFooter // Optional: hide footer with logo + slide number
->
-  {/* Your slide content */}
-</SlideLayoutCentered>
-```
+// src/slides/slide-example.tsx
+import type { SlideProps } from "promptslide";
 
-Slide dimensions: **1280x720** (16:9). Design content for this size — it scales automatically in presentation mode.
-
-### Step Animations (click-to-reveal)
-
-Use `<Animated>` to reveal content on clicks:
-
-```tsx
-import { Animated } from "promptslide"
-
-// Always visible (no wrapper needed)
-<h2>Main Title</h2>
-
-// Appears on first click
-<Animated step={1} animation="fade">
-  <p>First point</p>
-</Animated>
-
-// Appears on second click
-<Animated step={2} animation="slide-up">
-  <p>Second point</p>
-</Animated>
-```
-
-**Animation types**: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`
-
-**AnimatedGroup** for staggered children:
-
-```tsx
-import { AnimatedGroup } from "promptslide"
-;<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
-  <Card>First</Card>
-  <Card>Second</Card>
-  <Card>Third</Card>
-</AnimatedGroup>
-```
-
-**Critical rule**: The `steps` value in `deck-config.ts` MUST equal the highest `step` number used in that slide's `<Animated>` components.
-
-```ts
-// If your slide uses step={1}, step={2}, step={3}:
-{ component: MySlide, steps: 3 }
-
-// If your slide has no animations:
-{ component: MySlide, steps: 0 }
-```
-
-For full animation API (props tables, Morph system, config constants), see [references/animation-api.md](references/animation-api.md).
-
-### Deck Configuration
-
-`src/deck-config.ts` controls slide order:
-
-```ts
-import type { SlideConfig } from "promptslide"
-
-export const slides: SlideConfig[] = [
-  { component: SlideTitle, steps: 0 },
-  { component: SlideProblem, steps: 3 },
-  { component: SlideSolution, steps: 0 }
-]
-```
-
-Optional metadata fields:
-
-```ts
-{
-  component: SlideProblem,
-  steps: 2,
-  title: "The Problem",           // Grid view labels, navigation
-  section: "Introduction",        // Chapter grouping in grid view
-  transition: "zoom",             // Per-slide transition override
-  notes: "Talk about market gap", // Speaker notes (future)
+export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
+  return (
+    <div className="bg-background text-foreground flex h-full w-full flex-col p-12">
+      <h2 className="text-4xl font-bold">Your Title</h2>
+      <div className="flex flex-1 items-center">
+        <p className="text-muted-foreground text-lg">Your content</p>
+      </div>
+    </div>
+  );
 }
 ```
 
-- **Add a slide**: Import component, append to array
-- **Remove a slide**: Remove from array
-- **Reorder slides**: Change position in array
+Register it in `src/deck-config.ts`:
 
-### Slide Transitions
+```ts
+import type { SlideConfig } from "promptslide";
+import { SlideExample } from "@/slides/slide-example";
 
-The `SlideDeck` component accepts a `transition` prop in `src/App.tsx`:
-
-```tsx
-<SlideDeck slides={slides} transition="slide-left" directionalTransition />
+export const slides: SlideConfig[] = [{ component: SlideExample, steps: 0 }];
 ```
 
-Options: `fade` (default), `slide-left`, `slide-right`, `slide-up`, `slide-down`, `zoom`, `zoom-fade`, `none`
+### Layouts (Master Themes)
 
-Per-slide transitions can be set via the `transition` field on individual slide configs in `deck-config.ts`.
+Layouts are React components in `src/layouts/` that wrap slide content. They control structure (headers, footers, backgrounds, padding) and are the closest thing to "master slides" in traditional tools. Change a layout once, every slide using it updates.
 
-### Design Essentials
+**Create 2–4 layouts per deck for visual variety.**
 
-- Use `flex h-full` on content containers to fill available space
-- Pass layout classes to `<Animated className="...">` to preserve flex/grid layout
-- Semantic color classes: `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border`
-- Icons: Import from `lucide-react` — 1000+ icons available (e.g., `import { ArrowRight, CheckCircle } from "lucide-react"`)
+The scaffolded project includes `SlideLayoutCentered` as a starter. Create new ones freely — they're just React components. Users can customize padding, backgrounds, header styles, or add entirely new structural patterns.
 
-For layout patterns, design recipes, and creating custom layouts (master themes), see [references/slide-patterns.md](references/slide-patterns.md).
+### Animations
 
-### Visual Diversity Guidelines
+Use `<Animated>` for click-to-reveal steps and `<AnimatedGroup>` for staggered reveals. Available animations: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`.
 
-When creating a deck with multiple slides, **vary the visual treatment across slides**. Do not repeat the same layout pattern on consecutive slides.
+**Critical rule**: The `steps` value in `deck-config.ts` MUST equal the highest `step` number used in that slide. `steps: 0` means no animations.
 
-**Rotate backgrounds:** Not every slide needs a plain `bg-background`. Use:
+For the full animation API, see [references/animation-api.md](references/animation-api.md).
 
-- Gradient mesh backgrounds (layered blurred gradient orbs)
-- Split backgrounds (solid primary on one side, content on the other)
-- Subtle radial spotlights
+### Styling Constraints (PDF Compatibility)
 
-**Vary card styles:** Do NOT use `rounded-xl border border-border bg-card` on every slide. Alternate between:
+These rules ensure slides look identical on screen and in PDF export:
 
-- Glass panels: `rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md`
-- Gradient cards: `bg-gradient-to-br from-primary/15 to-transparent border border-primary/10`
-- Elevated cards: `shadow-xl shadow-primary/10` (shadow instead of border)
-- Accent-border cards: `border-l-4 border-l-primary`
-- No cards at all — use large typography, progress bars, or data visualizations directly
+- **No blur**: `filter: blur()` and `backdrop-filter: blur()` are silently dropped by Chromium's PDF pipeline
+- **No gradients**: `bg-gradient-to-*` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., `bg-primary/5`, `bg-muted/20`)
+- **No shadows**: `box-shadow` (including `shadow-sm`, `shadow-lg`, `shadow-2xl`) does not export correctly to PDF — use borders or background tints instead (e.g., `border border-border`, `bg-white/5`)
 
-**Use different animations on different slides:**
+For content density rules, design principles, and visual anti-patterns, see [references/slide-design-guide.md](references/slide-design-guide.md).
 
-- `fade` for quotes, images, subtle reveals
-- `slide-left` / `slide-right` for split-screen content entering from edges
-- `scale` for hero elements and card grids
-- `slide-up` for sequential list items or stat metrics
-- `AnimatedGroup` for grids/collections (preferred over manual stagger delays)
+### Visual Verification
 
-**Layout variety:** Do not make every slide a 3-column equal grid. Use:
-
-- Asymmetric splits (`grid-cols-5` with `col-span-2` + `col-span-3`)
-- Bento grids with mixed tile sizes (`col-span-2`, `row-span-2`)
-- Vertical timelines with alternating left/right content
-- Full-width typography-driven layouts (where text IS the visual)
-- Side-by-side comparisons with contrasting panel styles
-
-### Keyboard Shortcuts
-
-| Key            | Action                                    |
-| -------------- | ----------------------------------------- |
-| `→` or `Space` | Advance (next step or next slide)         |
-| `←`            | Go back (previous step or previous slide) |
-| `F`            | Toggle fullscreen presentation mode       |
-| `G`            | Toggle grid view                          |
-| `Escape`       | Exit fullscreen                           |
-
-### View Modes
-
-1. **Slide view** (default): Single slide with navigation controls
-2. **Grid view**: Thumbnail overview — click any slide to jump to it
-3. **List view**: Vertical scroll — optimized for PDF export via browser print
-
+After creating or modifying a slide, you can capture a screenshot to visually verify it renders correctly. See [references/visual-verification.md](references/visual-verification.md) for the `promptslide to-image` command and workflow.

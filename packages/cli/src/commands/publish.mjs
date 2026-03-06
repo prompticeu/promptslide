@@ -4,8 +4,33 @@ import { join, basename, relative, extname } from "node:path"
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { captureSlideAsDataUri, isPlaywrightAvailable } from "../utils/export.mjs"
-import { publishToRegistry, registryItemExists, updateLockfileItem, hashContent, detectPackageManager } from "../utils/registry.mjs"
+import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, readLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent } from "../utils/registry.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
+import { parseDeckConfig } from "../utils/deck-config.mjs"
+
+function readDeckPrefix(cwd) {
+  try {
+    const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf-8"))
+    return (pkg.name || "").toLowerCase()
+  } catch {
+    return ""
+  }
+}
+
+async function promptDeckPrefix(cwd, interactive) {
+  const defaultPrefix = readDeckPrefix(cwd)
+  if (!interactive) {
+    if (!defaultPrefix) throw new Error("Deck prefix is required. Set a name in package.json or publish interactively.")
+    return defaultPrefix
+  }
+  let prefix
+  while (true) {
+    prefix = await prompt("Deck prefix:", defaultPrefix)
+    if (prefix && /^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(prefix)) break
+    console.log(`  ${red("Error:")} Deck prefix is required (lowercase alphanumeric with hyphens, min 2 chars)`)
+  }
+  return prefix
+}
 
 function titleCase(slug) {
   return slug
@@ -69,6 +94,171 @@ function readPreviewImage(imagePath) {
   return `data:${mime};base64,${buf.toString("base64")}`
 }
 
+const BINARY_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".woff", ".woff2"])
+const MAX_INLINE_SIZE = 512_000  // 512KB for inline text content
+const MAX_DECK_FILES = 50        // registry limit
+
+const MIME_MAP = {
+  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+  ".webp": "image/webp", ".gif": "image/gif", ".ico": "image/x-icon",
+  ".woff": "font/woff", ".woff2": "font/woff2"
+}
+
+/**
+ * Read a file for registry publishing.
+ * Returns { binary: true, buffer, contentType, size } for binary files,
+ * or { binary: false, content } for text files.
+ */
+function readFileForRegistry(fullPath) {
+  const ext = extname(fullPath).toLowerCase()
+  if (BINARY_EXTS.has(ext)) {
+    const buffer = readFileSync(fullPath)
+    const contentType = MIME_MAP[ext] || "application/octet-stream"
+    return { binary: true, buffer, contentType, size: buffer.length }
+  }
+  return { binary: false, content: readFileSync(fullPath, "utf-8") }
+}
+
+/**
+ * Collect all files for deck publishing.
+ * Returns files with structured format: text files have { path, target, content },
+ * binary files have { path, target, binary: true, buffer, contentType, size }.
+ */
+function collectDeckFiles(cwd) {
+  const files = []
+  const warnings = []
+
+  function addDir(dirPath, target, filter) {
+    if (!existsSync(dirPath)) return
+    for (const entry of readdirSync(dirPath)) {
+      if (entry === ".gitkeep") continue
+      const fullPath = join(dirPath, entry)
+      const stat = statSync(fullPath)
+      if (stat.isDirectory()) {
+        addDir(fullPath, `${target}${entry}/`, filter)
+        continue
+      }
+      if (!stat.isFile()) continue
+      if (filter && !filter(entry)) continue
+      const fileData = readFileForRegistry(fullPath)
+      if (fileData.binary) {
+        files.push({ path: entry, target, binary: true, buffer: fileData.buffer, contentType: fileData.contentType, size: fileData.size })
+      } else {
+        if (fileData.content.length > MAX_INLINE_SIZE) {
+          warnings.push(`${target}${entry}: exceeds 512KB inline limit (${(fileData.content.length / 1024).toFixed(0)}KB), skipped`)
+          continue
+        }
+        files.push({ path: entry, target, content: fileData.content })
+      }
+    }
+  }
+
+  addDir(join(cwd, "src", "slides"), "src/slides/", f => f.endsWith(".tsx") || f.endsWith(".ts"))
+  addDir(join(cwd, "src", "layouts"), "src/layouts/", f => f.endsWith(".tsx") || f.endsWith(".ts"))
+
+  const themePath = join(cwd, "src", "theme.ts")
+  if (existsSync(themePath)) {
+    files.push({ path: "theme.ts", target: "src/", content: readFileSync(themePath, "utf-8") })
+  }
+
+  const globalsPath = join(cwd, "src", "globals.css")
+  if (existsSync(globalsPath)) {
+    files.push({ path: "globals.css", target: "src/", content: readFileSync(globalsPath, "utf-8") })
+  }
+
+  addDir(join(cwd, "public"), "public/")
+
+  if (files.length > MAX_DECK_FILES) {
+    warnings.push(`Deck has ${files.length} files but registry limit is ${MAX_DECK_FILES}. Only the first ${MAX_DECK_FILES} will be included.`)
+    files.length = MAX_DECK_FILES
+  }
+
+  return { files, warnings }
+}
+
+/**
+ * Upload binary files directly to Vercel Blob via pre-signed tokens,
+ * then return a unified file array ready for the publish payload.
+ *
+ * Text files get { path, target, content }.
+ * Binary files get { path, target, storageUrl, contentType } (or fall back to inline data URIs).
+ *
+ * @param {string} slug - Item slug
+ * @param {object[]} files - Mixed array from collectDeckFiles
+ * @param {{ registry: string, token: string }} auth
+ * @returns {Promise<object[]>} Files ready for publish payload
+ */
+async function uploadBinaryFiles(slug, files, auth) {
+  const binaryFiles = files.filter(f => f.binary)
+  const textFiles = files.filter(f => !f.binary)
+
+  if (binaryFiles.length === 0) {
+    return textFiles.map(f => ({ path: f.path, target: f.target, content: f.content }))
+  }
+
+  // Request upload tokens from registry
+  let tokens = []
+  try {
+    tokens = await requestUploadTokens(
+      slug,
+      binaryFiles.map(f => ({ path: f.path, contentType: f.contentType, size: f.size })),
+      auth
+    )
+  } catch (err) {
+    console.log(`  ${dim("⚠ Could not get upload tokens, falling back to inline encoding")}`)
+  }
+
+  const result = textFiles.map(f => ({ path: f.path, target: f.target, content: f.content }))
+
+  if (tokens.length === 0) {
+    // Fallback: encode binary files as base64 data URIs inline
+    for (const f of binaryFiles) {
+      result.push({
+        path: f.path,
+        target: f.target,
+        content: `data:${f.contentType};base64,${f.buffer.toString("base64")}`
+      })
+    }
+    return result
+  }
+
+  // Upload each binary file directly to Vercel Blob
+  const tokenMap = Object.fromEntries(tokens.map(t => [t.path, t]))
+
+  for (const f of binaryFiles) {
+    const token = tokenMap[f.path]
+    if (!token) {
+      // No token for this file — fall back to inline
+      result.push({
+        path: f.path,
+        target: f.target,
+        content: `data:${f.contentType};base64,${f.buffer.toString("base64")}`
+      })
+      continue
+    }
+
+    try {
+      const blobUrl = await uploadBinaryToBlob(f.buffer, token.pathname, f.contentType, token.clientToken)
+      result.push({
+        path: f.path,
+        target: f.target,
+        storageUrl: blobUrl,
+        contentType: f.contentType
+      })
+    } catch (err) {
+      console.log(`  ${dim(`⚠ Direct upload failed for ${f.path}: ${err.message}`)}`)
+      // Fall back to inline
+      result.push({
+        path: f.path,
+        target: f.target,
+        content: `data:${f.contentType};base64,${f.buffer.toString("base64")}`
+      })
+    }
+  }
+
+  return result
+}
+
 function scanForFiles(cwd) {
   const files = []
   const dirs = [
@@ -88,10 +278,10 @@ function scanForFiles(cwd) {
 
 /**
  * Publish a single item to the registry.
- * @param {{ filePath: string, cwd: string, auth: object, typeOverride?: string, interactive?: boolean }} opts
+ * @param {{ filePath: string, cwd: string, auth: object, typeOverride?: string, interactive?: boolean, deckPrefix?: string }} opts
  * @returns {Promise<{ slug: string, status: string }>}
  */
-async function publishItem({ filePath, cwd, auth, typeOverride, interactive = true }) {
+async function publishItem({ filePath, cwd, auth, typeOverride, interactive = true, deckPrefix }) {
   const fullPath = join(cwd, filePath)
   if (!existsSync(fullPath)) {
     throw new Error(`File not found: ${filePath}`)
@@ -99,7 +289,9 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
 
   const content = readFileSync(fullPath, "utf-8")
   const fileName = basename(fullPath)
-  const slug = fileName.replace(/\.tsx?$/, "")
+  const baseSlug = fileName.replace(/\.tsx?$/, "")
+  const prefix = deckPrefix || await promptDeckPrefix(cwd, interactive)
+  const slug = `${prefix}/${baseSlug}`
 
   const type = typeOverride || detectType(filePath) || "slide"
   const steps = detectSteps(content)
@@ -110,7 +302,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
   let title, description, tags, section, releaseNotes, previewImage
 
   if (interactive) {
-    title = await prompt("Title:", titleCase(slug))
+    title = await prompt("Title:", titleCase(baseSlug))
     description = await prompt("Description:", "")
     const tagsInput = await prompt("Tags (comma-separated):", "")
     tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
@@ -133,7 +325,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
       }
     }
   } else {
-    title = titleCase(slug)
+    title = titleCase(baseSlug)
     description = ""
     tags = []
     section = ""
@@ -141,6 +333,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
     previewImage = await captureSlideAsDataUri({ cwd, slidePath: filePath }).catch(() => null)
   }
 
+  const prefixedDeps = registryDeps.map(d => `${prefix}/${d}`)
   const payload = {
     type,
     slug,
@@ -151,7 +344,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
     section: section || undefined,
     files: [{ path: fileName, target, content }],
     npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
-    registryDependencies: registryDeps.length ? registryDeps : undefined,
+    registryDependencies: prefixedDeps.length ? prefixedDeps : undefined,
     releaseNotes: releaseNotes || undefined,
     previewImage: previewImage || undefined
   }
@@ -175,11 +368,12 @@ export async function publish(args) {
   if (args[0] === "--help" || args[0] === "-h") {
     console.log(`  ${bold("Usage:")} promptslide publish ${dim("[file] [--type slide|layout|deck|theme]")}`)
     console.log()
-    console.log(`  Publish a slide or layout to the registry.`)
+    console.log(`  Publish a slide, layout, or entire deck to the registry.`)
     console.log()
     console.log(`  ${bold("Examples:")}`)
     console.log(`    promptslide publish src/slides/slide-hero.tsx`)
     console.log(`    promptslide publish --type layout`)
+    console.log(`    promptslide publish --type deck`)
     console.log()
     process.exit(0)
   }
@@ -200,7 +394,7 @@ export async function publish(args) {
   }
   let filePath = args.find((a, i) => !a.startsWith("--") && !flagIndices.has(i))
 
-  if (!filePath) {
+  if (!filePath && typeOverride !== "deck") {
     // Interactive mode: scan for files
     const available = scanForFiles(cwd)
     if (available.length === 0) {
@@ -212,16 +406,348 @@ export async function publish(args) {
     available.forEach((f, i) => {
       console.log(`    ${dim(`${i + 1}.`)} ${f.target}${f.path}`)
     })
+    console.log(`    ${dim("─".repeat(30))}`)
+    console.log(`    ${dim(`${available.length + 1}.`)} ${bold("Entire deck")}`)
     console.log()
 
     const choice = await prompt("Select file number:", "1")
     const idx = parseInt(choice, 10) - 1
-    if (idx < 0 || idx >= available.length) {
+
+    if (idx === available.length) {
+      typeOverride = "deck"
+    } else if (idx < 0 || idx >= available.length) {
       console.error(`  ${red("Error:")} Invalid selection.`)
+      process.exit(1)
+    } else {
+      filePath = relative(cwd, available[idx].fullPath)
+    }
+  }
+
+  // ── Deck publish flow (decomposed) ───────────────────────────────
+  if (typeOverride === "deck") {
+    const deckConfig = parseDeckConfig(cwd)
+    if (!deckConfig) {
+      console.error(`  ${red("Error:")} Could not parse src/deck-config.ts.`)
+      console.error(`  ${dim("Ensure it has a slides array with component/steps entries.")}`)
       process.exit(1)
     }
 
-    filePath = relative(cwd, available[idx].fullPath)
+    const deckPrefix = await promptDeckPrefix(cwd, true)
+    const dirName = basename(cwd)
+    const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    const deckSlug = `${deckPrefix}/${deckBaseSlug}`
+
+    // Walk public/ to collect assets and build reference set
+    const publicDir = join(cwd, "public")
+    const publicAssets = []
+    const publicFileSet = new Set()
+    function walkPublic(dir, prefix) {
+      if (!existsSync(dir)) return
+      for (const entry of readdirSync(dir)) {
+        if (entry.startsWith(".")) continue
+        const full = join(dir, entry)
+        const s = statSync(full)
+        if (s.isDirectory()) {
+          walkPublic(full, prefix ? `${prefix}/${entry}` : entry)
+        } else if (s.isFile()) {
+          const relPath = prefix ? `${prefix}/${entry}` : entry
+          publicAssets.push({ relativePath: relPath, fullPath: full })
+          publicFileSet.add(relPath)
+        }
+      }
+    }
+    walkPublic(publicDir, "")
+
+    // Discover theme, layout, and slide files
+    const themeFilePaths = []
+    if (existsSync(join(cwd, "src", "theme.ts"))) themeFilePaths.push("theme.ts")
+    if (existsSync(join(cwd, "src", "globals.css"))) themeFilePaths.push("globals.css")
+    const hasTheme = themeFilePaths.length > 0
+
+    const layoutsDir = join(cwd, "src", "layouts")
+    const layoutEntries = existsSync(layoutsDir)
+      ? readdirSync(layoutsDir).filter(f => f.endsWith(".tsx") || f.endsWith(".ts"))
+      : []
+
+    const slidesDir = join(cwd, "src", "slides")
+    const slideEntries = existsSync(slidesDir)
+      ? readdirSync(slidesDir).filter(f => f.endsWith(".tsx") || f.endsWith(".ts"))
+      : []
+
+    const totalItems = publicAssets.length + (hasTheme ? 1 : 0) + layoutEntries.length + slideEntries.length + 1
+
+    // Display summary
+    console.log(`  ${bold("Decomposed deck publish:")} ${cyan(deckSlug)}`)
+    if (publicAssets.length) console.log(`    Assets:  ${publicAssets.length}`)
+    if (hasTheme) console.log(`    Theme:   1`)
+    if (layoutEntries.length) console.log(`    Layouts: ${layoutEntries.length}`)
+    console.log(`    Slides:  ${slideEntries.length}`)
+    console.log(`    Total:   ${totalItems} items`)
+    if (deckConfig.transition) {
+      console.log(`    Transition: ${deckConfig.transition}${deckConfig.directionalTransition ? " (directional)" : ""}`)
+    }
+    console.log()
+
+    // Collect deck metadata
+    const title = await prompt("Title:", titleCase(deckBaseSlug))
+    const description = await prompt("Description:", "")
+    const tagsInput = await prompt("Tags (comma-separated):", "")
+    const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
+    const releaseNotes = await prompt("Release notes:", "")
+
+    // Check Playwright availability once for preview images
+    const canCapture = await isPlaywrightAvailable()
+
+    // Preview image (attached to the deck manifest only)
+    let previewImage = null
+    const previewImagePath = await prompt("Preview image path (leave empty to auto-generate):", "")
+    if (previewImagePath) {
+      const resolved = join(cwd, previewImagePath)
+      previewImage = readPreviewImage(resolved)
+      if (!previewImage) {
+        console.log(`  ${dim("⚠ Skipping image: file not found, unsupported format, or > 2MB")}`)
+      }
+    } else if (canCapture) {
+      const firstSlide = deckConfig.slides[0]
+      if (firstSlide) {
+        console.log(`  ${dim("Generating deck preview image...")}`)
+        previewImage = await captureSlideAsDataUri({ cwd, slidePath: `src/slides/${firstSlide.slug}.tsx` })
+        if (previewImage) {
+          console.log(`  ${green("✓")} Deck preview image generated`)
+        } else {
+          console.log(`  ${dim("⚠ Could not generate deck preview image")}`)
+        }
+      }
+    } else {
+      const pm = detectPackageManager(cwd)
+      const installCmd = pm === "bun" ? "bun add -d playwright" : pm === "pnpm" ? "pnpm add -D playwright" : pm === "yarn" ? "yarn add -D playwright" : "npm install -D playwright"
+      console.log(`  ${dim("Tip: Install playwright for auto-generated preview images")}`)
+      console.log(`  ${dim(`     ${installCmd} && npx playwright install chromium`)}`)
+    }
+
+    console.log()
+    console.log(`  Publishing ${totalItems} items...`)
+    console.log()
+
+    // Read lockfile for skip-if-unchanged
+    const lock = readLockfile(cwd)
+    let itemIndex = 0
+    let published = 0
+    let skipped = 0
+    let failed = 0
+
+    function isUnchanged(slug, fileHashes) {
+      const entry = lock.items[slug]
+      if (!entry?.files) return false
+      const storedKeys = Object.keys(entry.files)
+      const currentKeys = Object.keys(fileHashes)
+      if (storedKeys.length !== currentKeys.length) return false
+      return currentKeys.every(k => entry.files[k] === fileHashes[k])
+    }
+
+    // ── Phase 1: Assets ──
+    for (const asset of publicAssets) {
+      itemIndex++
+      const assetSlug = assetFileToSlug(deckPrefix, asset.relativePath)
+      const fileName = basename(asset.fullPath)
+      const dirPart = asset.relativePath.includes("/")
+        ? "public/" + asset.relativePath.substring(0, asset.relativePath.lastIndexOf("/") + 1)
+        : "public/"
+
+      const fileData = readFileForRegistry(asset.fullPath)
+      const fileHash = fileData.binary
+        ? hashContent(fileData.buffer.toString("base64"))
+        : hashContent(fileData.content)
+      const fileHashes = { [dirPart + fileName]: fileHash }
+
+      if (isUnchanged(assetSlug, fileHashes)) {
+        console.log(`  [${itemIndex}/${totalItems}] ${dim("—")} asset ${dim(assetSlug)} (unchanged)`)
+        skipped++
+        continue
+      }
+
+      let files
+      if (fileData.binary) {
+        files = await uploadBinaryFiles(assetSlug, [
+          { path: fileName, target: dirPart, binary: true, buffer: fileData.buffer, contentType: fileData.contentType, size: fileData.size }
+        ], auth)
+      } else {
+        files = [{ path: fileName, target: dirPart, content: fileData.content }]
+      }
+
+      try {
+        const result = await publishToRegistry({ type: "asset", slug: assetSlug, title: fileName, files }, auth)
+        console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} asset ${cyan(assetSlug)} ${dim(`v${result.version}`)}`)
+        updateLockfileItem(cwd, assetSlug, result.version ?? 0, fileHashes)
+        published++
+      } catch (err) {
+        console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} asset ${dim(assetSlug)}: ${err.message}`)
+        failed++
+      }
+    }
+
+    // ── Phase 2: Theme ──
+    if (hasTheme) {
+      itemIndex++
+      const themeSlug = `${deckPrefix}/theme`
+      const themePayloadFiles = []
+      const themeFileHashes = {}
+      let themeContent = ""
+
+      for (const tf of themeFilePaths) {
+        const content = readFileSync(join(cwd, "src", tf), "utf-8")
+        themePayloadFiles.push({ path: tf, target: "src/", content })
+        themeFileHashes[`src/${tf}`] = hashContent(content)
+        themeContent += content
+      }
+
+      if (isUnchanged(themeSlug, themeFileHashes)) {
+        console.log(`  [${itemIndex}/${totalItems}] ${dim("—")} theme ${dim(themeSlug)} (unchanged)`)
+        skipped++
+      } else {
+        const assetDeps = detectAssetDepsInContent(themeContent, deckPrefix, publicFileSet)
+        const npmDeps = detectNpmDeps(themeContent)
+
+        try {
+          const result = await publishToRegistry({
+            type: "theme",
+            slug: themeSlug,
+            title: "Theme",
+            files: themePayloadFiles,
+            registryDependencies: assetDeps.length ? assetDeps : undefined,
+            npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined
+          }, auth)
+          console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} theme ${cyan(themeSlug)} ${dim(`v${result.version}`)}`)
+          updateLockfileItem(cwd, themeSlug, result.version ?? 0, themeFileHashes)
+          published++
+        } catch (err) {
+          console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} theme ${dim(themeSlug)}: ${err.message}`)
+          failed++
+        }
+      }
+    }
+
+    // ── Phase 3: Layouts ──
+    for (const layoutFile of layoutEntries) {
+      itemIndex++
+      const layoutName = layoutFile.replace(/\.tsx?$/, "")
+      const layoutSlug = `${deckPrefix}/${layoutName}`
+      const content = readFileSync(join(cwd, "src", "layouts", layoutFile), "utf-8")
+      const fileHashes = { [`src/layouts/${layoutFile}`]: hashContent(content) }
+
+      if (isUnchanged(layoutSlug, fileHashes)) {
+        console.log(`  [${itemIndex}/${totalItems}] ${dim("—")} layout ${dim(layoutSlug)} (unchanged)`)
+        skipped++
+        continue
+      }
+
+      const assetDeps = detectAssetDepsInContent(content, deckPrefix, publicFileSet)
+      const npmDeps = detectNpmDeps(content)
+      const regDeps = hasTheme ? [`${deckPrefix}/theme`] : []
+      regDeps.push(...assetDeps)
+
+      try {
+        const result = await publishToRegistry({
+          type: "layout",
+          slug: layoutSlug,
+          title: titleCase(layoutName),
+          files: [{ path: layoutFile, target: "src/layouts/", content }],
+          registryDependencies: regDeps.length ? regDeps : undefined,
+          npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined
+        }, auth)
+        console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} layout ${cyan(layoutSlug)} ${dim(`v${result.version}`)}`)
+        updateLockfileItem(cwd, layoutSlug, result.version ?? 0, fileHashes)
+        published++
+      } catch (err) {
+        console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} layout ${dim(layoutSlug)}: ${err.message}`)
+        failed++
+      }
+    }
+
+    // ── Phase 4: Slides ──
+    for (const slideFile of slideEntries) {
+      itemIndex++
+      const slideName = slideFile.replace(/\.tsx?$/, "")
+      const slideSlug = `${deckPrefix}/${slideName}`
+      const content = readFileSync(join(cwd, "src", "slides", slideFile), "utf-8")
+      const fileHashes = { [`src/slides/${slideFile}`]: hashContent(content) }
+
+      if (isUnchanged(slideSlug, fileHashes)) {
+        console.log(`  [${itemIndex}/${totalItems}] ${dim("—")} slide ${dim(slideSlug)} (unchanged)`)
+        skipped++
+        continue
+      }
+
+      const assetDeps = detectAssetDepsInContent(content, deckPrefix, publicFileSet)
+      const layoutDeps = detectRegistryDeps(content).map(d => `${deckPrefix}/${d}`)
+      const npmDeps = detectNpmDeps(content)
+      const steps = detectSteps(content)
+      const slideConfig = deckConfig.slides.find(s => s.slug === slideName)
+      const section = slideConfig?.section || undefined
+
+      const regDeps = hasTheme ? [`${deckPrefix}/theme`] : []
+      regDeps.push(...layoutDeps, ...assetDeps)
+
+      // Generate preview image for this slide
+      let slidePreview = null
+      if (canCapture) {
+        slidePreview = await captureSlideAsDataUri({ cwd, slidePath: `src/slides/${slideFile}` }).catch(() => null)
+      }
+
+      try {
+        const result = await publishToRegistry({
+          type: "slide",
+          slug: slideSlug,
+          title: titleCase(slideName),
+          files: [{ path: slideFile, target: "src/slides/", content }],
+          steps,
+          section,
+          registryDependencies: regDeps.length ? regDeps : undefined,
+          npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
+          previewImage: slidePreview || undefined
+        }, auth)
+        console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} slide ${cyan(slideSlug)} ${dim(`v${result.version}`)}`)
+        updateLockfileItem(cwd, slideSlug, result.version ?? 0, fileHashes)
+        published++
+      } catch (err) {
+        console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} slide ${dim(slideSlug)}: ${err.message}`)
+        failed++
+      }
+    }
+
+    // ── Phase 5: Deck manifest ──
+    itemIndex++
+    const slideSlugs = slideEntries.map(f => `${deckPrefix}/${f.replace(/\.tsx?$/, "")}`)
+    const assetSlugs = publicAssets.map(a => assetFileToSlug(deckPrefix, a.relativePath))
+    const allDeckDeps = [...slideSlugs, ...assetSlugs]
+
+    try {
+      const result = await publishToRegistry({
+        type: "deck",
+        slug: deckSlug,
+        title,
+        description: description || undefined,
+        tags,
+        deckConfig,
+        files: [],
+        registryDependencies: allDeckDeps.length ? allDeckDeps : undefined,
+        releaseNotes: releaseNotes || undefined,
+        previewImage: previewImage || undefined
+      }, auth)
+      console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} deck ${cyan(deckSlug)} ${dim(`v${result.version}`)}`)
+      updateLockfileItem(cwd, deckSlug, result.version ?? 0, {})
+      published++
+    } catch (err) {
+      console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} deck ${dim(deckSlug)}: ${err.message}`)
+      failed++
+    }
+
+    console.log()
+    console.log(`  ${bold("Done:")} ${green(`${published} published`)}${skipped ? `, ${skipped} unchanged` : ""}${failed ? `, ${red(`${failed} failed`)}` : ""}`)
+    console.log(`  Install: ${cyan(`promptslide add ${deckSlug}`)}`)
+    console.log()
+    closePrompts()
+    return
   }
 
   // Resolve full path and read content
@@ -233,7 +759,7 @@ export async function publish(args) {
 
   const content = readFileSync(fullPath, "utf-8")
   const fileName = basename(fullPath)
-  const slug = fileName.replace(/\.tsx?$/, "")
+  const baseSlug = fileName.replace(/\.tsx?$/, "")
 
   // Detect metadata
   const type = typeOverride || detectType(filePath) || "slide"
@@ -253,12 +779,34 @@ export async function publish(args) {
   }
   console.log()
 
+  // Prompt for deck prefix (required)
+  const deckPrefix = await promptDeckPrefix(cwd, true)
+  const slug = `${deckPrefix}/${baseSlug}`
+  console.log(`  Slug: ${cyan(slug)}`)
+  console.log()
+
+  // Warn if same base slug exists under a different prefix
+  try {
+    const { items: results } = await searchRegistry({ search: baseSlug, type }, auth)
+    const conflicts = (results || []).filter(r => r.name !== slug && r.name.endsWith(`/${baseSlug}`))
+    if (conflicts.length) {
+      console.log(`  ${bold("Note:")} ${baseSlug} also exists as:`)
+      for (const c of conflicts) {
+        console.log(`    ${dim("·")} ${c.name} ${dim(`(${c.title || "untitled"})`)}`)
+      }
+      console.log()
+    }
+  } catch {
+    // Search failure is non-blocking
+  }
+
   // Check if registry dependencies exist and offer to publish missing ones
   if (registryDeps.length) {
     const missing = []
 
     for (const depSlug of registryDeps) {
-      const exists = await registryItemExists(depSlug, auth)
+      const prefixedDepSlug = `${deckPrefix}/${depSlug}`
+      const exists = await registryItemExists(prefixedDepSlug, auth)
       if (!exists) {
         missing.push(depSlug)
       }
@@ -294,7 +842,8 @@ export async function publish(args) {
                 cwd,
                 auth,
                 typeOverride: depType,
-                interactive: true
+                interactive: true,
+                deckPrefix
               })
               console.log()
               const depVer = result.version ? ` ${dim(`v${result.version}`)}` : ""
@@ -311,13 +860,13 @@ export async function publish(args) {
         }
       }
 
-      console.log(`  ${dim("─── Main item:")} ${bold(slug)} ${dim("───")}`)
+      console.log(`  ${dim("─── Main item:")} ${bold(baseSlug)} ${dim("───")}`)
       console.log()
     }
   }
 
   // Collect metadata for main item
-  const title = await prompt("Title:", titleCase(slug))
+  const title = await prompt("Title:", titleCase(baseSlug))
   const description = await prompt("Description:", "")
   const tagsInput = await prompt("Tags (comma-separated):", "")
   const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
@@ -349,6 +898,7 @@ export async function publish(args) {
   console.log()
 
   // Publish main item
+  const prefixedRegistryDeps = registryDeps.map(d => `${deckPrefix}/${d}`)
   const payload = {
     type,
     slug,
@@ -359,7 +909,7 @@ export async function publish(args) {
     section: section || undefined,
     files: [{ path: fileName, target, content }],
     npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
-    registryDependencies: registryDeps.length ? registryDeps : undefined,
+    registryDependencies: prefixedRegistryDeps.length ? prefixedRegistryDeps : undefined,
     releaseNotes: releaseNotes || undefined,
     previewImage: previewImage || undefined
   }
