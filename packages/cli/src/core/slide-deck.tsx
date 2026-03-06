@@ -427,9 +427,15 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
                       className="h-full w-full origin-top-left scale-[0.25]"
                       style={{ width: "400%", height: "400%" }}
                     >
-                      <SlideErrorBoundary slideIndex={index} slideTitle={slideConfig.title}>
-                        <SlideComponent slideNumber={index + 1} totalSlides={slides.length} />
-                      </SlideErrorBoundary>
+                      <AnimationProvider
+                        currentStep={slideConfig.steps}
+                        totalSteps={slideConfig.steps}
+                        showAllAnimations={true}
+                      >
+                        <SlideErrorBoundary slideIndex={index} slideTitle={slideConfig.title}>
+                          <SlideComponent slideNumber={index + 1} totalSlides={slides.length} />
+                        </SlideErrorBoundary>
+                      </AnimationProvider>
                     </div>
                     <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
                     <div className="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white">

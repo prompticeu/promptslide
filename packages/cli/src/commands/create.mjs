@@ -16,28 +16,6 @@ const __dirname = dirname(__filename)
 const CLI_ROOT = join(__dirname, "..", "..")
 const TEMPLATE_DIR = join(CLI_ROOT, "templates", "default")
 
-/**
- * Detect if we're running from a local dev/linked install (monorepo).
- * If so, return absolute paths to the local packages so scaffolded
- * projects can resolve them without npm publish.
- */
-function getLocalPackagePaths() {
-  try {
-    const monoRoot = resolve(CLI_ROOT, "..", "..")
-    const cliPkg = join(monoRoot, "packages", "cli", "package.json")
-
-    if (existsSync(cliPkg)) {
-      const pkg = JSON.parse(readFileSync(cliPkg, "utf-8"))
-      if (pkg.name === "promptslide") {
-        return {
-          cli: resolve(monoRoot, "packages", "cli")
-        }
-      }
-    }
-  } catch {}
-  return null
-}
-
 function titleCase(slug) {
   return slug.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
 }
@@ -248,20 +226,10 @@ export async function create(args) {
     console.log()
   }
 
-  // 7. If running from local dev, rewrite deps to use file: paths (must run after --from to not overwrite)
-  const localPaths = getLocalPackagePaths()
-  if (localPaths) {
-    const pkgPath = join(targetDir, "package.json")
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"))
-    pkg.dependencies["promptslide"] = `file:${localPaths.cli}`
-    writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8")
-    console.log(`  ${dim("Local dev detected — using file: paths for packages")}`)
-  }
-
-  // 8. Generate tsconfig.json for editor support
+  // 7. Generate tsconfig.json for editor support
   ensureTsConfig(targetDir)
 
-  // 9. Install PromptSlide agent skill (defaults to yes; skipped with --yes since skills CLI is interactive)
+  // 8. Install PromptSlide agent skill (defaults to yes; skipped with --yes since skills CLI is interactive)
   if (useDefaults) {
     console.log(`  ${dim("Tip: Run")} npx skills add prompticeu/promptslide ${dim("to install the agent skill")}`)
   } else {
@@ -283,7 +251,7 @@ export async function create(args) {
     }
   }
 
-  // 10. Success output
+  // 9. Success output
   console.log()
   console.log(`  ${green("✓")} Created ${bold(projectName)} in ${cyan(dirName)}/`)
   console.log()
