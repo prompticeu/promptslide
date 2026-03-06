@@ -10,6 +10,7 @@ import {
   detectPackageManager,
   getInstallCommand,
   updateLockfileItem,
+  updateLockfilePublishConfig,
   hashContent,
   hashFile
 } from "../utils/registry.mjs"
@@ -134,6 +135,12 @@ export async function add(args) {
   // Update lockfile for all items (root + dependencies)
   for (const [name, { regItem, fileHashes }] of writtenByItem) {
     updateLockfileItem(cwd, name, regItem.version ?? 0, fileHashes)
+  }
+
+  // Persist deck slug for future pull/publish if this is a deck
+  if (item.type === "deck") {
+    const prefix = item.name.split("/")[0]
+    updateLockfilePublishConfig(cwd, { deckSlug: item.name, deckPrefix: prefix })
   }
 
   // Auto-update deck-config.ts

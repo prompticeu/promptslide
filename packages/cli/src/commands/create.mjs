@@ -7,7 +7,7 @@ import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { hexToOklch, isValidHex } from "../utils/colors.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
-import { fetchRegistryItem, resolveRegistryDependencies } from "../utils/registry.mjs"
+import { fetchRegistryItem, resolveRegistryDependencies, updateLockfilePublishConfig } from "../utils/registry.mjs"
 import { toPascalCase, replaceDeckConfig } from "../utils/deck-config.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 
@@ -223,6 +223,10 @@ export async function create(args) {
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8")
       console.log(`  ${green("✓")} Added ${dim(pkgList.join(", "))} to package.json`)
     }
+
+    // Persist deck slug for future pull/publish in the new project
+    const prefix = fromSlug.split("/")[0]
+    updateLockfilePublishConfig(targetDir, { deckSlug: fromSlug, deckPrefix: prefix })
 
     console.log()
   }

@@ -437,10 +437,31 @@ export async function publish(args) {
       process.exit(1)
     }
 
-    const deckPrefix = await promptDeckPrefix(cwd, true)
-    const dirName = basename(cwd)
-    const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
-    const deckSlug = `${deckPrefix}/${deckBaseSlug}`
+    // Check if a deck slug already exists in the lockfile
+    const existingLock = readLockfile(cwd)
+    const existingSlug = existingLock.deckSlug
+    let deckPrefix, deckSlug
+
+    if (existingSlug) {
+      console.log(`  ${dim("Previously published as")} ${cyan(existingSlug)}`)
+      console.log()
+      const reuse = await confirm(`  Publish to ${bold(existingSlug)}?`)
+
+      if (reuse) {
+        deckSlug = existingSlug
+        deckPrefix = existingSlug.split("/")[0]
+      } else {
+        deckPrefix = await promptDeckPrefix(cwd, true)
+        const dirName = basename(cwd)
+        const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+        deckSlug = `${deckPrefix}/${deckBaseSlug}`
+      }
+    } else {
+      deckPrefix = await promptDeckPrefix(cwd, true)
+      const dirName = basename(cwd)
+      const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+      deckSlug = `${deckPrefix}/${deckBaseSlug}`
+    }
 
     // Persist prefix for next time (slug is saved after successful publish)
     updateLockfilePublishConfig(cwd, { deckPrefix })
