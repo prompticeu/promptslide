@@ -5,7 +5,7 @@ import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { captureSlideAsDataUri, isPlaywrightAvailable } from "../utils/export.mjs"
 import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent } from "../utils/registry.mjs"
-import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
+import { prompt, confirm, select, closePrompts } from "../utils/prompts.mjs"
 import { parseDeckConfig } from "../utils/deck-config.mjs"
 
 function readDeckPrefix(cwd) {
@@ -407,22 +407,17 @@ export async function publish(args) {
       process.exit(1)
     }
 
-    console.log(`  ${bold("Available files:")}`)
-    available.forEach((f, i) => {
-      console.log(`    ${dim(`${i + 1}.`)} ${f.target}${f.path}`)
-    })
-    console.log(`    ${dim("─".repeat(30))}`)
-    console.log(`    ${dim(`${available.length + 1}.`)} ${bold("Entire deck")}`)
+    console.log(`  ${bold("What do you want to publish?")}`)
     console.log()
 
-    const choice = await prompt("Select file number:", "1")
-    const idx = parseInt(choice, 10) - 1
+    const options = [
+      ...available.map(f => `${f.target}${f.path}`),
+      "Entire deck"
+    ]
+    const idx = await select(options, options.length - 1)
 
     if (idx === available.length) {
       typeOverride = "deck"
-    } else if (idx < 0 || idx >= available.length) {
-      console.error(`  ${red("Error:")} Invalid selection.`)
-      process.exit(1)
     } else {
       filePath = relative(cwd, available[idx].fullPath)
     }
