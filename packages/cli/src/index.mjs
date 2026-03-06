@@ -31,6 +31,7 @@ function printHelp() {
   console.log(`    add ${dim("<name>")}     Install a slide/deck from the registry`)
   console.log(`    publish ${dim("[file]")} Publish a slide to the registry`)
   console.log(`    update ${dim("[name]")}  Check for and apply updates`)
+  console.log(`    pull            Pull the latest deck from the registry`)
   console.log(`    remove ${dim("<name>")}  Remove an installed item`)
   console.log(`    info ${dim("<name>")}    Show details about a registry item`)
   console.log(`    search ${dim("<query>")} Search the registry`)
@@ -97,6 +98,11 @@ switch (command) {
   case "update": {
     const { update } = await import("./commands/update.mjs")
     await update(args)
+    break
+  }
+  case "pull": {
+    const { pull } = await import("./commands/pull.mjs")
+    await pull(args)
     break
   }
   case "search": {

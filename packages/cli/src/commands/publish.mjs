@@ -4,11 +4,16 @@ import { join, basename, relative, extname } from "node:path"
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { captureSlideAsDataUri, isPlaywrightAvailable } from "../utils/export.mjs"
-import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, readLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent } from "../utils/registry.mjs"
+import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent } from "../utils/registry.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
 import { parseDeckConfig } from "../utils/deck-config.mjs"
 
 function readDeckPrefix(cwd) {
+  // Prefer stored prefix from lockfile (user's previous choice)
+  const lock = readLockfile(cwd)
+  if (lock.deckPrefix) return lock.deckPrefix
+
+  // Fall back to package.json name
   try {
     const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf-8"))
     return (pkg.name || "").toLowerCase()
@@ -437,6 +442,9 @@ export async function publish(args) {
     const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
     const deckSlug = `${deckPrefix}/${deckBaseSlug}`
 
+    // Persist prefix for next time (slug is saved after successful publish)
+    updateLockfilePublishConfig(cwd, { deckPrefix })
+
     // Walk public/ to collect assets and build reference set
     const publicDir = join(cwd, "public")
     const publicAssets = []
@@ -736,6 +744,7 @@ export async function publish(args) {
       }, auth)
       console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} deck ${cyan(deckSlug)} ${dim(`v${result.version}`)}`)
       updateLockfileItem(cwd, deckSlug, result.version ?? 0, {})
+      updateLockfilePublishConfig(cwd, { deckSlug })
       published++
     } catch (err) {
       console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} deck ${dim(deckSlug)}: ${err.message}`)
@@ -782,6 +791,10 @@ export async function publish(args) {
   // Prompt for deck prefix (required)
   const deckPrefix = await promptDeckPrefix(cwd, true)
   const slug = `${deckPrefix}/${baseSlug}`
+
+  // Persist prefix for next time
+  updateLockfilePublishConfig(cwd, { deckPrefix })
+
   console.log(`  Slug: ${cyan(slug)}`)
   console.log()
 
