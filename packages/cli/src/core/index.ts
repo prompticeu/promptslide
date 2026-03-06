@@ -63,6 +63,13 @@ export type { ThemeConfig } from "./types"
 // Shared Footer
 export { SlideFooter } from "./layouts/shared-footer"
 
+// SlideRenderer
+export { SlideRenderer } from "./slide-renderer"
+export type { SlideRendererProps } from "./slide-renderer"
+
+// SlideEmbed
+export { SlideEmbed } from "./slide-embed"
+
 // SlideDeck
 export { SlideDeck } from "./slide-deck"
 
