@@ -3,7 +3,7 @@ import { existsSync, cpSync, readFileSync, writeFileSync, mkdirSync } from "node
 import { join, resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
+import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { hexToOklch, isValidHex } from "../utils/colors.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
@@ -168,6 +168,17 @@ export async function create(args) {
 
     const versionTag = item.version ? ` ${dim(`v${item.version}`)}` : ""
     console.log(`  Using deck ${bold(item.title || item.name)}${versionTag}`)
+
+    // Warn if the deck was published with a different minor version
+    if (item.promptslideVersion) {
+      const pubParts = item.promptslideVersion.match(/^(\d+)\.(\d+)/)
+      const localParts = CLI_VERSION.match(/^(\d+)\.(\d+)/)
+      if (pubParts && localParts && pubParts[2] !== localParts[2]) {
+        console.log()
+        console.log(`  ${yellow("⚠")} This deck was published with promptslide ${bold(`v${item.promptslideVersion}`)}`)
+        console.log(`    You have ${bold(`v${CLI_VERSION}`)} installed — some slides may need updating.`)
+      }
+    }
 
     let resolved
     try {

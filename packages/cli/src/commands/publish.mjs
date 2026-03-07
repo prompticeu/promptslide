@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
-import { join, basename, relative, extname } from "node:path"
+import { dirname, join, basename, relative, extname } from "node:path"
+import { fileURLToPath } from "node:url"
 
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
@@ -7,6 +8,9 @@ import { captureSlideAsDataUri, isPlaywrightAvailable } from "../utils/export.mj
 import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent } from "../utils/registry.mjs"
 import { prompt, confirm, select, closePrompts } from "../utils/prompts.mjs"
 import { parseDeckConfig } from "../utils/deck-config.mjs"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const CLI_VERSION = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8")).version
 
 function readDeckPrefix(cwd) {
   // Prefer stored prefix from lockfile (user's previous choice)
@@ -292,7 +296,8 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
     npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
     registryDependencies: prefixedDeps.length ? prefixedDeps : undefined,
     releaseNotes: releaseNotes || undefined,
-    previewImage: previewImage || undefined
+    previewImage: previewImage || undefined,
+    promptslideVersion: CLI_VERSION
   }
 
   const result = await publishToRegistry(payload, auth)
@@ -580,7 +585,8 @@ export async function publish(args) {
             title: "Theme",
             files: themePayloadFiles,
             registryDependencies: assetDeps.length ? assetDeps : undefined,
-            npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined
+            npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
+            promptslideVersion: CLI_VERSION
           }, auth)
           console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} theme ${cyan(themeSlug)} ${dim(`v${result.version}`)}`)
           updateLockfileItem(cwd, themeSlug, result.version ?? 0, themeFileHashes)
@@ -618,7 +624,8 @@ export async function publish(args) {
           title: titleCase(layoutName),
           files: [{ path: layoutFile, target: "src/layouts/", content }],
           registryDependencies: regDeps.length ? regDeps : undefined,
-          npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined
+          npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
+          promptslideVersion: CLI_VERSION
         }, auth)
         console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} layout ${cyan(layoutSlug)} ${dim(`v${result.version}`)}`)
         updateLockfileItem(cwd, layoutSlug, result.version ?? 0, fileHashes)
@@ -669,7 +676,8 @@ export async function publish(args) {
           section,
           registryDependencies: regDeps.length ? regDeps : undefined,
           npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
-          previewImage: slidePreview || undefined
+          previewImage: slidePreview || undefined,
+          promptslideVersion: CLI_VERSION
         }, auth)
         console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} slide ${cyan(slideSlug)} ${dim(`v${result.version}`)}`)
         updateLockfileItem(cwd, slideSlug, result.version ?? 0, fileHashes)
@@ -698,7 +706,8 @@ export async function publish(args) {
         files: [],
         registryDependencies: allDeckDeps.length ? allDeckDeps : undefined,
         releaseNotes: releaseNotes || undefined,
-        previewImage: previewImage || undefined
+        previewImage: previewImage || undefined,
+        promptslideVersion: CLI_VERSION
       }, auth)
       console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} deck ${cyan(deckSlug)} ${dim(`v${result.version}`)}`)
       updateLockfileItem(cwd, deckSlug, result.version ?? 0, {})
@@ -886,7 +895,8 @@ export async function publish(args) {
     npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
     registryDependencies: prefixedRegistryDeps.length ? prefixedRegistryDeps : undefined,
     releaseNotes: releaseNotes || undefined,
-    previewImage: previewImage || undefined
+    previewImage: previewImage || undefined,
+    promptslideVersion: CLI_VERSION
   }
 
   try {
