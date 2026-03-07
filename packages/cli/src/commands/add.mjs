@@ -24,7 +24,7 @@ import {
 import { confirm, closePrompts } from "../utils/prompts.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const CLI_VERSION = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8")).version
+const CLI_VERSION = JSON.parse(readFileSync(join(__dirname, "..", "..", "package.json"), "utf-8")).version
 
 /** Extract minor version number from a version string like "0.3.0" or "^0.3.0". */
 function parseMinor(version) {
