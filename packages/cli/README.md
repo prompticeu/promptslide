@@ -1,0 +1,50 @@
+# promptslide
+
+Vibe-code beautiful slide decks using your favorite coding agent.
+
+PromptSlide is a local-first slide framework built with React, Tailwind CSS, and Framer Motion. Open your coding agent (Claude Code, Cursor, Windsurf, etc.), describe the slides you want in natural language, and watch them appear in real-time via Vite's hot module replacement.
+
+## Quick Start
+
+```bash
+bun create slides my-deck
+cd my-deck
+bun install
+bun run dev
+```
+
+Then open your coding agent and say:
+
+> "Create me a 10-slide pitch deck for my fintech startup"
+
+## CLI Commands
+
+| Command               | Description                              |
+| --------------------- | ---------------------------------------- |
+| `promptslide create`  | Scaffold a new slide deck project        |
+| `promptslide studio`  | Start the dev server with hot reload     |
+| `promptslide build`   | Build the deck for production            |
+| `promptslide preview` | Preview the production build             |
+| `promptslide add`     | Add a slide to the current deck          |
+| `promptslide remove`  | Remove a slide from the current deck     |
+| `promptslide list`    | List all slides in the current deck      |
+| `promptslide publish` | Publish the deck to PromptSlide registry |
+| `promptslide search`  | Search published decks                   |
+| `promptslide pull`    | Pull a published deck                    |
+
+## How It Works
+
+1. **You describe** what you want in natural language
+2. **Your coding agent** reads `AGENTS.md` to understand the framework
+3. **Agent creates** `.tsx` slide files in `src/slides/`
+4. **Vite hot-reloads** -- slides appear instantly in your browser
+5. **Present** in fullscreen or export to PDF
+
+## Links
+
+- [GitHub](https://github.com/prompticeu/promptslide)
+- [create-slides](https://www.npmjs.com/package/create-slides) -- scaffolding shortcut
+
+## License
+
+MIT
