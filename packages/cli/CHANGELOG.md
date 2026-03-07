@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.4](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.3...promptslide-v0.3.4) (2026-03-07)
+
+
+### Features
+
+* unify deckPrefix and deckSlug into single deck slug concept ([#66](https://github.com/prompticeu/promptslide/issues/66)) ([f091c7d](https://github.com/prompticeu/promptslide/commit/f091c7dcd93738670fde4b48ff1020a358bce128))
+
+
+### Performance Improvements
+
+* optimize deck publish with parallel phases and reusable capture session ([#63](https://github.com/prompticeu/promptslide/issues/63)) ([62fb985](https://github.com/prompticeu/promptslide/commit/62fb9853f7d220be8bf5ba07e5cc55744b658229))
+
 ## [0.3.3](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.2...promptslide-v0.3.3) (2026-03-07)
 
 
