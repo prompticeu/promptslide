@@ -80,14 +80,15 @@ export function updateLockfileItem(cwd, slug, version, files) {
 }
 
 /**
- * Store publish configuration (deckPrefix, deckSlug) in the lockfile.
+ * Store publish configuration (deckSlug) in the lockfile.
+ * Removes the legacy deckPrefix key if present.
  * @param {string} cwd
- * @param {{ deckPrefix?: string, deckSlug?: string }} config
+ * @param {{ deckSlug?: string }} config
  */
 export function updateLockfilePublishConfig(cwd, config) {
   const lock = readLockfile(cwd)
-  if (config.deckPrefix !== undefined) lock.deckPrefix = config.deckPrefix
   if (config.deckSlug !== undefined) lock.deckSlug = config.deckSlug
+  delete lock.deckPrefix
   writeLockfile(cwd, lock)
 }
 

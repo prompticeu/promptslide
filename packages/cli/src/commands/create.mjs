@@ -236,8 +236,7 @@ export async function create(args) {
     }
 
     // Persist deck slug for future pull/publish in the new project
-    const prefix = fromSlug.split("/")[0]
-    updateLockfilePublishConfig(targetDir, { deckSlug: fromSlug, deckPrefix: prefix })
+    updateLockfilePublishConfig(targetDir, { deckSlug: fromSlug })
 
     console.log()
   }
