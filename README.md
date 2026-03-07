@@ -17,7 +17,7 @@ Then open your coding agent and say:
 
 > "Create me a 10-slide deck about AgenticRAG"
 
-The agent reads `AGENTS.md`, generates slide files in `src/slides/`, updates `src/deck-config.ts`, and Vite hot-reloads them instantly.
+The agent uses the promptslide Skill, generates slide files in `src/slides/`, updates `src/deck-config.ts`, and Vite hot-reloads them instantly.
 
 ## How It Works
 
@@ -27,7 +27,7 @@ The agent reads `AGENTS.md`, generates slide files in `src/slides/`, updates `sr
 4. **Vite hot-reloads** — slides appear instantly in your browser
 5. **Present** in fullscreen or export to PDF
 
-> Install the Skill: `claude skill add --url https://github.com/prompticeu/promptslide/tree/main/skills/promptslide`
+> The Skill is installed automatically when you run `promptslide create`. To install it manually: `npx skills add prompticeu/promptslide`
 
 No server, no API, no sandbox. Just a local Vite project + your coding agent.
 
