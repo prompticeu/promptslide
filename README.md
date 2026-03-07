@@ -15,7 +15,7 @@ bun run dev
 
 Then open your coding agent and say:
 
-> "Create me a 10-slide pitch deck for my fintech startup"
+> "Create me a 10-slide deck about AgenticRAG"
 
 The agent reads `AGENTS.md`, generates slide files in `src/slides/`, updates `src/deck-config.ts`, and Vite hot-reloads them instantly.
 
