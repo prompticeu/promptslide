@@ -1,0 +1,16 @@
+# Changelog
+
+## [0.3.0](https://github.com/prompticeu/promptslide/compare/create-slides-v0.2.6...create-slides-v0.3.0) (2026-03-07)
+
+
+### Features
+
+* **cli:** add SlideEmbed and /embed route ([#44](https://github.com/prompticeu/promptslide/issues/44)) ([3014ff8](https://github.com/prompticeu/promptslide/commit/3014ff8fdae6b1bbf8807c00f8c7410a78eff529))
+* merge promptslide-core into promptslide package ([9248ed2](https://github.com/prompticeu/promptslide/commit/9248ed21d4a9d075d9246dd4b2892aa21c41eb0a))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * promptslide bumped from ^0.2.4 to ^0.3.0
