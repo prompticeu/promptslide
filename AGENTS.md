@@ -32,7 +32,6 @@ promptslide (npm package)          # CLI + slide engine
 ├── Morph, MorphGroup, MorphItem  # Shared element transitions
 ├── SlideDeck                     # Presentation viewer/controller
 ├── SlideThemeProvider, useTheme  # Theme context
-├── SlideFooter                   # Footer with logo + slide number
 ├── SlideProps, SlideConfig       # TypeScript types
 └── Layouts                       # ContentLayout, TitleLayout, SectionLayout,
                                   # TwoColumnLayout, ImageLayout, QuoteLayout

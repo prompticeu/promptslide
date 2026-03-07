@@ -1,4 +1,5 @@
-import { useTheme, SlideFooter } from "promptslide";
+import { useTheme } from "promptslide";
+import { SlideFooter } from "./shared-footer";
 
 // =============================================================================
 // SLIDE LAYOUT — CENTERED

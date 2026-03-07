@@ -60,9 +60,6 @@ export type {
 export { SlideThemeProvider, useTheme } from "./theme-context"
 export type { ThemeConfig } from "./types"
 
-// Shared Footer
-export { SlideFooter } from "./layouts/shared-footer"
-
 // SlideRenderer
 export { SlideRenderer } from "./slide-renderer"
 export type { SlideRendererProps } from "./slide-renderer"
