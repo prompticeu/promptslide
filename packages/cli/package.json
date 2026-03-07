@@ -19,7 +19,8 @@
     "src/",
     "dist/",
     "templates/",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",

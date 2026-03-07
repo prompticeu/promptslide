@@ -15,17 +15,19 @@ bun run dev
 
 Then open your coding agent and say:
 
-> "Create me a 10-slide pitch deck for my fintech startup"
+> "Create me a 10-slide deck about AgenticRAG"
 
 The agent reads `AGENTS.md`, generates slide files in `src/slides/`, updates `src/deck-config.ts`, and Vite hot-reloads them instantly.
 
 ## How It Works
 
 1. **You describe** what you want in natural language
-2. **Your coding agent** reads `AGENTS.md` to understand the framework
+2. **Your coding agent** uses the [promptslide Skill](https://github.com/prompticeu/promptslide/tree/main/skills/promptslide) to understand the framework
 3. **Agent creates** `.tsx` slide files in `src/slides/`
 4. **Vite hot-reloads** — slides appear instantly in your browser
 5. **Present** in fullscreen or export to PDF
+
+> Install the Skill: `claude skill add --url https://github.com/prompticeu/promptslide/tree/main/skills/promptslide`
 
 No server, no API, no sandbox. Just a local Vite project + your coding agent.
 
