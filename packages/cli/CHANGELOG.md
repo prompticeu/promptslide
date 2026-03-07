@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.1...promptslide-v0.3.2) (2026-03-07)
+
+
+### Bug Fixes
+
+* correct package.json path resolution in CLI commands ([#59](https://github.com/prompticeu/promptslide/issues/59)) ([a79e81d](https://github.com/prompticeu/promptslide/commit/a79e81dab73606494cf334121bcbff52273d038c))
+
 ## [0.3.1](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.0...promptslide-v0.3.1) (2026-03-07)
 
 
