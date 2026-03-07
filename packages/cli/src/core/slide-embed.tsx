@@ -105,9 +105,7 @@ export function SlideEmbed({ slides, transition, directionalTransition }: SlideE
   // Scale to fill viewport
   useEffect(() => {
     const calculateScale = () => {
-      const scaleX = window.innerWidth / SLIDE_DIMENSIONS.width
-      const scaleY = window.innerHeight / SLIDE_DIMENSIONS.height
-      setScale(Math.min(scaleX, scaleY))
+      setScale(window.innerWidth / SLIDE_DIMENSIONS.width)
     }
 
     calculateScale()
