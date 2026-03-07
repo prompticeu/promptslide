@@ -10,7 +10,7 @@ import { prompt, confirm, select, closePrompts } from "../utils/prompts.mjs"
 import { parseDeckConfig } from "../utils/deck-config.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const CLI_VERSION = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8")).version
+const CLI_VERSION = JSON.parse(readFileSync(join(__dirname, "..", "..", "package.json"), "utf-8")).version
 
 function readDeckPrefix(cwd) {
   // Prefer stored prefix from lockfile (user's previous choice)
