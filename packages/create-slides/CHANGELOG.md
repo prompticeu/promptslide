@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.1](https://github.com/prompticeu/promptslide/compare/create-slides-v0.3.0...create-slides-v0.3.1) (2026-03-07)
+
+
+### Bug Fixes
+
+* include CHANGELOG.md in published npm packages ([#53](https://github.com/prompticeu/promptslide/issues/53)) ([8a38a55](https://github.com/prompticeu/promptslide/commit/8a38a5533b0ea41593eba901551b0815e9da0515))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * promptslide bumped from ^0.3.0 to ^0.3.1
+
 ## [0.3.0](https://github.com/prompticeu/promptslide/compare/create-slides-v0.2.6...create-slides-v0.3.0) (2026-03-07)
 
 
