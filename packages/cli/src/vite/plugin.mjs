@@ -1,9 +1,26 @@
+import { bold, dim } from "../utils/ansi.mjs"
+
 const VIRTUAL_ENTRY_ID = "virtual:promptslide-entry"
 const RESOLVED_VIRTUAL_ENTRY_ID = "\0" + VIRTUAL_ENTRY_ID
 const VIRTUAL_EXPORT_ID = "virtual:promptslide-export"
 const RESOLVED_VIRTUAL_EXPORT_ID = "\0" + VIRTUAL_EXPORT_ID
 const VIRTUAL_EMBED_ID = "virtual:promptslide-embed"
 const RESOLVED_VIRTUAL_EMBED_ID = "\0" + VIRTUAL_EMBED_ID
+
+// Inline script that catches module load errors (e.g. missing named exports)
+// and forwards them to the Vite dev server so they appear in terminal logs.
+// Must be a regular script (not type="module") to run before module evaluation.
+const ERROR_FORWARD_SCRIPT = `<script>
+window.addEventListener("error", function(e) {
+  if (e.message) {
+    fetch("/__promptslide_error", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: e.message, filename: e.filename || "" })
+    }).catch(function() {});
+  }
+});
+</script>`
 
 function getHtmlTemplate() {
   return `<!doctype html>
@@ -15,6 +32,7 @@ function getHtmlTemplate() {
   </head>
   <body>
     <div id="root"></div>
+    ${ERROR_FORWARD_SCRIPT}
     <script type="module" src="/@id/${VIRTUAL_ENTRY_ID}"></script>
   </body>
 </html>`
@@ -155,6 +173,23 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     },
 
     configureServer(server) {
+      // Pre-middleware: receive browser errors and log them to the terminal
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "POST" || req.url !== "/__promptslide_error") return next()
+
+        let body = ""
+        req.on("data", chunk => { body += chunk })
+        req.on("end", () => {
+          try {
+            const { message, filename } = JSON.parse(body)
+            const location = filename ? ` ${dim(`(${filename})`)}` : ""
+            server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, { timestamp: true })
+          } catch {}
+          res.statusCode = 204
+          res.end()
+        })
+      })
+
       // Pre-middleware: serve /embed route
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, "http://localhost")
