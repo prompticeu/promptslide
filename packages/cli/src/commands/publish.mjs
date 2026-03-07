@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url"
 
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
-import { captureSlideAsDataUri, isPlaywrightAvailable } from "../utils/export.mjs"
-import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent } from "../utils/registry.mjs"
+import { captureSlideAsDataUri, isPlaywrightAvailable, createCaptureSession } from "../utils/export.mjs"
+import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, writeLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent } from "../utils/registry.mjs"
 import { prompt, confirm, select, closePrompts } from "../utils/prompts.mjs"
 import { parseDeckConfig } from "../utils/deck-config.mjs"
 
@@ -500,10 +500,10 @@ export async function publish(args) {
 
     // Read lockfile for skip-if-unchanged
     const lock = readLockfile(cwd)
-    let itemIndex = 0
     let published = 0
     let skipped = 0
     let failed = 0
+    const lockfileUpdates = []
 
     function isUnchanged(slug, fileHashes) {
       const entry = lock.items[slug]
@@ -514,46 +514,61 @@ export async function publish(args) {
       return currentKeys.every(k => entry.files[k] === fileHashes[k])
     }
 
-    // ── Phase 1: Assets ──
-    for (const asset of publicAssets) {
-      itemIndex++
-      const assetSlug = assetFileToSlug(deckPrefix, asset.relativePath)
-      const fileName = basename(asset.fullPath)
-      const dirPart = asset.relativePath.includes("/")
-        ? "public/" + asset.relativePath.substring(0, asset.relativePath.lastIndexOf("/") + 1)
-        : "public/"
+    const CONCURRENCY = 6
 
-      const fileData = readFileForRegistry(asset.fullPath)
-      const fileHash = fileData.binary
-        ? hashContent(fileData.buffer.toString("base64"))
-        : hashContent(fileData.content)
-      const fileHashes = { [dirPart + fileName]: fileHash }
-
-      if (isUnchanged(assetSlug, fileHashes)) {
-        console.log(`  [${itemIndex}/${totalItems}] ${dim("—")} asset ${dim(assetSlug)} (unchanged)`)
-        skipped++
-        continue
+    async function runParallel(tasks) {
+      const results = []
+      for (let i = 0; i < tasks.length; i += CONCURRENCY) {
+        const batch = tasks.slice(i, i + CONCURRENCY)
+        results.push(...await Promise.allSettled(batch.map(fn => fn())))
       }
-
-      let files
-      if (fileData.binary) {
-        files = await uploadBinaryFiles(assetSlug, [
-          { path: fileName, target: dirPart, binary: true, buffer: fileData.buffer, contentType: fileData.contentType, size: fileData.size }
-        ], auth)
-      } else {
-        files = [{ path: fileName, target: dirPart, content: fileData.content }]
-      }
-
-      try {
-        const result = await publishToRegistry({ type: "asset", slug: assetSlug, title: fileName, files }, auth)
-        console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} asset ${cyan(assetSlug)} ${dim(`v${result.version}`)}`)
-        updateLockfileItem(cwd, assetSlug, result.version ?? 0, fileHashes)
-        published++
-      } catch (err) {
-        console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} asset ${dim(assetSlug)}: ${err.message}`)
-        failed++
-      }
+      return results
     }
+
+    // ── Phase 1: Assets ──
+    let itemIndex = 0
+    const assetTasks = publicAssets.map((asset) => {
+      const myIndex = ++itemIndex
+      return async () => {
+        const assetSlug = assetFileToSlug(deckPrefix, asset.relativePath)
+        const fileName = basename(asset.fullPath)
+        const dirPart = asset.relativePath.includes("/")
+          ? "public/" + asset.relativePath.substring(0, asset.relativePath.lastIndexOf("/") + 1)
+          : "public/"
+
+        const fileData = readFileForRegistry(asset.fullPath)
+        const fileHash = fileData.binary
+          ? hashContent(fileData.buffer.toString("base64"))
+          : hashContent(fileData.content)
+        const fileHashes = { [dirPart + fileName]: fileHash }
+
+        if (isUnchanged(assetSlug, fileHashes)) {
+          console.log(`  [${myIndex}/${totalItems}] ${dim("—")} asset ${dim(assetSlug)} (unchanged)`)
+          skipped++
+          return
+        }
+
+        let files
+        if (fileData.binary) {
+          files = await uploadBinaryFiles(assetSlug, [
+            { path: fileName, target: dirPart, binary: true, buffer: fileData.buffer, contentType: fileData.contentType, size: fileData.size }
+          ], auth)
+        } else {
+          files = [{ path: fileName, target: dirPart, content: fileData.content }]
+        }
+
+        try {
+          const result = await publishToRegistry({ type: "asset", slug: assetSlug, title: fileName, files }, auth)
+          console.log(`  [${myIndex}/${totalItems}] ${green("✓")} asset ${cyan(assetSlug)} ${dim(`v${result.version}`)}`)
+          lockfileUpdates.push({ slug: assetSlug, version: result.version ?? 0, fileHashes })
+          published++
+        } catch (err) {
+          console.log(`  [${myIndex}/${totalItems}] ${red("✗")} asset ${dim(assetSlug)}: ${err.message}`)
+          failed++
+        }
+      }
+    })
+    await runParallel(assetTasks)
 
     // ── Phase 2: Theme ──
     if (hasTheme) {
@@ -588,7 +603,7 @@ export async function publish(args) {
             promptslideVersion: CLI_VERSION
           }, auth)
           console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} theme ${cyan(themeSlug)} ${dim(`v${result.version}`)}`)
-          updateLockfileItem(cwd, themeSlug, result.version ?? 0, themeFileHashes)
+          lockfileUpdates.push({ slug: themeSlug, version: result.version ?? 0, fileHashes: themeFileHashes })
           published++
         } catch (err) {
           console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} theme ${dim(themeSlug)}: ${err.message}`)
@@ -597,95 +612,105 @@ export async function publish(args) {
       }
     }
 
-    // ── Phase 3: Layouts ──
-    for (const layoutFile of layoutEntries) {
-      itemIndex++
-      const layoutName = layoutFile.replace(/\.tsx?$/, "")
-      const layoutSlug = `${deckPrefix}/${layoutName}`
-      const content = readFileSync(join(cwd, "src", "layouts", layoutFile), "utf-8")
-      const fileHashes = { [`src/layouts/${layoutFile}`]: hashContent(content) }
+    // ── Phase 3: Layouts (parallel) ──
+    const layoutTasks = layoutEntries.map((layoutFile) => {
+      const myIndex = ++itemIndex
+      return async () => {
+        const layoutName = layoutFile.replace(/\.tsx?$/, "")
+        const layoutSlug = `${deckPrefix}/${layoutName}`
+        const content = readFileSync(join(cwd, "src", "layouts", layoutFile), "utf-8")
+        const fileHashes = { [`src/layouts/${layoutFile}`]: hashContent(content) }
 
-      if (isUnchanged(layoutSlug, fileHashes)) {
-        console.log(`  [${itemIndex}/${totalItems}] ${dim("—")} layout ${dim(layoutSlug)} (unchanged)`)
-        skipped++
-        continue
+        if (isUnchanged(layoutSlug, fileHashes)) {
+          console.log(`  [${myIndex}/${totalItems}] ${dim("—")} layout ${dim(layoutSlug)} (unchanged)`)
+          skipped++
+          return
+        }
+
+        const assetDeps = detectAssetDepsInContent(content, deckPrefix, publicFileSet)
+        const npmDeps = detectNpmDeps(content)
+        const regDeps = hasTheme ? [`${deckPrefix}/theme`] : []
+        regDeps.push(...assetDeps)
+
+        try {
+          const result = await publishToRegistry({
+            type: "layout",
+            slug: layoutSlug,
+            title: titleCase(layoutName),
+            files: [{ path: layoutFile, target: "src/layouts/", content }],
+            registryDependencies: regDeps.length ? regDeps : undefined,
+            npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
+            promptslideVersion: CLI_VERSION
+          }, auth)
+          console.log(`  [${myIndex}/${totalItems}] ${green("✓")} layout ${cyan(layoutSlug)} ${dim(`v${result.version}`)}`)
+          lockfileUpdates.push({ slug: layoutSlug, version: result.version ?? 0, fileHashes })
+          published++
+        } catch (err) {
+          console.log(`  [${myIndex}/${totalItems}] ${red("✗")} layout ${dim(layoutSlug)}: ${err.message}`)
+          failed++
+        }
       }
+    })
+    await runParallel(layoutTasks)
 
-      const assetDeps = detectAssetDepsInContent(content, deckPrefix, publicFileSet)
-      const npmDeps = detectNpmDeps(content)
-      const regDeps = hasTheme ? [`${deckPrefix}/theme`] : []
-      regDeps.push(...assetDeps)
+    // ── Phase 4: Slides (parallel, reuse single capture session) ──
+    const captureSession = canCapture ? await createCaptureSession({ cwd }) : null
 
-      try {
-        const result = await publishToRegistry({
-          type: "layout",
-          slug: layoutSlug,
-          title: titleCase(layoutName),
-          files: [{ path: layoutFile, target: "src/layouts/", content }],
-          registryDependencies: regDeps.length ? regDeps : undefined,
-          npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
-          promptslideVersion: CLI_VERSION
-        }, auth)
-        console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} layout ${cyan(layoutSlug)} ${dim(`v${result.version}`)}`)
-        updateLockfileItem(cwd, layoutSlug, result.version ?? 0, fileHashes)
-        published++
-      } catch (err) {
-        console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} layout ${dim(layoutSlug)}: ${err.message}`)
-        failed++
+    const slideTasks = slideEntries.map((slideFile) => {
+      const myIndex = ++itemIndex
+      return async () => {
+        const slideName = slideFile.replace(/\.tsx?$/, "")
+        const slideSlug = `${deckPrefix}/${slideName}`
+        const content = readFileSync(join(cwd, "src", "slides", slideFile), "utf-8")
+        const fileHashes = { [`src/slides/${slideFile}`]: hashContent(content) }
+
+        if (isUnchanged(slideSlug, fileHashes)) {
+          console.log(`  [${myIndex}/${totalItems}] ${dim("—")} slide ${dim(slideSlug)} (unchanged)`)
+          skipped++
+          return
+        }
+
+        const assetDeps = detectAssetDepsInContent(content, deckPrefix, publicFileSet)
+        const layoutDeps = detectRegistryDeps(content).map(d => `${deckPrefix}/${d}`)
+        const npmDeps = detectNpmDeps(content)
+        const steps = detectSteps(content)
+        const slideConfig = deckConfig.slides.find(s => s.slug === slideName)
+        const section = slideConfig?.section || undefined
+
+        const regDeps = hasTheme ? [`${deckPrefix}/theme`] : []
+        regDeps.push(...layoutDeps, ...assetDeps)
+
+        // Generate preview image reusing shared session
+        let slidePreview = null
+        if (captureSession) {
+          slidePreview = await captureSession.capture(`src/slides/${slideFile}`).catch(() => null)
+        }
+
+        try {
+          const result = await publishToRegistry({
+            type: "slide",
+            slug: slideSlug,
+            title: titleCase(slideName),
+            files: [{ path: slideFile, target: "src/slides/", content }],
+            steps,
+            section,
+            registryDependencies: regDeps.length ? regDeps : undefined,
+            npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
+            previewImage: slidePreview || undefined,
+            promptslideVersion: CLI_VERSION
+          }, auth)
+          console.log(`  [${myIndex}/${totalItems}] ${green("✓")} slide ${cyan(slideSlug)} ${dim(`v${result.version}`)}`)
+          lockfileUpdates.push({ slug: slideSlug, version: result.version ?? 0, fileHashes })
+          published++
+        } catch (err) {
+          console.log(`  [${myIndex}/${totalItems}] ${red("✗")} slide ${dim(slideSlug)}: ${err.message}`)
+          failed++
+        }
       }
-    }
+    })
+    await runParallel(slideTasks)
 
-    // ── Phase 4: Slides ──
-    for (const slideFile of slideEntries) {
-      itemIndex++
-      const slideName = slideFile.replace(/\.tsx?$/, "")
-      const slideSlug = `${deckPrefix}/${slideName}`
-      const content = readFileSync(join(cwd, "src", "slides", slideFile), "utf-8")
-      const fileHashes = { [`src/slides/${slideFile}`]: hashContent(content) }
-
-      if (isUnchanged(slideSlug, fileHashes)) {
-        console.log(`  [${itemIndex}/${totalItems}] ${dim("—")} slide ${dim(slideSlug)} (unchanged)`)
-        skipped++
-        continue
-      }
-
-      const assetDeps = detectAssetDepsInContent(content, deckPrefix, publicFileSet)
-      const layoutDeps = detectRegistryDeps(content).map(d => `${deckPrefix}/${d}`)
-      const npmDeps = detectNpmDeps(content)
-      const steps = detectSteps(content)
-      const slideConfig = deckConfig.slides.find(s => s.slug === slideName)
-      const section = slideConfig?.section || undefined
-
-      const regDeps = hasTheme ? [`${deckPrefix}/theme`] : []
-      regDeps.push(...layoutDeps, ...assetDeps)
-
-      // Generate preview image for this slide
-      let slidePreview = null
-      if (canCapture) {
-        slidePreview = await captureSlideAsDataUri({ cwd, slidePath: `src/slides/${slideFile}` }).catch(() => null)
-      }
-
-      try {
-        const result = await publishToRegistry({
-          type: "slide",
-          slug: slideSlug,
-          title: titleCase(slideName),
-          files: [{ path: slideFile, target: "src/slides/", content }],
-          steps,
-          section,
-          registryDependencies: regDeps.length ? regDeps : undefined,
-          npmDependencies: Object.keys(npmDeps).length ? npmDeps : undefined,
-          previewImage: slidePreview || undefined,
-          promptslideVersion: CLI_VERSION
-        }, auth)
-        console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} slide ${cyan(slideSlug)} ${dim(`v${result.version}`)}`)
-        updateLockfileItem(cwd, slideSlug, result.version ?? 0, fileHashes)
-        published++
-      } catch (err) {
-        console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} slide ${dim(slideSlug)}: ${err.message}`)
-        failed++
-      }
-    }
+    if (captureSession) await captureSession.close()
 
     // ── Phase 5: Deck manifest ──
     itemIndex++
@@ -709,14 +734,25 @@ export async function publish(args) {
         promptslideVersion: CLI_VERSION
       }, auth)
       console.log(`  [${itemIndex}/${totalItems}] ${green("✓")} deck ${cyan(deckSlug)} ${dim(`v${result.version}`)}`)
-      updateLockfileItem(cwd, deckSlug, result.version ?? 0, {})
-      updateLockfilePublishConfig(cwd, { deckSlug })
+      lockfileUpdates.push({ slug: deckSlug, version: result.version ?? 0, fileHashes: {} })
       deckItemId = result.id
       published++
     } catch (err) {
       console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} deck ${dim(deckSlug)}: ${err.message}`)
       failed++
     }
+
+    // Batch-write all lockfile updates at once
+    const finalLock = readLockfile(cwd)
+    for (const update of lockfileUpdates) {
+      finalLock.items[update.slug] = {
+        version: update.version,
+        installedAt: new Date().toISOString().split("T")[0],
+        files: update.fileHashes
+      }
+    }
+    if (deckItemId) finalLock.deckSlug = deckSlug
+    writeLockfile(cwd, finalLock)
 
     console.log()
     console.log(`  ${bold("Done:")} ${green(`${published} published`)}${skipped ? `, ${skipped} unchanged` : ""}${failed ? `, ${red(`${failed} failed`)}` : ""}`)
