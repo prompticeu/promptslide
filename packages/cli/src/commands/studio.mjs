@@ -10,7 +10,7 @@ export async function studio(args) {
   const port = portArg ? parseInt(portArg.split("=")[1], 10) : 5173
   const hasHost = args.includes("--host") || args.some(a => a.startsWith("--host="))
   const hostArg = args.find(a => a.startsWith("--host="))
-  const host = hasHost ? (hostArg ? hostArg.split("=")[1] : "0.0.0.0") : undefined
+  const host = hasHost ? (hostArg ? hostArg.split("=")[1] || "0.0.0.0" : "0.0.0.0") : undefined
 
   ensureTsConfig(cwd)
 
