@@ -1,8 +1,9 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { execFileSync } from "node:child_process"
-import { join, dirname, resolve, sep } from "node:path"
+import { dirname, join, resolve, sep } from "node:path"
+import { fileURLToPath } from "node:url"
 
-import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
+import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import {
   fetchRegistryItem,
@@ -21,6 +22,15 @@ import {
   replaceDeckConfig
 } from "../utils/deck-config.mjs"
 import { confirm, closePrompts } from "../utils/prompts.mjs"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const CLI_VERSION = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8")).version
+
+/** Extract minor version number from a version string like "0.3.0" or "^0.3.0". */
+function parseMinor(version) {
+  const match = version.replace(/^[\^~>=<\s]+/, "").match(/^(\d+)\.(\d+)/)
+  return match ? Number(match[2]) : null
+}
 
 export async function add(args) {
   const cwd = process.cwd()
@@ -178,6 +188,21 @@ export async function add(args) {
           console.log(`  ${green("✓")} Added ${componentName} to ${cyan("deck-config.ts")}`)
         }
       }
+    }
+  }
+
+  // Check promptslide version compatibility
+  const publishedVersion = item.promptslideVersion
+  if (publishedVersion) {
+    const publishedMinor = parseMinor(publishedVersion)
+    const localMinor = parseMinor(CLI_VERSION)
+    if (publishedMinor !== null && localMinor !== null && publishedMinor !== localMinor) {
+      console.log()
+      console.log(`  ${yellow("⚠")} This content was published with promptslide ${bold(`v${publishedVersion}`)}`)
+      console.log(`    You have ${bold(`v${CLI_VERSION}`)} installed — this may cause issues.`)
+      const pm = detectPackageManager(cwd)
+      const installCmd = pm === "bun" ? "bun add" : pm === "pnpm" ? "pnpm add" : pm === "yarn" ? "yarn add" : "npm install"
+      console.log(`    Run: ${cyan(`${installCmd} promptslide@^${publishedVersion}`)}`)
     }
   }
 
