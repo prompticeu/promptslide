@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.1](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.0...promptslide-v0.3.1) (2026-03-07)
+
+
+### Features
+
+* **cli:** track promptslide version on publish and warn on add ([#58](https://github.com/prompticeu/promptslide/issues/58)) ([503e1f0](https://github.com/prompticeu/promptslide/commit/503e1f0bdac8066fb047b001c4b07c7ff6d87b23))
+
+
+### Bug Fixes
+
+* hoist deckBaseSlug to fix ReferenceError in publish command ([#56](https://github.com/prompticeu/promptslide/issues/56)) ([dd29c36](https://github.com/prompticeu/promptslide/commit/dd29c36ecd862d2e52844933478cb8ef652c0c23))
+* include CHANGELOG.md in published npm packages ([#53](https://github.com/prompticeu/promptslide/issues/53)) ([8a38a55](https://github.com/prompticeu/promptslide/commit/8a38a5533b0ea41593eba901551b0815e9da0515))
+
 ## [0.3.0](https://github.com/prompticeu/promptslide/compare/promptslide-v0.2.6...promptslide-v0.3.0) (2026-03-07)
 
 
