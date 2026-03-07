@@ -1,4 +1,4 @@
-import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
+import { bold, green, red, dim } from "../utils/ansi.mjs"
 import { requireAuth, saveAuth } from "../utils/auth.mjs"
 import { fetchOrganizations } from "../utils/registry.mjs"
 import { prompt, closePrompts } from "../utils/prompts.mjs"

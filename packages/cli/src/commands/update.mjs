@@ -1,5 +1,5 @@
 import { existsSync, writeFileSync, mkdirSync } from "node:fs"
-import { join, dirname, resolve, sep } from "node:path"
+import { dirname, resolve, sep } from "node:path"
 
 import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
