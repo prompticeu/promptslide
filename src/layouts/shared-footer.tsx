@@ -1,4 +1,4 @@
-import { useTheme } from "../theme-context"
+import { useTheme } from "promptslide"
 
 interface SlideFooterProps {
   slideNumber: number
