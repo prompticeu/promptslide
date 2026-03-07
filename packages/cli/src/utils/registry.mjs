@@ -71,7 +71,9 @@ export function isFileDirty(cwd, relativePath, storedHash) {
  */
 export function updateLockfileItem(cwd, slug, version, files) {
   const lock = readLockfile(cwd)
+  const existing = lock.items[slug] || {}
   lock.items[slug] = {
+    ...existing,
     version,
     installedAt: new Date().toISOString().split("T")[0],
     files
@@ -89,6 +91,51 @@ export function updateLockfilePublishConfig(cwd, config) {
   const lock = readLockfile(cwd)
   if (config.deckSlug !== undefined) lock.deckSlug = config.deckSlug
   delete lock.deckPrefix
+  writeLockfile(cwd, lock)
+}
+
+/**
+ * Read stored deck-level publish metadata (title, description, tags).
+ * @param {string} cwd
+ * @returns {{ title?: string, description?: string, tags?: string[] }}
+ */
+export function readDeckMeta(cwd) {
+  const lock = readLockfile(cwd)
+  return lock.deckMeta || {}
+}
+
+/**
+ * Persist deck-level publish metadata so it can be reused as defaults.
+ * @param {string} cwd
+ * @param {{ title?: string, description?: string, tags?: string[] }} meta
+ */
+export function updateDeckMeta(cwd, meta) {
+  const lock = readLockfile(cwd)
+  lock.deckMeta = { ...lock.deckMeta, ...meta }
+  writeLockfile(cwd, lock)
+}
+
+/**
+ * Read stored per-item publish metadata (title, description, tags, section).
+ * @param {string} cwd
+ * @param {string} slug
+ * @returns {{ title?: string, description?: string, tags?: string[], section?: string }}
+ */
+export function readItemMeta(cwd, slug) {
+  const lock = readLockfile(cwd)
+  return lock.items[slug]?.meta || {}
+}
+
+/**
+ * Persist per-item publish metadata alongside the version/files entry.
+ * @param {string} cwd
+ * @param {string} slug
+ * @param {{ title?: string, description?: string, tags?: string[], section?: string }} meta
+ */
+export function updateItemMeta(cwd, slug, meta) {
+  const lock = readLockfile(cwd)
+  if (!lock.items[slug]) lock.items[slug] = {}
+  lock.items[slug].meta = meta
   writeLockfile(cwd, lock)
 }
 

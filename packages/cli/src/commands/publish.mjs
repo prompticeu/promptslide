@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url"
 import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { captureSlideAsDataUri, isPlaywrightAvailable, createCaptureSession } from "../utils/export.mjs"
-import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, writeLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent } from "../utils/registry.mjs"
+import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, writeLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent, readDeckMeta, updateDeckMeta, readItemMeta, updateItemMeta } from "../utils/registry.mjs"
 import { prompt, confirm, select, closePrompts } from "../utils/prompts.mjs"
 import { parseDeckConfig } from "../utils/deck-config.mjs"
 
@@ -254,11 +254,13 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
   let title, description, tags, section, releaseNotes, previewImage
 
   if (interactive) {
-    title = await prompt("Title:", titleCase(baseSlug))
-    description = await prompt("Description:", "")
-    const tagsInput = await prompt("Tags (comma-separated):", "")
+    const storedMeta = readItemMeta(cwd, slug)
+    title = await prompt("Title:", storedMeta.title || titleCase(baseSlug))
+    description = await prompt("Description:", storedMeta.description || "")
+    const storedTagsDefault = storedMeta.tags?.length ? storedMeta.tags.join(", ") : ""
+    const tagsInput = await prompt("Tags (comma-separated):", storedTagsDefault)
     tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
-    section = await prompt("Section:", "")
+    section = await prompt("Section:", storedMeta.section || "")
     releaseNotes = await prompt("Release notes:", "")
     const imagePath = await prompt("Preview image path (leave empty to auto-generate):", "")
     if (imagePath) {
@@ -307,6 +309,13 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
   // Track in lockfile
   const fileHashes = { [target + fileName]: hashContent(content) }
   updateLockfileItem(cwd, slug, result.version ?? 0, fileHashes)
+  // Persist item metadata for next publish
+  updateItemMeta(cwd, slug, {
+    title,
+    description: description || undefined,
+    tags,
+    section: section || undefined
+  })
 
   return { slug, status: result.status || "published", version: result.version }
 }
@@ -437,10 +446,12 @@ export async function publish(args) {
     }
     console.log()
 
-    // Collect deck metadata
-    const title = await prompt("Title:", titleCase(deckSlug))
-    const description = await prompt("Description:", "")
-    const tagsInput = await prompt("Tags (comma-separated):", "")
+    // Collect deck metadata (use stored values as defaults)
+    const storedDeckMeta = readDeckMeta(cwd)
+    const title = await prompt("Title:", storedDeckMeta.title || titleCase(deckSlug))
+    const description = await prompt("Description:", storedDeckMeta.description || "")
+    const storedTagsDefault = storedDeckMeta.tags?.length ? storedDeckMeta.tags.join(", ") : ""
+    const tagsInput = await prompt("Tags (comma-separated):", storedTagsDefault)
     const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
     const releaseNotes = await prompt("Release notes:", "")
 
@@ -717,6 +728,8 @@ export async function publish(args) {
       lockfileUpdates.push({ slug: deckSlug, version: result.version ?? 0, fileHashes: {} })
       deckItemId = result.id
       published++
+      // Persist deck metadata for next publish
+      updateDeckMeta(cwd, { title, description: description || undefined, tags })
     } catch (err) {
       console.log(`  [${itemIndex}/${totalItems}] ${red("✗")} deck ${dim(deckSlug)}: ${err.message}`)
       failed++
@@ -725,7 +738,9 @@ export async function publish(args) {
     // Batch-write all lockfile updates at once
     const finalLock = readLockfile(cwd)
     for (const update of lockfileUpdates) {
+      const existing = finalLock.items[update.slug] || {}
       finalLock.items[update.slug] = {
+        ...existing,
         version: update.version,
         installedAt: new Date().toISOString().split("T")[0],
         files: update.fileHashes
@@ -864,12 +879,14 @@ export async function publish(args) {
     }
   }
 
-  // Collect metadata for main item
-  const title = await prompt("Title:", titleCase(baseSlug))
-  const description = await prompt("Description:", "")
-  const tagsInput = await prompt("Tags (comma-separated):", "")
+  // Collect metadata for main item (use stored values as defaults)
+  const storedMeta = readItemMeta(cwd, slug)
+  const title = await prompt("Title:", storedMeta.title || titleCase(baseSlug))
+  const description = await prompt("Description:", storedMeta.description || "")
+  const storedTagsDefault = storedMeta.tags?.length ? storedMeta.tags.join(", ") : ""
+  const tagsInput = await prompt("Tags (comma-separated):", storedTagsDefault)
   const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
-  const section = await prompt("Section:", "")
+  const section = await prompt("Section:", storedMeta.section || "")
   const releaseNotes = await prompt("Release notes:", "")
   const previewImagePath = await prompt("Preview image path (leave empty to auto-generate):", "")
   let previewImage = null
@@ -927,6 +944,13 @@ export async function publish(args) {
     // Track in lockfile
     const fileHashes = { [target + fileName]: hashContent(content) }
     updateLockfileItem(cwd, slug, result.version ?? 0, fileHashes)
+    // Persist item metadata for next publish
+    updateItemMeta(cwd, slug, {
+      title,
+      description: description || undefined,
+      tags,
+      section: section || undefined
+    })
   } catch (err) {
     console.error(`  ${red("Error:")} ${err.message}`)
     process.exit(1)
