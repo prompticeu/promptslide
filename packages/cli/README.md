@@ -42,7 +42,7 @@ All commands are run via `npx promptslide <command>` (or `bunx promptslide <comm
 4. **Vite hot-reloads** -- slides appear instantly in your browser
 5. **Present** in fullscreen or export to PDF
 
-> Install the Skill: `claude skill add --url https://github.com/prompticeu/promptslide/tree/main/skills/promptslide`
+> The Skill is installed automatically when you run `promptslide create`. To install it manually: `npx skills add prompticeu/promptslide`
 
 ## Links
 
