@@ -23,7 +23,11 @@ bun install
 bun run dev
 ```
 
-Open your coding agent and describe the slides you want -- they appear in real-time via hot reload.
+Install the [promptslide Skill](https://github.com/prompticeu/promptslide/tree/main/skills/promptslide), open your coding agent, and describe the slides you want -- they appear in real-time via hot reload.
+
+```bash
+claude skill add --url https://github.com/prompticeu/promptslide/tree/main/skills/promptslide
+```
 
 ## What It Does
 
