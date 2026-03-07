@@ -1,4 +1,4 @@
 {
-  "packages/cli": "0.2.6",
-  "packages/create-slides": "0.2.6"
+  "packages/cli": "0.3.0",
+  "packages/create-slides": "0.3.0"
 }
