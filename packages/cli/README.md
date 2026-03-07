@@ -19,18 +19,20 @@ Then open your coding agent and say:
 
 ## CLI Commands
 
-| Command               | Description                              |
-| --------------------- | ---------------------------------------- |
-| `promptslide create`  | Scaffold a new slide deck project        |
-| `promptslide studio`  | Start the dev server with hot reload     |
-| `promptslide build`   | Build the deck for production            |
-| `promptslide preview` | Preview the production build             |
-| `promptslide add`     | Add a slide to the current deck          |
-| `promptslide remove`  | Remove a slide from the current deck     |
-| `promptslide list`    | List all slides in the current deck      |
-| `promptslide publish` | Publish the deck to PromptSlide registry |
-| `promptslide search`  | Search published decks                   |
-| `promptslide pull`    | Pull a published deck                    |
+All commands are run via `npx promptslide <command>` (or `bunx promptslide <command>`).
+
+| Command   | Description                              |
+| --------- | ---------------------------------------- |
+| `create`  | Scaffold a new slide deck project        |
+| `studio`  | Start the dev server with hot reload     |
+| `build`   | Build the deck for production            |
+| `preview` | Preview the production build             |
+| `add`     | Add a slide to the current deck          |
+| `remove`  | Remove a slide from the current deck     |
+| `list`    | List all slides in the current deck      |
+| `publish` | Publish the deck to PromptSlide registry |
+| `search`  | Search published decks                   |
+| `pull`    | Pull a published deck                    |
 
 ## How It Works
 
