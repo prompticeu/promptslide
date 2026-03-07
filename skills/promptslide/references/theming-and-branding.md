@@ -134,19 +134,12 @@ Everything is optional except `name`. Omitted values fall back to `globals.css` 
 
 Load fonts via `<link>` in `index.html` (Google Fonts or Fontshare), then set them in `src/theme.ts`.
 
-| Mood | Heading | Body | Notes |
-|------|---------|------|-------|
-| **Professional** | Inter | Inter | Clean, neutral. Good default. |
-| **Modern / Startup** | Space Grotesk | Inter | Geometric heading, readable body |
-| **Editorial / Storytelling** | Playfair Display | Source Sans 3 | Serif/sans contrast creates sophistication |
-| **Friendly / Approachable** | DM Sans | DM Sans | Rounded, warm geometric sans |
-| **Technical / Developer** | JetBrains Mono | JetBrains Mono | Monospace for dev-focused decks |
-| **Bold / Creative** | Outfit | Inter | Modern with personality |
-| **Elegant / Luxury** | Fraunces | Inter | Variable optical-size serif, distinctive |
+Choose fonts that match the deck's personality. Browse [Google Fonts](https://fonts.google.com) or [Fontshare](https://www.fontshare.com) and pick something that fits the mood — don't default to the first familiar name.
 
-**Rules:**
+**Pairing principles:**
 - One font family for the whole deck is fine — don't force a pairing
 - Serif headings + sans body = classic contrast (editorial, formal)
 - Sans headings + sans body = modern, clean (most presentations)
 - Monospace everything = developer/hacker aesthetic only
 - Avoid pairing two serif fonts — it gets busy
+- **Avoid defaulting to Inter, Roboto, or Arial** — they're readable but generic. If the brand doesn't mandate a specific font, choose one with more character.

@@ -76,15 +76,22 @@ Edit `src/theme.ts` for brand name and logo, and `src/globals.css` for theme col
 
 ### Step 5: Design Thinking
 
-Before writing any slide code, pause and think about design for the deck as a whole and for each slide individually. Consider:
+Before writing any slide code, commit to a clear aesthetic direction and plan the deck holistically. Generic, template-looking slides are worse than no slides at all.
 
-- **What does this content want to be?** A single powerful stat deserves to be big and alone on the slide. A comparison wants two sides. A list of features might work as clean typography with whitespace — not everything needs cards. Let the content shape the layout, not the other way around.
-- **What's the rhythm of the deck?** Alternate between dense and spacious, structured and freeform. A tight data slide followed by a big bold quote creates contrast and keeps attention.
-- **Where are the hero moments?** Every deck should have 1–2 slides that break the pattern — an oversized number, a full-bleed color block, a single sentence with generous whitespace. These give the deck personality.
+#### Pick a direction and commit
+
+Choose a distinct visual personality — editorial, brutalist, luxury-minimal, bold geometric, warm organic — and execute it with precision throughout the deck. The key is intentionality, not intensity. A restrained minimal deck executed with perfect spacing and typography is just as strong as a bold maximalist one. What kills a deck is indecision: a little of everything, committing to nothing.
+
+#### Design each slide for its content
+
+- **What does this content want to be?** A single powerful stat deserves to be big and alone on the slide. A comparison wants two sides. A list of features might work as clean typography with whitespace — not everything needs cards.
+- **What's the rhythm of the deck?** Alternate between dense and spacious, dark and light, structured and freeform. Three white slides in a row is monotonous. Break runs with a dark "breather" slide, a full-bleed color block, or an asymmetric layout.
+- **Where are the hero moments?** Every deck needs 1–2 slides that break the pattern — an oversized number, a bold color block, a single sentence with generous whitespace. These are what people remember.
+- **What makes this deck UNFORGETTABLE?** Ask this before coding. If the answer is "nothing" — the design direction isn't strong enough.
 
 Don't default to the first layout that comes to mind. Consider 2–3 options for each slide and pick the one that best serves the message.
 
-**Share your design plan with the user before coding.** Briefly describe the style direction and your layout approach for each slide. Let them approve or adjust — don't just decide and start building.
+**Share your design plan with the user before coding.** Briefly describe the visual direction, color strategy, and your layout approach for each slide (e.g., "slide 3: asymmetric two-column with oversized stat", "slide 7: dark hero slide — the most important in the deck"). Let them approve or adjust — don't just decide and start building.
 
 ### Step 6: Create your slides
 
@@ -98,9 +105,13 @@ Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then f
 
 Whether this is a new deck or an existing one, confirm the visual direction with the user before creating slide files. The user's primary color may already be configured from scaffolding — don't overwrite it without asking.
 
-**Present your design plan to the user before writing any slide code.** Briefly describe the style direction you're considering, the font pairing, and your layout idea for each slide (e.g., "slide 3: side-by-side comparison", "slide 5: hero stat with oversized number"). Let the user approve or adjust before you start building. Don't just decide internally and start coding.
+**Present your design plan to the user before writing any slide code.** Include:
+1. The overall visual direction — mood, color strategy, how the primary color will be used (sparingly for impact, not on every element)
+2. The layout approach for each slide — not just "cards" but the specific composition (e.g., "asymmetric split with oversized number left, description right")
+3. Which slides will be the "hero moments" that break the pattern
+4. Font choice and why it fits the deck's personality
 
-For each slide, think about what the content wants to be — a stat might want to be huge and alone, a comparison wants two sides, a list might just need clean typography. Let the content shape the layout. See [references/slide-design-guide.md](references/slide-design-guide.md) for design principles.
+For each slide, think about what the content wants to be. See [references/slide-design-guide.md](references/slide-design-guide.md) for design principles and anti-patterns to avoid.
 
 ### Architecture
 

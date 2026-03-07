@@ -1,6 +1,6 @@
 # Style Presets
 
-Curated visual directions for slide decks. Use these as inspiration, not as a spec to follow row by row. Each preset describes a mood, suggests fonts and visual treatments, and shows what works well together — but the actual design of each slide should come from thinking about what the content needs (see the Design Thinking step and [slide-design-guide.md](slide-design-guide.md)).
+Curated visual directions for slide decks. Use these as mood inspiration, not as a spec to follow row by row. Each preset describes a color palette, card treatment, and animation feel — but the actual design of each slide should come from thinking about what the content needs (see the Design Thinking step and [slide-design-guide.md](slide-design-guide.md)). Choose fonts separately based on the deck's personality (see [theming-and-branding.md](theming-and-branding.md)).
 
 ---
 
@@ -16,7 +16,6 @@ High-contrast dark background with a single vivid accent color. Large section nu
 |----------|-------|
 | **Primary** | `oklch(0.65 0.25 250)` (electric blue) |
 | **Background** | Near-black (`oklch(0.13 0 0)`) |
-| **Fonts** | Heading: **Space Grotesk**, Body: **Inter** |
 | **Cards** | No borders. Subtle `bg-white/5` tint. |
 | **Animations** | `fade` and `scale` — slow (0.5s). Dramatic reveals. |
 | **Signature** | Oversized numbers (`text-8xl text-primary/20`) as slide accents |
@@ -31,7 +30,6 @@ Warm dark theme with amber/gold accents. Sophisticated and editorial.
 |----------|-------|
 | **Primary** | `oklch(0.7 0.18 70)` (warm amber) |
 | **Background** | Deep charcoal (`oklch(0.15 0.01 60)`) |
-| **Fonts** | Heading: **Playfair Display**, Body: **Source Sans 3** |
 | **Cards** | Thin `border-primary/10` borders. No fill. |
 | **Animations** | `fade` only — slow (0.6s). Elegant, minimal motion. |
 | **Signature** | Serif headlines create contrast against clean body text |
@@ -46,7 +44,6 @@ Developer/hacker aesthetic. Monospace type, green-on-dark, terminal feel.
 |----------|-------|
 | **Primary** | `oklch(0.75 0.2 145)` (terminal green) |
 | **Background** | True black (`oklch(0.1 0 0)`) |
-| **Fonts** | Heading: **JetBrains Mono**, Body: **JetBrains Mono** |
 | **Cards** | `border border-primary/20 bg-primary/5`. Code-block aesthetic. |
 | **Animations** | `fade` with short duration (0.2s). Instant, snappy. |
 | **Signature** | Monospace everything. Use `>` prefixes and `//` comments as visual texture |
@@ -65,7 +62,6 @@ Minimal, professional white theme. No visual noise.
 |----------|-------|
 | **Primary** | `oklch(0.5 0.2 250)` (classic blue) |
 | **Background** | Pure white |
-| **Fonts** | Heading: **Inter**, Body: **Inter** |
 | **Cards** | `border border-border bg-card`. |
 | **Animations** | `slide-up` — fast (0.3s). Professional, no-nonsense. |
 | **Signature** | Generous whitespace. Let typography and data carry the slide. |
@@ -80,7 +76,6 @@ Magazine-inspired layout with warm neutrals and serif headings.
 |----------|-------|
 | **Primary** | `oklch(0.55 0.15 30)` (warm terracotta) |
 | **Background** | Off-white (`oklch(0.98 0.005 80)`) |
-| **Fonts** | Heading: **Fraunces**, Body: **Inter** |
 | **Cards** | No cards. Use horizontal rules (`border-t`), pull quotes, and typography hierarchy. |
 | **Animations** | `slide-up` and `fade` — medium (0.4s). Reading-order stagger. |
 | **Signature** | Large pull quotes. Asymmetric text layouts. Drop caps. |
@@ -95,7 +90,6 @@ Friendly, approachable light theme with soft pastels.
 |----------|-------|
 | **Primary** | `oklch(0.6 0.15 280)` (soft purple) |
 | **Background** | Light warm gray (`oklch(0.97 0.005 80)`) |
-| **Fonts** | Heading: **DM Sans**, Body: **DM Sans** |
 | **Cards** | Rounded (`rounded-2xl`), tinted backgrounds (`bg-primary/5`, `bg-accent/5`). No borders. |
 | **Animations** | `scale` and `slide-up` — medium (0.4s), tight stagger (0.08s). Playful. |
 | **Signature** | Colored card backgrounds that alternate between primary/accent tints |
@@ -114,7 +108,6 @@ Bauhaus/Swiss design. Geometric precision, strong grid, bold color blocks.
 |----------|-------|
 | **Primary** | `oklch(0.6 0.25 30)` (bold red) |
 | **Background** | White |
-| **Fonts** | Heading: **Space Grotesk**, Body: **Space Grotesk** |
 | **Cards** | Full-bleed color blocks (`bg-primary`, `bg-foreground`). No rounded corners (`rounded-none`). |
 | **Animations** | `slide-left` and `slide-up` — fast (0.25s). Geometric, directional. |
 | **Signature** | Grid-based layouts. Black/red/white only. Bold geometric dividers. |
@@ -129,7 +122,6 @@ Rich dark theme with deep blue-to-purple color palette. Polished and modern.
 |----------|-------|
 | **Primary** | `oklch(0.65 0.22 280)` (vibrant purple) |
 | **Background** | Deep navy (`oklch(0.15 0.03 270)`) |
-| **Fonts** | Heading: **Outfit**, Body: **Inter** |
 | **Cards** | `bg-white/5 border border-white/10`. Frosted glass look (without blur — use opacity). |
 | **Animations** | `fade` and `slide-up` — medium (0.4s). Smooth, polished. |
 | **Signature** | Layered opacity cards. Use `bg-primary/10` accents against dark backgrounds. |
