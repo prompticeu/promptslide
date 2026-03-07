@@ -12,33 +12,35 @@ import { parseDeckConfig } from "../utils/deck-config.mjs"
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const CLI_VERSION = JSON.parse(readFileSync(join(__dirname, "..", "..", "package.json"), "utf-8")).version
 
-function readDeckPrefix(cwd) {
-  // Prefer stored prefix from lockfile (user's previous choice)
+function readDeckSlug(cwd) {
   const lock = readLockfile(cwd)
+  // Prefer stored deck slug — migrate old two-part format (e.g. "my-deck/name" → "my-deck")
+  if (lock.deckSlug) return lock.deckSlug.split("/")[0]
+  // Migrate legacy deckPrefix (old lockfiles stored prefix separately)
   if (lock.deckPrefix) return lock.deckPrefix
-
-  // Fall back to package.json name
-  try {
-    const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf-8"))
-    return (pkg.name || "").toLowerCase()
-  } catch {
-    return ""
-  }
+  return ""
 }
 
-async function promptDeckPrefix(cwd, interactive) {
-  const defaultPrefix = readDeckPrefix(cwd)
+function defaultDeckSlug(cwd) {
+  const dirName = basename(cwd)
+  return dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+}
+
+async function promptDeckSlug(cwd, interactive) {
+  const stored = readDeckSlug(cwd)
+  const fallback = defaultDeckSlug(cwd)
+  const defaultValue = stored || fallback
   if (!interactive) {
-    if (!defaultPrefix) throw new Error("Deck prefix is required. Set a name in package.json or publish interactively.")
-    return defaultPrefix
+    if (!defaultValue) throw new Error("Deck slug is required. Publish interactively to set it.")
+    return defaultValue
   }
-  let prefix
+  let slug
   while (true) {
-    prefix = await prompt("Deck prefix:", defaultPrefix)
-    if (prefix && /^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(prefix)) break
-    console.log(`  ${red("Error:")} Deck prefix is required (lowercase alphanumeric with hyphens, min 2 chars)`)
+    slug = await prompt("Deck slug:", defaultValue)
+    if (slug && /^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug)) break
+    console.log(`  ${red("Error:")} Deck slug is required (lowercase alphanumeric with hyphens, min 2 chars)`)
   }
-  return prefix
+  return slug
 }
 
 function titleCase(slug) {
@@ -228,10 +230,10 @@ function scanForFiles(cwd) {
 
 /**
  * Publish a single item to the registry.
- * @param {{ filePath: string, cwd: string, auth: object, typeOverride?: string, interactive?: boolean, deckPrefix?: string }} opts
+ * @param {{ filePath: string, cwd: string, auth: object, typeOverride?: string, interactive?: boolean, deckSlug?: string }} opts
  * @returns {Promise<{ slug: string, status: string }>}
  */
-async function publishItem({ filePath, cwd, auth, typeOverride, interactive = true, deckPrefix }) {
+async function publishItem({ filePath, cwd, auth, typeOverride, interactive = true, deckSlug: deckSlugOverride }) {
   const fullPath = join(cwd, filePath)
   if (!existsSync(fullPath)) {
     throw new Error(`File not found: ${filePath}`)
@@ -240,8 +242,8 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
   const content = readFileSync(fullPath, "utf-8")
   const fileName = basename(fullPath)
   const baseSlug = fileName.replace(/\.tsx?$/, "")
-  const prefix = deckPrefix || await promptDeckPrefix(cwd, interactive)
-  const slug = `${prefix}/${baseSlug}`
+  const deck = deckSlugOverride || await promptDeckSlug(cwd, interactive)
+  const slug = `${deck}/${baseSlug}`
 
   const type = typeOverride || detectType(filePath) || "slide"
   const steps = detectSteps(content)
@@ -283,7 +285,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
     previewImage = await captureSlideAsDataUri({ cwd, slidePath: filePath }).catch(() => null)
   }
 
-  const prefixedDeps = registryDeps.map(d => `${prefix}/${d}`)
+  const prefixedDeps = registryDeps.map(d => `${deck}/${d}`)
   const payload = {
     type,
     slug,
@@ -378,33 +380,11 @@ export async function publish(args) {
       process.exit(1)
     }
 
-    // Check if a deck slug already exists in the lockfile
-    const existingLock = readLockfile(cwd)
-    const existingSlug = existingLock.deckSlug
-    let deckPrefix, deckSlug
+    // Resolve deck slug (= deck identity, used as namespace for all items)
+    const deckSlug = await promptDeckSlug(cwd, true)
 
-    const dirName = basename(cwd)
-    const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
-
-    if (existingSlug) {
-      console.log(`  ${dim("Previously published as")} ${cyan(existingSlug)}`)
-      console.log()
-      const reuse = await confirm(`  Publish to ${bold(existingSlug)}?`)
-
-      if (reuse) {
-        deckSlug = existingSlug
-        deckPrefix = existingSlug.split("/")[0]
-      } else {
-        deckPrefix = await promptDeckPrefix(cwd, true)
-        deckSlug = `${deckPrefix}/${deckBaseSlug}`
-      }
-    } else {
-      deckPrefix = await promptDeckPrefix(cwd, true)
-      deckSlug = `${deckPrefix}/${deckBaseSlug}`
-    }
-
-    // Persist prefix for next time (slug is saved after successful publish)
-    updateLockfilePublishConfig(cwd, { deckPrefix })
+    // Persist slug early so it's available even if publish fails partway
+    updateLockfilePublishConfig(cwd, { deckSlug })
 
     // Walk public/ to collect assets and build reference set
     const publicDir = join(cwd, "public")
@@ -458,7 +438,7 @@ export async function publish(args) {
     console.log()
 
     // Collect deck metadata
-    const title = await prompt("Title:", titleCase(deckBaseSlug))
+    const title = await prompt("Title:", titleCase(deckSlug))
     const description = await prompt("Description:", "")
     const tagsInput = await prompt("Tags (comma-separated):", "")
     const tags = tagsInput ? tagsInput.split(",").map(t => t.trim()).filter(Boolean) : []
@@ -530,7 +510,7 @@ export async function publish(args) {
     const assetTasks = publicAssets.map((asset) => {
       const myIndex = ++itemIndex
       return async () => {
-        const assetSlug = assetFileToSlug(deckPrefix, asset.relativePath)
+        const assetSlug = assetFileToSlug(deckSlug, asset.relativePath)
         const fileName = basename(asset.fullPath)
         const dirPart = asset.relativePath.includes("/")
           ? "public/" + asset.relativePath.substring(0, asset.relativePath.lastIndexOf("/") + 1)
@@ -573,7 +553,7 @@ export async function publish(args) {
     // ── Phase 2: Theme ──
     if (hasTheme) {
       itemIndex++
-      const themeSlug = `${deckPrefix}/theme`
+      const themeSlug = `${deckSlug}/theme`
       const themePayloadFiles = []
       const themeFileHashes = {}
       let themeContent = ""
@@ -589,7 +569,7 @@ export async function publish(args) {
         console.log(`  [${itemIndex}/${totalItems}] ${dim("—")} theme ${dim(themeSlug)} (unchanged)`)
         skipped++
       } else {
-        const assetDeps = detectAssetDepsInContent(themeContent, deckPrefix, publicFileSet)
+        const assetDeps = detectAssetDepsInContent(themeContent, deckSlug, publicFileSet)
         const npmDeps = detectNpmDeps(themeContent)
 
         try {
@@ -617,7 +597,7 @@ export async function publish(args) {
       const myIndex = ++itemIndex
       return async () => {
         const layoutName = layoutFile.replace(/\.tsx?$/, "")
-        const layoutSlug = `${deckPrefix}/${layoutName}`
+        const layoutSlug = `${deckSlug}/${layoutName}`
         const content = readFileSync(join(cwd, "src", "layouts", layoutFile), "utf-8")
         const fileHashes = { [`src/layouts/${layoutFile}`]: hashContent(content) }
 
@@ -627,9 +607,9 @@ export async function publish(args) {
           return
         }
 
-        const assetDeps = detectAssetDepsInContent(content, deckPrefix, publicFileSet)
+        const assetDeps = detectAssetDepsInContent(content, deckSlug, publicFileSet)
         const npmDeps = detectNpmDeps(content)
-        const regDeps = hasTheme ? [`${deckPrefix}/theme`] : []
+        const regDeps = hasTheme ? [`${deckSlug}/theme`] : []
         regDeps.push(...assetDeps)
 
         try {
@@ -660,7 +640,7 @@ export async function publish(args) {
       const myIndex = ++itemIndex
       return async () => {
         const slideName = slideFile.replace(/\.tsx?$/, "")
-        const slideSlug = `${deckPrefix}/${slideName}`
+        const slideSlug = `${deckSlug}/${slideName}`
         const content = readFileSync(join(cwd, "src", "slides", slideFile), "utf-8")
         const fileHashes = { [`src/slides/${slideFile}`]: hashContent(content) }
 
@@ -670,14 +650,14 @@ export async function publish(args) {
           return
         }
 
-        const assetDeps = detectAssetDepsInContent(content, deckPrefix, publicFileSet)
-        const layoutDeps = detectRegistryDeps(content).map(d => `${deckPrefix}/${d}`)
+        const assetDeps = detectAssetDepsInContent(content, deckSlug, publicFileSet)
+        const layoutDeps = detectRegistryDeps(content).map(d => `${deckSlug}/${d}`)
         const npmDeps = detectNpmDeps(content)
         const steps = detectSteps(content)
         const slideConfig = deckConfig.slides.find(s => s.slug === slideName)
         const section = slideConfig?.section || undefined
 
-        const regDeps = hasTheme ? [`${deckPrefix}/theme`] : []
+        const regDeps = hasTheme ? [`${deckSlug}/theme`] : []
         regDeps.push(...layoutDeps, ...assetDeps)
 
         // Generate preview image reusing shared session
@@ -714,8 +694,8 @@ export async function publish(args) {
 
     // ── Phase 5: Deck manifest ──
     itemIndex++
-    const slideSlugs = slideEntries.map(f => `${deckPrefix}/${f.replace(/\.tsx?$/, "")}`)
-    const assetSlugs = publicAssets.map(a => assetFileToSlug(deckPrefix, a.relativePath))
+    const slideSlugs = slideEntries.map(f => `${deckSlug}/${f.replace(/\.tsx?$/, "")}`)
+    const assetSlugs = publicAssets.map(a => assetFileToSlug(deckSlug, a.relativePath))
     const allDeckDeps = [...slideSlugs, ...assetSlugs]
 
     let deckItemId = null
@@ -794,12 +774,12 @@ export async function publish(args) {
   }
   console.log()
 
-  // Prompt for deck prefix (required)
-  const deckPrefix = await promptDeckPrefix(cwd, true)
-  const slug = `${deckPrefix}/${baseSlug}`
+  // Prompt for deck slug (required — items are namespaced under the deck)
+  const deck = await promptDeckSlug(cwd, true)
+  const slug = `${deck}/${baseSlug}`
 
-  // Persist prefix for next time
-  updateLockfilePublishConfig(cwd, { deckPrefix })
+  // Persist deck slug for next time
+  updateLockfilePublishConfig(cwd, { deckSlug: deck })
 
   console.log(`  Slug: ${cyan(slug)}`)
   console.log()
@@ -824,7 +804,7 @@ export async function publish(args) {
     const missing = []
 
     for (const depSlug of registryDeps) {
-      const prefixedDepSlug = `${deckPrefix}/${depSlug}`
+      const prefixedDepSlug = `${deck}/${depSlug}`
       const exists = await registryItemExists(prefixedDepSlug, auth)
       if (!exists) {
         missing.push(depSlug)
@@ -862,7 +842,7 @@ export async function publish(args) {
                 auth,
                 typeOverride: depType,
                 interactive: true,
-                deckPrefix
+                deckSlug: deck
               })
               console.log()
               const depVer = result.version ? ` ${dim(`v${result.version}`)}` : ""
@@ -917,7 +897,7 @@ export async function publish(args) {
   console.log()
 
   // Publish main item
-  const prefixedRegistryDeps = registryDeps.map(d => `${deckPrefix}/${d}`)
+  const prefixedRegistryDeps = registryDeps.map(d => `${deck}/${d}`)
   const payload = {
     type,
     slug,

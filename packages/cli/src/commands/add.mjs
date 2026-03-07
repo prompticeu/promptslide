@@ -149,8 +149,7 @@ export async function add(args) {
 
   // Persist deck slug for future pull/publish if this is a deck
   if (item.type === "deck") {
-    const prefix = item.name.split("/")[0]
-    updateLockfilePublishConfig(cwd, { deckSlug: item.name, deckPrefix: prefix })
+    updateLockfilePublishConfig(cwd, { deckSlug: item.name })
   }
 
   // Auto-update deck-config.ts
