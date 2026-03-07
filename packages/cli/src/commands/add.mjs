@@ -133,8 +133,8 @@ export async function add(args) {
   }
 
   // Update lockfile for all items (root + dependencies)
-  for (const [name, { regItem, fileHashes }] of writtenByItem) {
-    updateLockfileItem(cwd, name, regItem.version ?? 0, fileHashes)
+  for (const [itemName, { regItem, fileHashes }] of writtenByItem) {
+    updateLockfileItem(cwd, itemName, regItem.version ?? 0, fileHashes)
   }
 
   // Persist deck slug for future pull/publish if this is a deck
@@ -185,12 +185,12 @@ export async function add(args) {
   const existingPkg = join(cwd, "package.json")
   if (Object.keys(resolved.npmDeps).length > 0 && existsSync(existingPkg)) {
     const pm = detectPackageManager(cwd)
-    const pkgList = Object.entries(resolved.npmDeps).map(([name, ver]) => `${name}@${ver}`)
-    const { cmd, args, display } = getInstallCommand(pm, pkgList)
+    const pkgList = Object.entries(resolved.npmDeps).map(([pkg, ver]) => `${pkg}@${ver}`)
+    const { cmd, args: installArgs, display } = getInstallCommand(pm, pkgList)
     console.log()
     console.log(`  ${dim(`Installing dependencies: ${display}`)}`)
     try {
-      execFileSync(cmd, args, { cwd, stdio: "inherit" })
+      execFileSync(cmd, installArgs, { cwd, stdio: "inherit" })
       console.log(`  ${green("✓")} Dependencies installed`)
     } catch {
       console.log(`  ${red("⚠")} Dependency installation failed. Run manually:`)
