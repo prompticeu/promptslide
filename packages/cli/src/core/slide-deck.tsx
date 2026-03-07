@@ -1,14 +1,14 @@
-import { AnimatePresence, LayoutGroup, motion } from "framer-motion"
+import { LayoutGroup } from "framer-motion"
 import { ChevronLeft, ChevronRight, Download, Grid3X3, List, Maximize, Monitor } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { SlideTransitionType } from "./transitions"
 import type { SlideConfig } from "./types"
 
-import { SLIDE_DIMENSIONS, SLIDE_TRANSITION } from "./animation-config"
+import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
 import { SlideErrorBoundary } from "./slide-error-boundary"
-import { DEFAULT_SLIDE_TRANSITION, getSlideVariants } from "./transitions"
+import { SlideRenderer } from "./slide-renderer"
 import { useSlideNavigation } from "./use-slide-navigation"
 import { cn } from "./utils"
 
@@ -177,18 +177,6 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [advance, goBack, viewMode, togglePresentationMode])
 
-  // Per-slide transition resolution
-  const currentSlideTransition = slides[currentSlide]?.transition
-  const transitionType = currentSlideTransition ?? transition ?? DEFAULT_SLIDE_TRANSITION
-  const isDirectional = directionalTransition ?? false
-
-  const slideVariants = getSlideVariants(
-    { type: transitionType, directional: isDirectional },
-    direction
-  )
-
-  const CurrentSlideComponent = slides[currentSlide]!.component
-
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-foreground">
       <style>{`
@@ -299,73 +287,31 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
                   transformOrigin: "center center"
                 }}
               >
-                <AnimatePresence initial={false}>
-                  <motion.div
-                    key={currentSlide}
-                    variants={slideVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    transition={SLIDE_TRANSITION}
-                    onAnimationComplete={definition => {
-                      if (definition === "center") {
-                        onTransitionComplete()
-                      }
-                    }}
-                    className="absolute inset-0 h-full w-full"
-                  >
-                    <AnimationProvider
-                      currentStep={animationStep}
-                      totalSteps={totalSteps}
-                      showAllAnimations={showAllAnimations}
-                    >
-                      <SlideErrorBoundary
-                        slideIndex={currentSlide}
-                        slideTitle={slides[currentSlide]?.title}
-                      >
-                        <CurrentSlideComponent
-                          slideNumber={currentSlide + 1}
-                          totalSlides={slides.length}
-                        />
-                      </SlideErrorBoundary>
-                    </AnimationProvider>
-                  </motion.div>
-                </AnimatePresence>
+                <SlideRenderer
+                  slides={slides}
+                  currentSlide={currentSlide}
+                  animationStep={animationStep}
+                  totalSteps={totalSteps}
+                  direction={direction}
+                  showAllAnimations={showAllAnimations}
+                  transition={transition}
+                  directionalTransition={directionalTransition}
+                  onTransitionComplete={onTransitionComplete}
+                />
               </div>
             ) : (
               <div className="relative aspect-video w-full max-w-7xl overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-2xl">
-                <AnimatePresence initial={false}>
-                  <motion.div
-                    key={currentSlide}
-                    variants={slideVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    transition={SLIDE_TRANSITION}
-                    onAnimationComplete={definition => {
-                      if (definition === "center") {
-                        onTransitionComplete()
-                      }
-                    }}
-                    className="absolute inset-0 h-full w-full"
-                  >
-                    <AnimationProvider
-                      currentStep={animationStep}
-                      totalSteps={totalSteps}
-                      showAllAnimations={showAllAnimations}
-                    >
-                      <SlideErrorBoundary
-                        slideIndex={currentSlide}
-                        slideTitle={slides[currentSlide]?.title}
-                      >
-                        <CurrentSlideComponent
-                          slideNumber={currentSlide + 1}
-                          totalSlides={slides.length}
-                        />
-                      </SlideErrorBoundary>
-                    </AnimationProvider>
-                  </motion.div>
-                </AnimatePresence>
+                <SlideRenderer
+                  slides={slides}
+                  currentSlide={currentSlide}
+                  animationStep={animationStep}
+                  totalSteps={totalSteps}
+                  direction={direction}
+                  showAllAnimations={showAllAnimations}
+                  transition={transition}
+                  directionalTransition={directionalTransition}
+                  onTransitionComplete={onTransitionComplete}
+                />
               </div>
             )}
           </LayoutGroup>
