@@ -378,6 +378,9 @@ export async function publish(args) {
     const existingSlug = existingLock.deckSlug
     let deckPrefix, deckSlug
 
+    const dirName = basename(cwd)
+    const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+
     if (existingSlug) {
       console.log(`  ${dim("Previously published as")} ${cyan(existingSlug)}`)
       console.log()
@@ -388,14 +391,10 @@ export async function publish(args) {
         deckPrefix = existingSlug.split("/")[0]
       } else {
         deckPrefix = await promptDeckPrefix(cwd, true)
-        const dirName = basename(cwd)
-        const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
         deckSlug = `${deckPrefix}/${deckBaseSlug}`
       }
     } else {
       deckPrefix = await promptDeckPrefix(cwd, true)
-      const dirName = basename(cwd)
-      const deckBaseSlug = dirName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
       deckSlug = `${deckPrefix}/${deckBaseSlug}`
     }
 
