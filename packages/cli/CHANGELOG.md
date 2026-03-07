@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.2...promptslide-v0.3.3) (2026-03-07)
+
+
+### Features
+
+* forward browser ESM import errors to terminal logs ([#61](https://github.com/prompticeu/promptslide/issues/61)) ([4925013](https://github.com/prompticeu/promptslide/commit/49250131469061b4ca102644e8a7cbf6f63ac2c9))
+
 ## [0.3.2](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.1...promptslide-v0.3.2) (2026-03-07)
 
 
