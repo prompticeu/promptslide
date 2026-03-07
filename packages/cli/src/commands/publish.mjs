@@ -100,8 +100,6 @@ function readPreviewImage(imagePath) {
 }
 
 const BINARY_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".woff", ".woff2"])
-const MAX_INLINE_SIZE = 512_000  // 512KB for inline text content
-const MAX_DECK_FILES = 50        // registry limit
 
 const MIME_MAP = {
   ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -122,63 +120,6 @@ function readFileForRegistry(fullPath) {
     return { binary: true, buffer, contentType, size: buffer.length }
   }
   return { binary: false, content: readFileSync(fullPath, "utf-8") }
-}
-
-/**
- * Collect all files for deck publishing.
- * Returns files with structured format: text files have { path, target, content },
- * binary files have { path, target, binary: true, buffer, contentType, size }.
- */
-function collectDeckFiles(cwd) {
-  const files = []
-  const warnings = []
-
-  function addDir(dirPath, target, filter) {
-    if (!existsSync(dirPath)) return
-    for (const entry of readdirSync(dirPath)) {
-      if (entry === ".gitkeep") continue
-      const fullPath = join(dirPath, entry)
-      const stat = statSync(fullPath)
-      if (stat.isDirectory()) {
-        addDir(fullPath, `${target}${entry}/`, filter)
-        continue
-      }
-      if (!stat.isFile()) continue
-      if (filter && !filter(entry)) continue
-      const fileData = readFileForRegistry(fullPath)
-      if (fileData.binary) {
-        files.push({ path: entry, target, binary: true, buffer: fileData.buffer, contentType: fileData.contentType, size: fileData.size })
-      } else {
-        if (fileData.content.length > MAX_INLINE_SIZE) {
-          warnings.push(`${target}${entry}: exceeds 512KB inline limit (${(fileData.content.length / 1024).toFixed(0)}KB), skipped`)
-          continue
-        }
-        files.push({ path: entry, target, content: fileData.content })
-      }
-    }
-  }
-
-  addDir(join(cwd, "src", "slides"), "src/slides/", f => f.endsWith(".tsx") || f.endsWith(".ts"))
-  addDir(join(cwd, "src", "layouts"), "src/layouts/", f => f.endsWith(".tsx") || f.endsWith(".ts"))
-
-  const themePath = join(cwd, "src", "theme.ts")
-  if (existsSync(themePath)) {
-    files.push({ path: "theme.ts", target: "src/", content: readFileSync(themePath, "utf-8") })
-  }
-
-  const globalsPath = join(cwd, "src", "globals.css")
-  if (existsSync(globalsPath)) {
-    files.push({ path: "globals.css", target: "src/", content: readFileSync(globalsPath, "utf-8") })
-  }
-
-  addDir(join(cwd, "public"), "public/")
-
-  if (files.length > MAX_DECK_FILES) {
-    warnings.push(`Deck has ${files.length} files but registry limit is ${MAX_DECK_FILES}. Only the first ${MAX_DECK_FILES} will be included.`)
-    files.length = MAX_DECK_FILES
-  }
-
-  return { files, warnings }
 }
 
 /**
@@ -209,7 +150,7 @@ async function uploadBinaryFiles(slug, files, auth) {
       binaryFiles.map(f => ({ path: f.path, contentType: f.contentType, size: f.size })),
       auth
     )
-  } catch (err) {
+  } catch {
     console.log(`  ${dim("⚠ Could not get upload tokens, falling back to inline encoding")}`)
   }
 
