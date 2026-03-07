@@ -6,7 +6,8 @@
     "create-slides": "./index.mjs"
   },
   "files": [
-    "index.mjs"
+    "index.mjs",
+    "CHANGELOG.md"
   ],
   "type": "module",
   "license": "MIT",

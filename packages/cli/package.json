@@ -18,7 +18,8 @@
   "files": [
     "src/",
     "dist/",
-    "templates/"
+    "templates/",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",
