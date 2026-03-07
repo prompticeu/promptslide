@@ -1,6 +1,6 @@
 {
   "name": "create-slides",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Scaffold a new PromptSlide slide deck project",
   "bin": {
     "create-slides": "./index.mjs"
