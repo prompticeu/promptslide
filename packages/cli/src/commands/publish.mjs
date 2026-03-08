@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { dirname, join, basename, relative, extname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
+import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { captureSlideAsDataUri, isPlaywrightAvailable, createCaptureSession } from "../utils/export.mjs"
 import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, writeLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent, readDeckMeta, updateDeckMeta, readItemMeta, updateItemMeta } from "../utils/registry.mjs"
