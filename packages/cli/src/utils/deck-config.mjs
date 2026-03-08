@@ -6,13 +6,16 @@ const DECK_CONFIG_PATH = "src/deck-config.ts"
 /**
  * Convert a kebab-case filename to PascalCase component name.
  * e.g. "slide-hero-gradient" → "SlideHeroGradient"
+ * e.g. "01-title" → "Slide01Title" (prefixed to ensure valid JS identifier)
  */
 export function toPascalCase(kebab) {
-  return kebab
+  const raw = kebab
     .replace(/\.tsx?$/, "")
     .split("-")
     .map(part => part.charAt(0).toUpperCase() + part.slice(1))
     .join("")
+  // JS identifiers cannot start with a digit — prefix with "Slide"
+  return /^\d/.test(raw) ? `Slide${raw}` : raw
 }
 
 /**
@@ -222,11 +225,20 @@ export function parseDeckConfig(cwd) {
   const content = readFileSync(configPath, "utf-8")
 
   // 1. Parse imports to build componentName -> slug map
-  //    Pattern: import { SlideTitle } from "@/slides/slide-title"
+  //    Handles: import { SlideTitle } from "@/slides/slide-title"
+  //    Handles: import { default as SlideTitle } from "@/slides/slide-title"
+  //    Handles: import { SlideTitle as Alias } from "@/slides/slide-title"
   const componentToSlug = {}
-  const importRegex = /import\s*\{\s*(\w+)\s*\}\s*from\s*["']@\/slides\/([^"']+)["']/g
+  const importRegex = /import\s*\{([^}]+)\}\s*from\s*["']@\/slides\/([^"']+)["']/g
   for (const match of content.matchAll(importRegex)) {
-    componentToSlug[match[1]] = match[2].replace(/\.tsx?$/, "")
+    const importClause = match[1].trim()
+    const slug = match[2].replace(/\.tsx?$/, "")
+    // Handle "X", "X as Y" (use Y), "default as Y" (use Y)
+    const asMatch = importClause.match(/(?:\w+\s+)?as\s+(\w+)/)
+    const componentName = asMatch ? asMatch[1] : importClause.match(/(\w+)/)?.[1]
+    if (componentName) {
+      componentToSlug[componentName] = slug
+    }
   }
 
   // 2. Parse transition exports
@@ -238,20 +250,38 @@ export function parseDeckConfig(cwd) {
   const dirMatch = content.match(/export\s+const\s+directionalTransition\s*=\s*(true|false)/)
   if (dirMatch) directionalTransition = dirMatch[1] === "true"
 
-  // 3. Parse slides array entries (order-independent matching)
+  // 3. Extract slides array content, then parse entries within it
   const slides = []
-  const entryRegex = /\{([^}]+)\}/g
-  for (const match of content.matchAll(entryRegex)) {
-    const body = match[1]
-    const componentMatch = body.match(/component:\s*(\w+)/)
-    const stepsMatch = body.match(/steps:\s*(\d+)/)
-    if (!componentMatch || !stepsMatch) continue
-    const slug = componentToSlug[componentMatch[1]]
-    if (!slug) continue // layout or unknown import — skip
-    const entry = { slug, steps: parseInt(stepsMatch[1], 10) }
-    const sectionMatch = body.match(/section:\s*["']([^"']+)["']/)
-    if (sectionMatch) entry.section = sectionMatch[1]
-    slides.push(entry)
+  const slidesArrayMatch = content.match(/export\s+const\s+slides\s*:\s*SlideConfig\[\]\s*=\s*\[/)
+  if (slidesArrayMatch) {
+    const arrayStartIdx = content.indexOf(slidesArrayMatch[0]) + slidesArrayMatch[0].length
+    // Find matching closing bracket
+    let bracketDepth = 1
+    let arrayEndIdx = arrayStartIdx
+    for (let i = arrayStartIdx; i < content.length; i++) {
+      if (content[i] === "[") bracketDepth++
+      if (content[i] === "]") bracketDepth--
+      if (bracketDepth === 0) {
+        arrayEndIdx = i
+        break
+      }
+    }
+    const arrayContent = content.slice(arrayStartIdx, arrayEndIdx)
+
+    // Match entries within the slides array only
+    const entryRegex = /\{([^}]+)\}/g
+    for (const match of arrayContent.matchAll(entryRegex)) {
+      const body = match[1]
+      const componentMatch = body.match(/component:\s*(\w+)/)
+      if (!componentMatch) continue
+      const slug = componentToSlug[componentMatch[1]]
+      if (!slug) continue // layout or unknown import — skip
+      const stepsMatch = body.match(/steps:\s*(\d+)/)
+      const entry = { slug, steps: stepsMatch ? parseInt(stepsMatch[1], 10) : 0 }
+      const sectionMatch = body.match(/section:\s*["']([^"']+)["']/)
+      if (sectionMatch) entry.section = sectionMatch[1]
+      slides.push(entry)
+    }
   }
 
   if (slides.length === 0) return null
