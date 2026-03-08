@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.5](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.4...promptslide-v0.3.5) (2026-03-08)
+
+
+### Features
+
+* bundle shared sources with deck publish and fix deck-config parsing ([5f7fd1d](https://github.com/prompticeu/promptslide/commit/5f7fd1de6e5fc58a0568bd87830094dd40c9eca7))
+* persist deck and item metadata to lockfile for publish defaults ([#68](https://github.com/prompticeu/promptslide/issues/68)) ([0dc8ca3](https://github.com/prompticeu/promptslide/commit/0dc8ca3f52b86214eb42dacd9e1ead4d05928242))
+
 ## [0.3.4](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.3...promptslide-v0.3.4) (2026-03-07)
 
 

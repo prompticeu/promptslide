@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.5](https://github.com/prompticeu/promptslide/compare/create-slides-v0.3.4...create-slides-v0.3.5) (2026-03-08)
+
+
+### Features
+
+* bundle shared sources with deck publish and fix deck-config parsing ([5f7fd1d](https://github.com/prompticeu/promptslide/commit/5f7fd1de6e5fc58a0568bd87830094dd40c9eca7))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * promptslide bumped from ^0.3.4 to ^0.3.5
+
 ## [0.3.4](https://github.com/prompticeu/promptslide/compare/create-slides-v0.3.3...create-slides-v0.3.4) (2026-03-07)
 
 
