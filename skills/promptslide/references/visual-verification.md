@@ -8,8 +8,10 @@ Capture a slide as a PNG screenshot to visually verify it renders correctly.
 npx promptslide to-image <slide-path> [-o <output-file>]
 ```
 
-- `<slide-path>`: Slide file relative to project root (e.g. `src/slides/slide-title.tsx`)
+- `<slide-path>`: Slide file relative to project root (e.g. `src/slides/slide-title.tsx`). This is a **positional argument** — pass the file path directly, not a flag.
 - `-o <output-file>`: Optional output path. Defaults to `<slide-name>.png` in the current directory.
+
+**Important**: The command takes a file path, not a slide number. Do NOT use `--slide 1` or `--port` flags — they don't exist and will cause a timeout error.
 
 ## Workflow
 
