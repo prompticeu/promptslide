@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { dirname, join, basename, relative, extname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
+import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { captureSlideAsDataUri, isPlaywrightAvailable, createCaptureSession } from "../utils/export.mjs"
 import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, writeLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent, readDeckMeta, updateDeckMeta, readItemMeta, updateItemMeta } from "../utils/registry.mjs"
@@ -89,6 +89,57 @@ function detectRegistryDeps(content) {
     deps.push(name)
   }
   return deps
+}
+
+/**
+ * Discover shared source files under src/ that aren't slides, layouts, or theme.
+ * These are files in directories like src/components/, src/lib/, src/hooks/, etc.
+ * Returns an array of { relativePath, fullPath, target } objects.
+ */
+function discoverSharedSources(cwd) {
+  const srcDir = join(cwd, "src")
+  if (!existsSync(srcDir)) return []
+
+  // Top-level dirs whose top-level files are published as individual items
+  // (slides/*.tsx → slide items, layouts/*.tsx → layout items).
+  // Subdirectories within these ARE included as shared sources (e.g. slides/commercial/slide1.tsx).
+  const ITEM_DIRS = new Set(["slides", "layouts"])
+  // Top-level files already handled (theme.ts, globals.css, deck-config.ts, App.tsx)
+  const SKIP_FILES = new Set(["theme.ts", "globals.css", "deck-config.ts", "App.tsx", "vite-env.d.ts"])
+  const SOURCE_EXTS = new Set([".tsx", ".ts", ".jsx", ".js"])
+
+  const results = []
+
+  function walk(dir, relativeDir, skipTopLevelFiles) {
+    if (!existsSync(dir)) return
+    for (const entry of readdirSync(dir)) {
+      if (entry.startsWith(".")) continue
+      const full = join(dir, entry)
+      const s = statSync(full)
+      if (s.isDirectory()) {
+        // Enter slides/ and layouts/ but mark that top-level files are handled elsewhere
+        if (!relativeDir && ITEM_DIRS.has(entry)) {
+          walk(full, entry, true)
+        } else {
+          walk(full, relativeDir ? `${relativeDir}/${entry}` : entry, false)
+        }
+      } else if (s.isFile()) {
+        // Skip known top-level files in src/
+        if (!relativeDir && SKIP_FILES.has(entry)) continue
+        // Skip top-level files in slides/ and layouts/ (published as individual items)
+        if (skipTopLevelFiles) continue
+        const ext = extname(entry).toLowerCase()
+        if (!SOURCE_EXTS.has(ext)) continue
+        const relativePath = relativeDir ? `${relativeDir}/${entry}` : entry
+        // target mirrors the src/ directory structure for @/ import resolution
+        const target = relativeDir ? `src/${relativeDir}/` : "src/"
+        results.push({ relativePath, fullPath: full, fileName: entry, target })
+      }
+    }
+  }
+
+  walk(srcDir, "", false)
+  return results
 }
 
 const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp"])
@@ -432,6 +483,9 @@ export async function publish(args) {
       ? readdirSync(slidesDir).filter(f => f.endsWith(".tsx") || f.endsWith(".ts"))
       : []
 
+    // Discover shared source files (src/components/, src/lib/, etc.)
+    const sharedSources = discoverSharedSources(cwd)
+
     const totalItems = publicAssets.length + (hasTheme ? 1 : 0) + layoutEntries.length + slideEntries.length + 1
 
     // Display summary
@@ -440,7 +494,15 @@ export async function publish(args) {
     if (hasTheme) console.log(`    Theme:   1`)
     if (layoutEntries.length) console.log(`    Layouts: ${layoutEntries.length}`)
     console.log(`    Slides:  ${slideEntries.length}`)
+    if (sharedSources.length) console.log(`    Shared:  ${sharedSources.length} ${dim("(bundled with deck)")}`)
     console.log(`    Total:   ${totalItems} items`)
+    // Info if there are slide files on disk not referenced in deck-config.ts
+    const deckConfigSlideCount = deckConfig.slides.length
+    if (deckConfigSlideCount !== slideEntries.length) {
+      console.log()
+      console.log(`  ${dim("ℹ")} deck-config.ts has ${deckConfigSlideCount} slides, ${slideEntries.length} slide files on disk`)
+      console.log(`    ${dim("All slides are published. Only deck-config slides appear in the deck preview.")}`)
+    }
     if (deckConfig.transition) {
       console.log(`    Transition: ${deckConfig.transition}${deckConfig.directionalTransition ? " (directional)" : ""}`)
     }
@@ -703,11 +765,27 @@ export async function publish(args) {
 
     if (captureSession) await captureSession.close()
 
-    // ── Phase 5: Deck manifest ──
+    // ── Phase 5: Deck manifest (includes shared source modules) ──
     itemIndex++
     const slideSlugs = slideEntries.map(f => `${deckSlug}/${f.replace(/\.tsx?$/, "")}`)
     const assetSlugs = publicAssets.map(a => assetFileToSlug(deckSlug, a.relativePath))
     const allDeckDeps = [...slideSlugs, ...assetSlugs]
+
+    // Bundle shared source files with the deck item so preview/install can resolve @/ imports
+    const sharedFiles = sharedSources.map(s => ({
+      path: s.fileName,
+      target: s.target,
+      content: readFileSync(s.fullPath, "utf-8")
+    }))
+    if (sharedFiles.length) {
+      console.log(`  ${dim(`Bundling ${sharedFiles.length} shared source file(s) with deck`)}`)
+    }
+
+    // Collect npm deps from shared source files
+    const sharedNpmDeps = {}
+    for (const f of sharedFiles) {
+      Object.assign(sharedNpmDeps, detectNpmDeps(f.content))
+    }
 
     let deckItemId = null
     try {
@@ -718,7 +796,8 @@ export async function publish(args) {
         description: description || undefined,
         tags,
         deckConfig,
-        files: [],
+        files: sharedFiles,
+        npmDependencies: Object.keys(sharedNpmDeps).length ? sharedNpmDeps : undefined,
         registryDependencies: allDeckDeps.length ? allDeckDeps : undefined,
         releaseNotes: releaseNotes || undefined,
         previewImage: previewImage || undefined,
