@@ -393,6 +393,11 @@ export async function publish(args) {
 
   const auth = requireAuth()
 
+  if (auth.organizationName) {
+    console.log(`  ${dim("Organization:")} ${bold(auth.organizationName)} ${dim(`· switch with promptslide org`)}`)
+    console.log()
+  }
+
   // Determine file to publish
   let typeOverride = null
   const typeIdx = args.indexOf("--type")
