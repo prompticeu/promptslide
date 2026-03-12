@@ -189,3 +189,7 @@ For content density rules, design principles, and visual anti-patterns, see [ref
 ### Visual Verification
 
 After creating or modifying a slide, you can capture a screenshot to visually verify it renders correctly. See [references/visual-verification.md](references/visual-verification.md) for the `promptslide to-image` command and workflow.
+
+### Publish Metadata
+
+After all slides are authored, update `.promptslide-lock.json` with `deckMeta` (title, description, 3–6 tags) and per-slide `meta` entries (title, tags, section) under `items`. These become pre-filled defaults when the user runs `promptslide publish`. Read the existing lockfile first and merge — don't overwrite other fields.
