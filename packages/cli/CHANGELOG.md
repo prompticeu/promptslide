@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.5...promptslide-v0.3.6) (2026-03-11)
+
+
+### Features
+
+* show organization hint in publish command ([#73](https://github.com/prompticeu/promptslide/issues/73)) ([3002f25](https://github.com/prompticeu/promptslide/commit/3002f255f386a5bf646381808324ebda96c57707))
+
 ## [0.3.5](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.4...promptslide-v0.3.5) (2026-03-08)
 
 
