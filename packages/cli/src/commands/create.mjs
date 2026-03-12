@@ -7,7 +7,7 @@ import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { hexToOklch, isValidHex } from "../utils/colors.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
-import { fetchRegistryItem, resolveRegistryDependencies, updateLockfilePublishConfig } from "../utils/registry.mjs"
+import { fetchRegistryItem, resolveRegistryDependencies, updateLockfilePublishConfig, writeLockfile } from "../utils/registry.mjs"
 import { toPascalCase, replaceDeckConfig } from "../utils/deck-config.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 
@@ -148,7 +148,11 @@ export async function create(args) {
   }
 
   // 6. Scaffold lockfile with deck slug so publish metadata can be added later
-  updateLockfilePublishConfig(targetDir, { deckSlug: dirName })
+  writeLockfile(targetDir, {
+    deckSlug: dirName,
+    deckMeta: { title: "", description: "", tags: [] },
+    items: {}
+  })
 
   // 7. Overlay deck files if --from was specified
   if (fromSlug) {
