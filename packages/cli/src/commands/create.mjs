@@ -7,7 +7,7 @@ import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { hexToOklch, isValidHex } from "../utils/colors.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
-import { fetchRegistryItem, resolveRegistryDependencies, updateLockfilePublishConfig } from "../utils/registry.mjs"
+import { fetchRegistryItem, resolveRegistryDependencies, updateLockfilePublishConfig, writeLockfile } from "../utils/registry.mjs"
 import { toPascalCase, replaceDeckConfig } from "../utils/deck-config.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 
@@ -147,7 +147,14 @@ export async function create(args) {
     replaceInFile(path, values)
   }
 
-  // 6. Overlay deck files if --from was specified
+  // 6. Scaffold lockfile with deck slug so publish metadata can be added later
+  writeLockfile(targetDir, {
+    deckSlug: dirName,
+    deckMeta: { title: "", description: "", tags: [] },
+    items: {}
+  })
+
+  // 7. Overlay deck files if --from was specified
   if (fromSlug) {
     const auth = requireAuth()
 
@@ -241,10 +248,10 @@ export async function create(args) {
     console.log()
   }
 
-  // 7. Generate tsconfig.json for editor support
+  // 8. Generate tsconfig.json for editor support
   ensureTsConfig(targetDir)
 
-  // 8. Install PromptSlide agent skill (defaults to yes; skipped with --yes since skills CLI is interactive)
+  // 9. Install PromptSlide agent skill (defaults to yes; skipped with --yes since skills CLI is interactive)
   if (useDefaults) {
     console.log(`  ${dim("Tip: Run")} npx skills add prompticeu/promptslide ${dim("to install the agent skill")}`)
   } else {
@@ -266,7 +273,7 @@ export async function create(args) {
     }
   }
 
-  // 9. Success output
+  // 10. Success output
   console.log()
   console.log(`  ${green("✓")} Created ${bold(projectName)} in ${cyan(dirName)}/`)
   console.log()
