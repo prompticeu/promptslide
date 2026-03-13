@@ -2,10 +2,10 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
 import { dirname, join, basename, relative, extname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
+import { bold, green, cyan, red, yellow, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { captureSlideAsDataUri, isPlaywrightAvailable, createCaptureSession } from "../utils/export.mjs"
-import { publishToRegistry, registryItemExists, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, writeLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent, readDeckMeta, updateDeckMeta, readItemMeta, updateItemMeta } from "../utils/registry.mjs"
+import { publishToRegistry, registryItemExists, fetchRegistryItem, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, writeLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent, readDeckMeta, updateDeckMeta, readItemMeta, updateItemMeta } from "../utils/registry.mjs"
 import { prompt, confirm, select, closePrompts } from "../utils/prompts.mjs"
 import { parseDeckConfig } from "../utils/deck-config.mjs"
 
@@ -451,6 +451,27 @@ export async function publish(args) {
     // Persist slug early so it's available even if publish fails partway
     updateLockfilePublishConfig(cwd, { deckSlug })
 
+    // Warn if this deck already exists in the registry
+    try {
+      const existing = await fetchRegistryItem(deckSlug, auth)
+      if (existing) {
+        const existingTitle = existing.title || existing.name || deckSlug
+        const existingVer = existing.version ? ` ${dim(`(v${existing.version})`)}` : ""
+        console.log(`  ${yellow("Warning:")} ${cyan(deckSlug)} already exists in the registry.`)
+        console.log(`  ${dim("Existing deck:")} ${existingTitle}${existingVer}`)
+        console.log()
+        const shouldContinue = await confirm("Do you want to overwrite it?")
+        if (!shouldContinue) {
+          console.log(`  ${dim("Publish cancelled.")}`)
+          closePrompts()
+          return
+        }
+        console.log()
+      }
+    } catch {
+      // Existence check failure is non-blocking (item doesn't exist or network error)
+    }
+
     // Walk public/ to collect assets and build reference set
     const publicDir = join(cwd, "public")
     const publicAssets = []
@@ -882,6 +903,27 @@ export async function publish(args) {
 
   console.log(`  Slug: ${cyan(slug)}`)
   console.log()
+
+  // Warn if this item already exists in the registry
+  try {
+    const existing = await fetchRegistryItem(slug, auth)
+    if (existing) {
+      const existingTitle = existing.title || existing.name || slug
+      const existingVer = existing.version ? ` ${dim(`(v${existing.version})`)}` : ""
+      console.log(`  ${yellow("Warning:")} ${cyan(slug)} already exists in the registry.`)
+      console.log(`  ${dim("Existing item:")} ${existingTitle}${existingVer}`)
+      console.log()
+      const shouldContinue = await confirm("Do you want to overwrite it?")
+      if (!shouldContinue) {
+        console.log(`  ${dim("Publish cancelled.")}`)
+        closePrompts()
+        return
+      }
+      console.log()
+    }
+  } catch {
+    // Existence check failure is non-blocking (item doesn't exist or network error)
+  }
 
   // Warn if same base slug exists under a different prefix
   try {
