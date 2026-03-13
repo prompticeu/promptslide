@@ -1,6 +1,6 @@
 {
   "name": "promptslide",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "CLI and slide engine for PromptSlide presentations",
   "type": "module",
   "main": "./dist/index.js",
