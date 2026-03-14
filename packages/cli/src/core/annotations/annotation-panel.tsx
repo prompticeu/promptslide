@@ -14,35 +14,44 @@ export function AnnotationPanel({ annotations, selectedId, onSelect, onDelete, o
   const resolved = annotations.filter(a => a.status === "resolved")
 
   return (
-    <div className="absolute top-0 right-0 z-50 flex h-full w-72 flex-col border-l border-neutral-800 bg-neutral-950/95 backdrop-blur-sm">
-      <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <MessageCircle className="h-4 w-4 text-blue-400" />
+    <div className="flex h-full w-80 flex-shrink-0 flex-col border-l border-white/[0.06] bg-neutral-950/95 backdrop-blur-2xl">
+      <div className="flex items-center justify-between px-4 py-3.5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#FF6B35]/15">
+            <MessageCircle className="h-3.5 w-3.5 text-[#FF6B35]" />
+          </div>
           <span className="text-sm font-medium text-white">Annotations</span>
           {open.length > 0 && (
-            <span className="rounded-full bg-blue-500/20 px-1.5 py-0.5 text-xs text-blue-400">
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FF6B35]/15 px-1.5 text-[11px] font-semibold text-[#FF6B35]">
               {open.length}
             </span>
           )}
         </div>
         <button
           onClick={onClose}
-          className="rounded p-1 text-neutral-500 hover:bg-neutral-800 hover:text-neutral-300"
+          className="rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-white/[0.06] hover:text-neutral-300"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+
+      <div className="flex-1 overflow-y-auto p-2">
         {annotations.length === 0 && (
-          <div className="p-4 text-center text-sm text-neutral-600">
-            Click on slide elements to add annotations
+          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.04]">
+              <MessageCircle className="h-5 w-5 text-neutral-600" />
+            </div>
+            <p className="text-sm text-neutral-500">Click on slide elements to add annotations</p>
           </div>
         )}
 
         {open.length > 0 && (
-          <div className="p-2">
-            <div className="mb-1 px-2 text-xs font-medium tracking-wider text-neutral-500 uppercase">Open</div>
+          <div>
+            <div className="mb-1.5 px-2 pt-1 text-[11px] font-medium tracking-wider text-neutral-500 uppercase">
+              Open
+            </div>
             {open.map((a, i) => (
               <AnnotationItem
                 key={a.id}
@@ -57,8 +66,10 @@ export function AnnotationPanel({ annotations, selectedId, onSelect, onDelete, o
         )}
 
         {resolved.length > 0 && (
-          <div className="p-2">
-            <div className="mb-1 px-2 text-xs font-medium tracking-wider text-neutral-500 uppercase">Resolved</div>
+          <div className={open.length > 0 ? "mt-3" : ""}>
+            <div className="mb-1.5 px-2 pt-1 text-[11px] font-medium tracking-wider text-neutral-500 uppercase">
+              Resolved
+            </div>
             {resolved.map((a, i) => (
               <AnnotationItem
                 key={a.id}
@@ -92,44 +103,44 @@ function AnnotationItem({
   return (
     <div
       onClick={onSelect}
-      className={`group mb-1 cursor-pointer rounded-lg p-2 transition-colors ${
-        isSelected ? "bg-neutral-800" : "hover:bg-neutral-900"
+      className={`group relative mb-0.5 cursor-pointer rounded-xl p-2.5 transition-all duration-150 ${
+        isSelected
+          ? "bg-[#FF6B35]/10 ring-1 ring-[#FF6B35]/20"
+          : "hover:bg-white/[0.04]"
       }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-start gap-2">
-          <div
-            className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-              annotation.status === "open"
-                ? "bg-blue-500 text-white"
-                : "bg-neutral-600 text-neutral-300"
-            }`}
-          >
-            {number}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-neutral-200 leading-snug">{annotation.body}</p>
-            {annotation.target.contentNearPin && (
-              <p className="mt-0.5 truncate text-xs text-neutral-600">
-                {annotation.target.contentNearPin}
-              </p>
-            )}
-            {annotation.resolution && (
-              <p className="mt-1 text-xs text-green-400/80 italic">
-                {annotation.resolution}
-              </p>
-            )}
-          </div>
-        </div>
-        <button
-          onClick={e => {
-            e.stopPropagation()
-            onDelete()
-          }}
-          className="flex-shrink-0 rounded p-1 text-neutral-600 opacity-0 transition-opacity hover:bg-neutral-700 hover:text-neutral-300 group-hover:opacity-100"
+      <button
+        onClick={e => {
+          e.stopPropagation()
+          onDelete()
+        }}
+        className="absolute top-2 right-2 rounded-lg p-1 text-neutral-600 opacity-0 transition-all hover:bg-white/[0.08] hover:text-neutral-300 group-hover:opacity-100"
+      >
+        <Trash2 className="h-3 w-3" />
+      </button>
+      <div className="flex items-start gap-2.5">
+        <div
+          className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+            annotation.status === "open"
+              ? "bg-[#FF6B35] text-white"
+              : "bg-neutral-700 text-neutral-400"
+          }`}
         >
-          <Trash2 className="h-3 w-3" />
-        </button>
+          {number}
+        </div>
+        <div className="min-w-0 pr-4">
+          <p className="text-[13px] leading-relaxed text-neutral-200">{annotation.body}</p>
+          {annotation.target.contentNearPin && (
+            <p className="mt-1 truncate text-[11px] text-neutral-600">
+              {annotation.target.contentNearPin}
+            </p>
+          )}
+          {annotation.resolution && (
+            <p className="mt-1.5 text-[11px] text-emerald-400/80 italic">
+              {annotation.resolution}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   )

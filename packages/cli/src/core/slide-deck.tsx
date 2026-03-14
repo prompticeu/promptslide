@@ -7,7 +7,7 @@ import type { SlideConfig } from "./types"
 
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
-import { AnnotationOverlay } from "./annotations"
+import { AnnotationOverlay, AnnotationPanel } from "./annotations"
 import { useAnnotations } from "./annotations"
 import { SlideErrorBoundary } from "./slide-error-boundary"
 import { SlideRenderer } from "./slide-renderer"
@@ -84,10 +84,12 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
   const [viewMode, setViewMode] = useState<ViewMode>("slide")
   const [isPresentationMode, setIsPresentationMode] = useState(false)
   const [isAnnotationMode, setIsAnnotationMode] = useState(false)
+  const [showAnnotationPanel, setShowAnnotationPanel] = useState(false)
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
   const [scale, setScale] = useState(1)
   const containerRef = useRef<HTMLDivElement>(null)
   const slideContainerRef = useRef<HTMLDivElement>(null)
-  const { openCount } = useAnnotations()
+  const { openCount, addAnnotation, deleteAnnotation, getSlideAnnotations } = useAnnotations()
 
   const {
     currentSlide,
@@ -209,8 +211,9 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
       {/* Toolbar */}
       <div
         className={cn(
-          "fixed top-4 right-4 z-50 flex gap-1 rounded-lg border border-neutral-800 bg-neutral-950/90 p-1 backdrop-blur-sm print:hidden",
-          isPresentationMode && "hidden"
+          "fixed top-4 z-50 flex gap-1 rounded-lg border border-neutral-800 bg-neutral-950/90 p-1 backdrop-blur-sm transition-[right] print:hidden",
+          isPresentationMode && "hidden",
+          isAnnotationMode && showAnnotationPanel ? "right-[19.5rem]" : "right-4"
         )}
       >
         <button
@@ -247,16 +250,23 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
         <div className="mx-1 w-px bg-neutral-800" />
 
         <button
-          onClick={() => setIsAnnotationMode(prev => !prev)}
+          onClick={() => {
+            setIsAnnotationMode(prev => {
+              const next = !prev
+              setShowAnnotationPanel(next)
+              if (!next) setSelectedAnnotationId(null)
+              return next
+            })
+          }}
           className={cn(
             "relative rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-            isAnnotationMode && "bg-blue-600 text-white hover:bg-blue-500"
+            isAnnotationMode && "bg-[#FF6B35] text-white hover:bg-[#FF7A4A]"
           )}
           title="Annotate slides"
         >
           <MessageCircle className="h-4 w-4" />
           {openCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#FF6B35] text-[10px] font-bold text-white">
               {openCount}
             </span>
           )}
@@ -283,95 +293,121 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
       {/* Slide View */}
       {viewMode === "slide" && (
         <div
-          ref={containerRef}
-          role="presentation"
-          tabIndex={isPresentationMode ? 0 : undefined}
           className={cn(
-            "flex h-screen w-full flex-col items-center justify-center overflow-hidden print:hidden",
-            isPresentationMode ? "bg-black p-0" : "p-4 md:p-8"
+            "flex h-screen w-full print:hidden",
+            isPresentationMode ? "bg-black" : ""
           )}
-          onClick={isPresentationMode ? advance : undefined}
-          onKeyDown={
-            isPresentationMode
-              ? e => {
-                  if (e.key === "Enter" || e.key === " ") advance()
-                }
-              : undefined
-          }
         >
-          <LayoutGroup id="slide-deck">
-            {isPresentationMode ? (
-              <div
-                className="pointer-events-none relative overflow-hidden bg-black"
-                style={{
-                  width: SLIDE_DIMENSIONS.width,
-                  height: SLIDE_DIMENSIONS.height,
-                  transform: `scale(${scale})`,
-                  transformOrigin: "center center"
-                }}
-              >
-                <SlideRenderer
-                  slides={slides}
-                  currentSlide={currentSlide}
-                  animationStep={animationStep}
-                  totalSteps={totalSteps}
-                  direction={direction}
-                  showAllAnimations={showAllAnimations}
-                  transition={transition}
-                  directionalTransition={directionalTransition}
-                  onTransitionComplete={onTransitionComplete}
-                />
-              </div>
-            ) : (
-              <div ref={slideContainerRef} className="relative aspect-video w-full max-w-7xl overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-2xl">
-                <SlideRenderer
-                  slides={slides}
-                  currentSlide={currentSlide}
-                  animationStep={animationStep}
-                  totalSteps={totalSteps}
-                  direction={direction}
-                  showAllAnimations={showAllAnimations}
-                  transition={transition}
-                  directionalTransition={directionalTransition}
-                  onTransitionComplete={onTransitionComplete}
-                />
-                {isAnnotationMode && (
-                  <AnnotationOverlay
+          <div
+            ref={containerRef}
+            role="presentation"
+            tabIndex={isPresentationMode ? 0 : undefined}
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center overflow-hidden",
+              isPresentationMode ? "bg-black p-0" : "p-4 md:p-8"
+            )}
+            onClick={isPresentationMode ? advance : undefined}
+            onKeyDown={
+              isPresentationMode
+                ? e => {
+                    if (e.key === "Enter" || e.key === " ") advance()
+                  }
+                : undefined
+            }
+          >
+            <LayoutGroup id="slide-deck">
+              {isPresentationMode ? (
+                <div
+                  className="pointer-events-none relative overflow-hidden bg-black"
+                  style={{
+                    width: SLIDE_DIMENSIONS.width,
+                    height: SLIDE_DIMENSIONS.height,
+                    transform: `scale(${scale})`,
+                    transformOrigin: "center center"
+                  }}
+                >
+                  <SlideRenderer
                     slides={slides}
                     currentSlide={currentSlide}
-                    slideContainerRef={slideContainerRef}
+                    animationStep={animationStep}
+                    totalSteps={totalSteps}
+                    direction={direction}
+                    showAllAnimations={showAllAnimations}
+                    transition={transition}
+                    directionalTransition={directionalTransition}
+                    onTransitionComplete={onTransitionComplete}
                   />
-                )}
+                </div>
+              ) : (
+                <div ref={slideContainerRef} className="relative aspect-video w-full max-w-7xl overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-2xl">
+                  <SlideRenderer
+                    slides={slides}
+                    currentSlide={currentSlide}
+                    animationStep={animationStep}
+                    totalSteps={totalSteps}
+                    direction={direction}
+                    showAllAnimations={showAllAnimations}
+                    transition={transition}
+                    directionalTransition={directionalTransition}
+                    onTransitionComplete={onTransitionComplete}
+                  />
+                  {isAnnotationMode && (
+                    <AnnotationOverlay
+                      slides={slides}
+                      currentSlide={currentSlide}
+                      slideContainerRef={slideContainerRef}
+                      selectedId={selectedAnnotationId}
+                      onSelectId={setSelectedAnnotationId}
+                      onShowPanel={() => setShowAnnotationPanel(true)}
+                      slideAnnotations={getSlideAnnotations(currentSlide)}
+                      addAnnotation={addAnnotation}
+                    />
+                  )}
+                </div>
+              )}
+            </LayoutGroup>
+
+            {/* Navigation Controls */}
+            {!isPresentationMode && (
+              <div className="mt-6 flex items-center gap-4">
+                <button
+                  onClick={goBack}
+                  className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <div className="flex min-w-[4rem] flex-col items-center">
+                  <span className="font-mono text-sm text-neutral-500">
+                    {currentSlide + 1} / {slides.length}
+                  </span>
+                  {slides[currentSlide]?.title && (
+                    <span className="mt-0.5 text-xs text-neutral-600">
+                      {slides[currentSlide].title}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={advance}
+                  className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
               </div>
             )}
-          </LayoutGroup>
+          </div>
 
-          {/* Navigation Controls */}
-          {!isPresentationMode && (
-            <div className="mt-6 flex items-center gap-4">
-              <button
-                onClick={goBack}
-                className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </button>
-              <div className="flex min-w-[4rem] flex-col items-center">
-                <span className="font-mono text-sm text-neutral-500">
-                  {currentSlide + 1} / {slides.length}
-                </span>
-                {slides[currentSlide]?.title && (
-                  <span className="mt-0.5 text-xs text-neutral-600">
-                    {slides[currentSlide].title}
-                  </span>
-                )}
-              </div>
-              <button
-                onClick={advance}
-                className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            </div>
+          {/* Annotation Panel — beside the slide */}
+          {isAnnotationMode && showAnnotationPanel && !isPresentationMode && (
+            <AnnotationPanel
+              annotations={getSlideAnnotations(currentSlide)}
+              selectedId={selectedAnnotationId}
+              onSelect={setSelectedAnnotationId}
+              onDelete={deleteAnnotation}
+              onClose={() => {
+                setShowAnnotationPanel(false)
+                setSelectedAnnotationId(null)
+              }}
+            />
           )}
         </div>
       )}

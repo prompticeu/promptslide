@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { SlideConfig } from "../types"
 import { AnnotationForm } from "./annotation-form"
-import { AnnotationPanel } from "./annotation-panel"
 import { AnnotationPin } from "./annotation-pin"
 import { buildElementTarget, resolveTarget } from "./selectors"
-import type { AnnotationTarget } from "./types"
-import { useAnnotations } from "./use-annotations"
+import type { Annotation, AnnotationTarget } from "./types"
 
 interface AnnotationOverlayProps {
   slides: SlideConfig[]
   currentSlide: number
   /** Ref to the slide container element (the div wrapping SlideRenderer) */
   slideContainerRef: React.RefObject<HTMLDivElement | null>
+  selectedId: string | null
+  onSelectId: (id: string | null) => void
+  onShowPanel: () => void
+  slideAnnotations: Annotation[]
+  addAnnotation: (slideIndex: number, slideTitle: string, target: AnnotationTarget, body: string) => void
 }
 
 interface PendingAnnotation {
@@ -20,15 +23,11 @@ interface PendingAnnotation {
   yPercent: number
 }
 
-export function AnnotationOverlay({ slides, currentSlide, slideContainerRef }: AnnotationOverlayProps) {
-  const { addAnnotation, deleteAnnotation, getSlideAnnotations } = useAnnotations()
-  const [showPanel, setShowPanel] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+export function AnnotationOverlay({ slides, currentSlide, slideContainerRef, selectedId, onSelectId, onShowPanel, slideAnnotations, addAnnotation }: AnnotationOverlayProps) {
   const [pending, setPending] = useState<PendingAnnotation | null>(null)
   const [hoveredElement, setHoveredElement] = useState<DOMRect | null>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
 
-  const slideAnnotations = getSlideAnnotations(currentSlide)
   const slideTitle = slides[currentSlide]?.title || `Slide ${currentSlide + 1}`
 
   // Resolve annotation positions — use the element if found, otherwise fallback coordinates
@@ -63,7 +62,7 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef }: A
 
       if (!elementUnder || !container.contains(elementUnder)) {
         setPending(null)
-        setSelectedId(null)
+        onSelectId(null)
         return
       }
 
@@ -83,7 +82,7 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef }: A
       const yPercent = ((e.clientY - containerRect.top) / containerRect.height) * 100
 
       setPending({ target: annotationTarget, xPercent, yPercent })
-      setSelectedId(null)
+      onSelectId(null)
     },
     [slideContainerRef]
   )
@@ -93,7 +92,7 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef }: A
       if (!pending) return
       addAnnotation(currentSlide, slideTitle, pending.target, text)
       setPending(null)
-      setShowPanel(true)
+      onShowPanel()
     },
     [pending, currentSlide, slideTitle, addAnnotation]
   )
@@ -135,7 +134,7 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef }: A
   // Clear pending when slide changes
   useEffect(() => {
     setPending(null)
-    setSelectedId(null)
+    onSelectId(null)
     setHoveredElement(null)
   }, [currentSlide])
 
@@ -144,7 +143,7 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef }: A
       {/* Hover highlight */}
       {hoveredElement && (
         <div
-          className="pointer-events-none absolute z-20 rounded border-2 border-dashed border-blue-400/50 bg-blue-400/5"
+          className="pointer-events-none absolute z-20 rounded-lg border-2 border-dashed border-[#FF6B35]/50 bg-[#FF6B35]/5"
           style={{
             left: hoveredElement.x,
             top: hoveredElement.y,
@@ -157,7 +156,8 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef }: A
       {/* Click capture overlay */}
       <div
         ref={overlayRef}
-        className="absolute inset-0 z-20 cursor-crosshair"
+        className="absolute inset-0 z-20"
+        style={{ cursor: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none'%3E%3Ccircle cx='12' cy='12' r='8' stroke='%23FF6B35' stroke-width='2' opacity='0.8'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23FF6B35'/%3E%3C/svg%3E") 12 12, crosshair` }}
         onClick={handleOverlayClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoveredElement(null)}
@@ -173,8 +173,8 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef }: A
           yPercent={yPercent}
           isSelected={annotation.id === selectedId}
           onClick={() => {
-            setSelectedId(annotation.id === selectedId ? null : annotation.id)
-            setShowPanel(true)
+            onSelectId(annotation.id === selectedId ? null : annotation.id)
+            onShowPanel()
             setPending(null)
           }}
         />
@@ -190,19 +190,6 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef }: A
         />
       )}
 
-      {/* Annotation panel */}
-      {showPanel && (
-        <AnnotationPanel
-          annotations={slideAnnotations}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onDelete={deleteAnnotation}
-          onClose={() => {
-            setShowPanel(false)
-            setSelectedId(null)
-          }}
-        />
-      )}
     </>
   )
 }
