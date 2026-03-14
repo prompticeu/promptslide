@@ -1,3 +1,5 @@
+import { readFileSync, writeFileSync, existsSync } from "node:fs"
+import { join } from "node:path"
 import { bold, dim } from "../utils/ansi.mjs"
 
 const VIRTUAL_ENTRY_ID = "virtual:promptslide-entry"
@@ -187,6 +189,48 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
           } catch {}
           res.statusCode = 204
           res.end()
+        })
+      })
+
+      // Pre-middleware: read annotations
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "GET" || req.url !== "/__promptslide_annotations") return next()
+
+        const filePath = join(root, "annotations.json")
+        try {
+          if (existsSync(filePath)) {
+            const content = readFileSync(filePath, "utf-8")
+            res.setHeader("Content-Type", "application/json")
+            res.statusCode = 200
+            res.end(content)
+          } else {
+            res.setHeader("Content-Type", "application/json")
+            res.statusCode = 200
+            res.end(JSON.stringify({ version: 1, annotations: [] }))
+          }
+        } catch {
+          res.statusCode = 500
+          res.end()
+        }
+      })
+
+      // Pre-middleware: write annotations
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "POST" || req.url !== "/__promptslide_annotations") return next()
+
+        let body = ""
+        req.on("data", chunk => { body += chunk })
+        req.on("end", () => {
+          try {
+            const data = JSON.parse(body)
+            const filePath = join(root, "annotations.json")
+            writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8")
+            res.statusCode = 204
+            res.end()
+          } catch {
+            res.statusCode = 400
+            res.end()
+          }
         })
       })
 

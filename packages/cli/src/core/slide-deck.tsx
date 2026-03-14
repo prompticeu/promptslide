@@ -1,5 +1,5 @@
 import { LayoutGroup } from "framer-motion"
-import { ChevronLeft, ChevronRight, Download, Grid3X3, List, Maximize, Monitor } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Grid3X3, List, Maximize, MessageCircle, Monitor } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { SlideTransitionType } from "./transitions"
@@ -7,6 +7,8 @@ import type { SlideConfig } from "./types"
 
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
+import { AnnotationOverlay } from "./annotations"
+import { useAnnotations } from "./annotations"
 import { SlideErrorBoundary } from "./slide-error-boundary"
 import { SlideRenderer } from "./slide-renderer"
 import { useSlideNavigation } from "./use-slide-navigation"
@@ -81,8 +83,11 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
 
   const [viewMode, setViewMode] = useState<ViewMode>("slide")
   const [isPresentationMode, setIsPresentationMode] = useState(false)
+  const [isAnnotationMode, setIsAnnotationMode] = useState(false)
   const [scale, setScale] = useState(1)
   const containerRef = useRef<HTMLDivElement>(null)
+  const slideContainerRef = useRef<HTMLDivElement>(null)
+  const { openCount } = useAnnotations()
 
   const {
     currentSlide,
@@ -162,7 +167,7 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
         return
       }
 
-      if (viewMode !== "slide") return
+      if (viewMode !== "slide" || isAnnotationMode) return
 
       if (e.key === "ArrowRight" || e.key === " ") {
         e.preventDefault()
@@ -175,7 +180,7 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [advance, goBack, viewMode, togglePresentationMode])
+  }, [advance, goBack, viewMode, togglePresentationMode, isAnnotationMode])
 
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-foreground">
@@ -242,6 +247,24 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
         <div className="mx-1 w-px bg-neutral-800" />
 
         <button
+          onClick={() => setIsAnnotationMode(prev => !prev)}
+          className={cn(
+            "relative rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
+            isAnnotationMode && "bg-blue-600 text-white hover:bg-blue-500"
+          )}
+          title="Annotate slides"
+        >
+          <MessageCircle className="h-4 w-4" />
+          {openCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
+              {openCount}
+            </span>
+          )}
+        </button>
+
+        <div className="mx-1 w-px bg-neutral-800" />
+
+        <button
           onClick={handleExportPdf}
           className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
           title="Download PDF"
@@ -300,7 +323,7 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
                 />
               </div>
             ) : (
-              <div className="relative aspect-video w-full max-w-7xl overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-2xl">
+              <div ref={slideContainerRef} className="relative aspect-video w-full max-w-7xl overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-2xl">
                 <SlideRenderer
                   slides={slides}
                   currentSlide={currentSlide}
@@ -312,6 +335,13 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
                   directionalTransition={directionalTransition}
                   onTransitionComplete={onTransitionComplete}
                 />
+                {isAnnotationMode && (
+                  <AnnotationOverlay
+                    slides={slides}
+                    currentSlide={currentSlide}
+                    slideContainerRef={slideContainerRef}
+                  />
+                )}
               </div>
             )}
           </LayoutGroup>

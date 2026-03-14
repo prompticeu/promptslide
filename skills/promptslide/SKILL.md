@@ -190,6 +190,40 @@ For content density rules, design principles, and visual anti-patterns, see [ref
 
 After creating or modifying a slide, you can capture a screenshot to visually verify it renders correctly. See [references/visual-verification.md](references/visual-verification.md) for the `promptslide to-image` command and workflow.
 
+### Annotations (User Feedback)
+
+Users can click on slide elements in the browser to leave annotations — text feedback attached to specific DOM elements. Annotations are stored in `annotations.json` at the project root.
+
+#### Reading Annotations
+
+Check for annotations before starting work:
+
+```bash
+cat annotations.json 2>/dev/null
+```
+
+Each annotation has:
+- `slideIndex` — which slide (0-based, matching `deck-config.ts` order)
+- `slideTitle` — human-readable slide name
+- `target.selector` — CSS selector to the element within the slide
+- `target.textContent` — text content of the target element
+- `target.dataAnnotate` — stable identifier if the element has a `data-annotate` attribute
+- `body` — the user's feedback
+- `status` — `"open"` or `"resolved"`
+
+#### Resolving Annotations
+
+After addressing feedback, update the annotation's `status` to `"resolved"` and optionally add a `resolution` note explaining what was changed. Edit `annotations.json` directly.
+
+#### Adding data-annotate Attributes
+
+When creating slides, add `data-annotate="descriptive-name"` to key elements (headings, feature cards, stat blocks) to make annotations more stable across edits:
+
+```tsx
+<h2 data-annotate="main-title" className="text-4xl font-bold">Title</h2>
+<div data-annotate="feature-card-1" className="rounded-2xl bg-card p-6">...</div>
+```
+
 ### Publish Metadata
 
 After all slides are authored, update `.promptslide-lock.json` with `deckMeta` (title, description, 3–6 tags) and per-slide `meta` entries (title, tags, section) under `items`. These become pre-filled defaults when the user runs `promptslide publish`. Read the existing lockfile first and merge — don't overwrite other fields.
