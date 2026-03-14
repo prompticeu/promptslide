@@ -109,9 +109,9 @@ function AnnotationItem({
           </div>
           <div className="min-w-0">
             <p className="text-sm text-neutral-200 leading-snug">{annotation.body}</p>
-            {annotation.target.textContent && (
+            {annotation.target.contentNearPin && (
               <p className="mt-0.5 truncate text-xs text-neutral-600">
-                {annotation.target.textContent}
+                {annotation.target.contentNearPin}
               </p>
             )}
             {annotation.resolution && (

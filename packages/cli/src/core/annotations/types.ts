@@ -7,11 +7,9 @@
 export interface AnnotationTarget {
   /** User-assigned data-annotate value, if present on the element */
   dataAnnotate?: string
-  /** CSS selector path from slide root */
-  selector: string
-  /** Truncated text content of the element (first 100 chars) */
-  textContent?: string
-  /** Fallback coordinates as percentage of slide dimensions */
+  /** Nearby visible text to help locate the annotated area (first 100 chars, not meant to be edited) */
+  contentNearPin?: string
+  /** Coordinates as percentage of slide dimensions */
   position: { xPercent: number; yPercent: number }
 }
 

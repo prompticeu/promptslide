@@ -158,6 +158,16 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     name: "promptslide",
     enforce: "pre",
 
+    config() {
+      return {
+        server: {
+          watch: {
+            ignored: ["**/annotations.json"]
+          }
+        }
+      }
+    },
+
     configResolved(config) {
       if (!root) root = config.root
     },
