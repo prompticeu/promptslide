@@ -1,6 +1,6 @@
 import { LayoutGroup } from "framer-motion"
 import { ChevronLeft, ChevronRight, Download, Grid3X3, List, Maximize, MessageCircle, Monitor } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type { SlideTransitionType } from "./transitions"
 import type { SlideConfig } from "./types"
@@ -8,7 +8,7 @@ import type { SlideConfig } from "./types"
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
 import { AnnotationOverlay, AnnotationPanel } from "./annotations"
-import { useAnnotations } from "./annotations"
+import type { Annotation, AnnotationTarget } from "./annotations"
 import { SlideErrorBoundary } from "./slide-error-boundary"
 import { SlideRenderer } from "./slide-renderer"
 import { useSlideNavigation } from "./use-slide-navigation"
@@ -24,6 +24,12 @@ interface SlideDeckProps {
   slides: SlideConfig[]
   transition?: SlideTransitionType
   directionalTransition?: boolean
+  /** Annotation data to display. When provided (even empty array), annotation UI is enabled. When undefined, annotation UI is hidden. */
+  annotations?: Annotation[]
+  /** Called when the user creates an annotation */
+  onAnnotationAdd?: (slideIndex: number, slideTitle: string, target: AnnotationTarget, body: string) => void
+  /** Called when the user deletes an annotation */
+  onAnnotationDelete?: (id: string) => void
 }
 
 // =============================================================================
@@ -68,7 +74,7 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
 // COMPONENT
 // =============================================================================
 
-export function SlideDeck({ slides, transition, directionalTransition }: SlideDeckProps) {
+export function SlideDeck({ slides, transition, directionalTransition, annotations, onAnnotationAdd, onAnnotationDelete }: SlideDeckProps) {
   // Check for export mode via URL params
   const [exportParams] = useState(() => {
     if (typeof window === "undefined") return null
@@ -81,6 +87,13 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
     return <SlideExportView slides={slides} slideIndex={exportParams.slideIndex} />
   }
 
+  const annotationsEnabled = annotations !== undefined
+  const openCount = useMemo(() => annotations?.filter(a => a.status === "open").length ?? 0, [annotations])
+  const getSlideAnnotations = useCallback(
+    (slideIndex: number) => annotations?.filter(a => a.slideIndex === slideIndex) ?? [],
+    [annotations]
+  )
+
   const [viewMode, setViewMode] = useState<ViewMode>("slide")
   const [isPresentationMode, setIsPresentationMode] = useState(false)
   const [isAnnotationMode, setIsAnnotationMode] = useState(false)
@@ -89,7 +102,6 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
   const [scale, setScale] = useState(1)
   const containerRef = useRef<HTMLDivElement>(null)
   const slideContainerRef = useRef<HTMLDivElement>(null)
-  const { openCount, addAnnotation, deleteAnnotation, getSlideAnnotations } = useAnnotations()
 
   const {
     currentSlide,
@@ -249,30 +261,34 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
 
         <div className="mx-1 w-px bg-neutral-800" />
 
-        <button
-          onClick={() => {
-            setIsAnnotationMode(prev => {
-              const next = !prev
-              setShowAnnotationPanel(next)
-              if (!next) setSelectedAnnotationId(null)
-              return next
-            })
-          }}
-          className={cn(
-            "relative rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-            isAnnotationMode && "bg-[#FF6B35] text-white hover:bg-[#FF7A4A]"
-          )}
-          title="Annotate slides"
-        >
-          <MessageCircle className="h-4 w-4" />
-          {openCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#FF6B35] text-[10px] font-bold text-white">
-              {openCount}
-            </span>
-          )}
-        </button>
+        {annotationsEnabled && (
+          <>
+            <button
+              onClick={() => {
+                setIsAnnotationMode(prev => {
+                  const next = !prev
+                  setShowAnnotationPanel(next)
+                  if (!next) setSelectedAnnotationId(null)
+                  return next
+                })
+              }}
+              className={cn(
+                "relative rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
+                isAnnotationMode && "bg-[#FF6B35] text-white hover:bg-[#FF7A4A]"
+              )}
+              title="Annotate slides"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {openCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#FF6B35] text-[10px] font-bold text-white">
+                  {openCount}
+                </span>
+              )}
+            </button>
 
-        <div className="mx-1 w-px bg-neutral-800" />
+            <div className="mx-1 w-px bg-neutral-800" />
+          </>
+        )}
 
         <button
           onClick={handleExportPdf}
@@ -360,7 +376,8 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
                       onSelectId={setSelectedAnnotationId}
                       onShowPanel={() => setShowAnnotationPanel(true)}
                       slideAnnotations={getSlideAnnotations(currentSlide)}
-                      addAnnotation={addAnnotation}
+                      addAnnotation={onAnnotationAdd ?? (() => {})}
+
                     />
                   )}
                 </div>
@@ -402,7 +419,7 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
               annotations={getSlideAnnotations(currentSlide)}
               selectedId={selectedAnnotationId}
               onSelect={setSelectedAnnotationId}
-              onDelete={deleteAnnotation}
+              onDelete={onAnnotationDelete ?? (() => {})}
               onClose={() => {
                 setShowAnnotationPanel(false)
                 setSelectedAnnotationId(null)

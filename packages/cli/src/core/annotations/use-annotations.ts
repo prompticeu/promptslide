@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState } from "react"
-import { fetchAnnotations, saveAnnotations } from "./api"
-import type { Annotation, AnnotationTarget } from "./types"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { createHttpAdapter } from "./adapters/http"
+import type { Annotation, AnnotationStorageAdapter, AnnotationTarget } from "./types"
 
-export function useAnnotations() {
+export function useAnnotations(adapter?: AnnotationStorageAdapter) {
+  const adapterRef = useRef(adapter ?? createHttpAdapter())
   const [annotations, setAnnotations] = useState<Annotation[]>([])
 
-  // Load on mount
+  // Load on mount and subscribe to external updates
   useEffect(() => {
-    fetchAnnotations().then(setAnnotations)
+    adapterRef.current.load().then(setAnnotations)
+    return adapterRef.current.subscribe?.(setAnnotations)
   }, [])
 
   const addAnnotation = useCallback(
@@ -21,21 +23,15 @@ export function useAnnotations() {
         createdAt: new Date().toISOString(),
         status: "open"
       }
-      setAnnotations(prev => {
-        const next = [...prev, annotation]
-        saveAnnotations(next)
-        return next
-      })
+      setAnnotations(prev => [...prev, annotation])
+      adapterRef.current.add(annotation)
     },
     []
   )
 
   const deleteAnnotation = useCallback((id: string) => {
-    setAnnotations(prev => {
-      const next = prev.filter(a => a.id !== id)
-      saveAnnotations(next)
-      return next
-    })
+    setAnnotations(prev => prev.filter(a => a.id !== id))
+    adapterRef.current.remove(id)
   }, [])
 
   const getSlideAnnotations = useCallback(
@@ -43,7 +39,12 @@ export function useAnnotations() {
     [annotations]
   )
 
-  const openCount = annotations.filter(a => a.status === "open").length
+  const openCount = useMemo(() => annotations.filter(a => a.status === "open").length, [annotations])
 
-  return { annotations, addAnnotation, deleteAnnotation, getSlideAnnotations, openCount }
+  // Allow external state updates (e.g. from postMessage adapter)
+  const updateAnnotations = useCallback((updated: Annotation[]) => {
+    setAnnotations(updated)
+  }, [])
+
+  return { annotations, addAnnotation, deleteAnnotation, getSlideAnnotations, openCount, updateAnnotations }
 }

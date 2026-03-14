@@ -74,8 +74,8 @@ export { SlideDeck } from "./slide-deck"
 export { SlideErrorBoundary } from "./slide-error-boundary"
 
 // Annotations
-export { AnnotationOverlay, useAnnotations } from "./annotations"
-export type { Annotation, AnnotationsFile, AnnotationTarget } from "./annotations"
+export { AnnotationOverlay, useAnnotations, createHttpAdapter } from "./annotations"
+export type { Annotation, AnnotationsFile, AnnotationStorageAdapter, AnnotationTarget } from "./annotations"
 
 // Utils
 export { cn } from "./utils"

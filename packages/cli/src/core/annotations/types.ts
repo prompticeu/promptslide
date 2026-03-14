@@ -36,3 +36,12 @@ export interface AnnotationsFile {
   version: 1
   annotations: Annotation[]
 }
+
+/** Storage adapter for annotation persistence */
+export interface AnnotationStorageAdapter {
+  load(): Promise<Annotation[]>
+  add(annotation: Annotation): Promise<void>
+  remove(id: string): Promise<void>
+  /** Optional: subscribe to external state updates (e.g. postMessage from parent) */
+  subscribe?(onUpdate: (annotations: Annotation[]) => void): () => void
+}

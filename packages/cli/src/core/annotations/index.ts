@@ -1,4 +1,5 @@
 export { AnnotationOverlay } from "./annotation-overlay"
 export { AnnotationPanel } from "./annotation-panel"
 export { useAnnotations } from "./use-annotations"
-export type { Annotation, AnnotationsFile, AnnotationTarget } from "./types"
+export { createHttpAdapter } from "./adapters/http"
+export type { Annotation, AnnotationsFile, AnnotationStorageAdapter, AnnotationTarget } from "./types"
