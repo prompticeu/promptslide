@@ -41,9 +41,11 @@ export function AnnotationForm({ xPercent, yPercent, onSubmit, onCancel }: Annot
 
   return (
     <div
+      role="dialog"
       className="absolute z-40 w-72 overflow-hidden rounded-xl border border-white/[0.08] bg-neutral-900/95 shadow-2xl backdrop-blur-2xl"
       style={{ left, right, top, bottom }}
       onClick={e => e.stopPropagation()}
+      onKeyDown={e => e.stopPropagation()}
     >
       <div className="flex items-center justify-between border-b border-white/[0.06] px-3.5 py-2.5">
         <span className="text-xs font-medium tracking-wide text-neutral-400">Add annotation</span>

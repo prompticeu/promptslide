@@ -84,7 +84,7 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef, sel
       setPending({ target: annotationTarget, xPercent, yPercent })
       onSelectId(null)
     },
-    [slideContainerRef]
+    [slideContainerRef, onSelectId]
   )
 
   const handleSubmit = useCallback(
@@ -94,7 +94,7 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef, sel
       setPending(null)
       onShowPanel()
     },
-    [pending, currentSlide, slideTitle, addAnnotation]
+    [pending, currentSlide, slideTitle, addAnnotation, onShowPanel]
   )
 
   // Track hover for element highlighting
@@ -136,7 +136,7 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef, sel
     setPending(null)
     onSelectId(null)
     setHoveredElement(null)
-  }, [currentSlide])
+  }, [currentSlide, onSelectId])
 
   return (
     <>
@@ -156,9 +156,12 @@ export function AnnotationOverlay({ slides, currentSlide, slideContainerRef, sel
       {/* Click capture overlay */}
       <div
         ref={overlayRef}
+        role="button"
+        tabIndex={0}
         className="absolute inset-0 z-20"
         style={{ cursor: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none'%3E%3Ccircle cx='12' cy='12' r='8' stroke='%23FF6B35' stroke-width='2' opacity='0.8'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23FF6B35'/%3E%3C/svg%3E") 12 12, crosshair` }}
         onClick={handleOverlayClick}
+        onKeyDown={e => { if (e.key === "Escape") { setPending(null); onSelectId(null) } }}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoveredElement(null)}
       />

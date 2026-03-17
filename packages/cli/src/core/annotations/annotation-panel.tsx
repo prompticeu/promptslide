@@ -102,7 +102,10 @@ function AnnotationItem({
 }) {
   return (
     <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onSelect() }}
       className={`group relative mb-0.5 cursor-pointer rounded-xl p-2.5 transition-all duration-150 ${
         isSelected
           ? "bg-[#FF6B35]/10 ring-1 ring-[#FF6B35]/20"
