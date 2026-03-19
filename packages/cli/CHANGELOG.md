@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.7](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.6...promptslide-v0.3.7) (2026-03-19)
+
+
+### Features
+
+* add slide annotation system with persistent storage and pull export ([#78](https://github.com/prompticeu/promptslide/issues/78)) ([c4addbb](https://github.com/prompticeu/promptslide/commit/c4addbba10f53eede84b0c3e1f3f2704a8a7125b))
+* always check registry for publish overwrite scenarios ([#77](https://github.com/prompticeu/promptslide/issues/77)) ([bef4af5](https://github.com/prompticeu/promptslide/commit/bef4af51d397af50baa7ba038fbdf647e0ac5f56))
+* scaffold lockfile with auto-generated publish metadata ([#75](https://github.com/prompticeu/promptslide/issues/75)) ([bc3a7bd](https://github.com/prompticeu/promptslide/commit/bc3a7bd7a6c2871f27e874b12b21978911fe91e0))
+
 ## [0.3.6](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.5...promptslide-v0.3.6) (2026-03-11)
 
 
