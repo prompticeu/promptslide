@@ -216,6 +216,35 @@ export async function pull(args) {
     }
   }
 
+  // Fetch annotations from registry
+  if (deckItem.id) {
+    try {
+      const annotationsRes = await fetch(`${auth.registry}/api/items/${deckItem.id}/annotations`, {
+        headers: { Authorization: `Bearer ${auth.token}`, ...(auth.organizationId ? { "X-Organization-Id": auth.organizationId } : {}) }
+      })
+      if (annotationsRes.ok) {
+        const data = await annotationsRes.json()
+        const annotations = data.annotations ?? []
+        if (annotations.length > 0) {
+          const annotationsFile = { version: 1, annotations: annotations.map(a => ({
+            id: a.id,
+            slideIndex: a.slideIndex,
+            slideTitle: a.slideTitle,
+            target: a.target,
+            body: a.body,
+            createdAt: a.createdAt,
+            status: a.status,
+            ...(a.resolution ? { resolution: a.resolution } : {})
+          })) }
+          writeFileSync(join(cwd, "annotations.json"), JSON.stringify(annotationsFile, null, 2) + "\n", "utf-8")
+          console.log(`  ${green("+")} ${cyan("annotations.json")} ${dim(`(${annotations.length} annotation${annotations.length === 1 ? "" : 's'})`)}`)
+        }
+      }
+    } catch {
+      // Annotations are non-critical; don't fail the pull
+    }
+  }
+
   // Summary
   console.log()
   if (written.length === 0) {
