@@ -7,7 +7,7 @@ import type { SlideConfig } from "./types"
 
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
-import { AnnotationOverlay, AnnotationPanel } from "./annotations"
+import { AnnotationOverlay, AnnotationPanel, useAnnotations } from "./annotations"
 import type { Annotation, AnnotationTarget } from "./annotations"
 import { SlideErrorBoundary } from "./slide-error-boundary"
 import { SlideRenderer } from "./slide-renderer"
@@ -87,11 +87,17 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
     return <SlideExportView slides={slides} slideIndex={exportParams.slideIndex} />
   }
 
-  const annotationsEnabled = annotations !== undefined
-  const openCount = useMemo(() => annotations?.filter(a => a.status === "open").length ?? 0, [annotations])
+  // Use internal useAnnotations as fallback when no external annotations prop is provided
+  const internal = useAnnotations()
+  const isExternallyManaged = annotations !== undefined
+  const effectiveAnnotations = isExternallyManaged ? annotations : internal.annotations
+  const effectiveAdd = isExternallyManaged ? onAnnotationAdd : internal.addAnnotation
+  const effectiveDelete = isExternallyManaged ? onAnnotationDelete : internal.deleteAnnotation
+
+  const openCount = useMemo(() => effectiveAnnotations.filter(a => a.status === "open").length, [effectiveAnnotations])
   const getSlideAnnotations = useCallback(
-    (slideIndex: number) => annotations?.filter(a => a.slideIndex === slideIndex) ?? [],
-    [annotations]
+    (slideIndex: number) => effectiveAnnotations.filter(a => a.slideIndex === slideIndex),
+    [effectiveAnnotations]
   )
 
   const [viewMode, setViewMode] = useState<ViewMode>("slide")
@@ -261,34 +267,30 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
 
         <div className="mx-1 w-px bg-neutral-800" />
 
-        {annotationsEnabled && (
-          <>
-            <button
-              onClick={() => {
-                setIsAnnotationMode(prev => {
-                  const next = !prev
-                  setShowAnnotationPanel(next)
-                  if (!next) setSelectedAnnotationId(null)
-                  return next
-                })
-              }}
-              className={cn(
-                "relative rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-                isAnnotationMode && "bg-[#FF6B35] text-white hover:bg-[#FF7A4A]"
-              )}
-              title="Annotate slides"
-            >
-              <MessageCircle className="h-4 w-4" />
-              {openCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#FF6B35] text-[10px] font-bold text-white">
-                  {openCount}
-                </span>
-              )}
-            </button>
+        <button
+          onClick={() => {
+            setIsAnnotationMode(prev => {
+              const next = !prev
+              setShowAnnotationPanel(next)
+              if (!next) setSelectedAnnotationId(null)
+              return next
+            })
+          }}
+          className={cn(
+            "relative rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
+            isAnnotationMode && "bg-[#FF6B35] text-white hover:bg-[#FF7A4A]"
+          )}
+          title="Annotate slides"
+        >
+          <MessageCircle className="h-4 w-4" />
+          {openCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#FF6B35] text-[10px] font-bold text-white">
+              {openCount}
+            </span>
+          )}
+        </button>
 
-            <div className="mx-1 w-px bg-neutral-800" />
-          </>
-        )}
+        <div className="mx-1 w-px bg-neutral-800" />
 
         <button
           onClick={handleExportPdf}
@@ -376,7 +378,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
                       onSelectId={setSelectedAnnotationId}
                       onShowPanel={() => setShowAnnotationPanel(true)}
                       slideAnnotations={getSlideAnnotations(currentSlide)}
-                      addAnnotation={onAnnotationAdd ?? (() => {})}
+                      addAnnotation={effectiveAdd ?? (() => {})}
 
                     />
                   )}
@@ -419,7 +421,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
               annotations={getSlideAnnotations(currentSlide)}
               selectedId={selectedAnnotationId}
               onSelect={setSelectedAnnotationId}
-              onDelete={onAnnotationDelete ?? (() => {})}
+              onDelete={effectiveDelete ?? (() => {})}
               onClose={() => {
                 setShowAnnotationPanel(false)
                 setSelectedAnnotationId(null)
