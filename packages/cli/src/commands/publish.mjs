@@ -15,10 +15,15 @@ const CLI_VERSION = JSON.parse(readFileSync(join(__dirname, "..", "..", "package
 function readDeckSlug(cwd) {
   const lock = readLockfile(cwd)
   // Prefer stored deck slug — migrate old two-part format (e.g. "my-deck/name" → "my-deck")
-  if (lock.deckSlug) return lock.deckSlug.split("/")[0]
+  // Sanitize to match validation rules (lowercase alphanumeric + hyphens only)
+  if (lock.deckSlug) return sanitizeSlug(lock.deckSlug.split("/")[0])
   // Migrate legacy deckPrefix (old lockfiles stored prefix separately)
-  if (lock.deckPrefix) return lock.deckPrefix
+  if (lock.deckPrefix) return sanitizeSlug(lock.deckPrefix)
   return ""
+}
+
+function sanitizeSlug(raw) {
+  return raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
 }
 
 function defaultDeckSlug(cwd) {
