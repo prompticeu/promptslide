@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.8](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.7...promptslide-v0.3.8) (2026-03-23)
+
+
+### Bug Fixes
+
+* include layouts and theme in deck registryDependencies ([#81](https://github.com/prompticeu/promptslide/issues/81)) ([4dbd699](https://github.com/prompticeu/promptslide/commit/4dbd699480d692625cf65dd32c556cfe62fc529a))
+* sanitize deck slug from lockfile to match validation rules ([#79](https://github.com/prompticeu/promptslide/issues/79)) ([8692313](https://github.com/prompticeu/promptslide/commit/869231362e9485d3f177ca5337d3a5ff92743f47))
+
 ## [0.3.7](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.6...promptslide-v0.3.7) (2026-03-19)
 
 
