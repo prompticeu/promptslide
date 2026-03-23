@@ -96,6 +96,24 @@ function detectRegistryDeps(content) {
   return deps
 }
 
+/** Detect sibling layout imports — both relative ("./foo") and absolute ("@/layouts/foo"). */
+function detectLayoutSiblingDeps(content) {
+  const deps = []
+  // Relative imports: import ... from "./shared-footer"
+  const relativeRegex = /import\s+.*?\s+from\s+["']\.\/([^"']+)["']/g
+  for (const match of content.matchAll(relativeRegex)) {
+    const name = match[1].replace(/\.tsx?$/, "")
+    deps.push(name)
+  }
+  // Absolute imports: import ... from "@/layouts/shared-footer"
+  const absoluteRegex = /import\s+.*?\s+from\s+["']@\/layouts\/([^"']+)["']/g
+  for (const match of content.matchAll(absoluteRegex)) {
+    const name = match[1].replace(/\.tsx?$/, "")
+    if (!deps.includes(name)) deps.push(name)
+  }
+  return deps
+}
+
 /**
  * Discover shared source files under src/ that aren't slides, layouts, or theme.
  * These are files in directories like src/components/, src/lib/, src/hooks/, etc.
@@ -713,8 +731,9 @@ export async function publish(args) {
 
         const assetDeps = detectAssetDepsInContent(content, deckSlug, publicFileSet)
         const npmDeps = detectNpmDeps(content)
+        const siblingDeps = detectLayoutSiblingDeps(content).map(d => `${deckSlug}/${d}`)
         const regDeps = hasTheme ? [`${deckSlug}/theme`] : []
-        regDeps.push(...assetDeps)
+        regDeps.push(...siblingDeps, ...assetDeps)
 
         try {
           const result = await publishToRegistry({
@@ -798,9 +817,11 @@ export async function publish(args) {
 
     // ── Phase 5: Deck manifest (includes shared source modules) ──
     itemIndex++
+    const themeSlugs = hasTheme ? [`${deckSlug}/theme`] : []
+    const layoutSlugs = layoutEntries.map(f => `${deckSlug}/${f.replace(/\.tsx?$/, "")}`)
     const slideSlugs = slideEntries.map(f => `${deckSlug}/${f.replace(/\.tsx?$/, "")}`)
     const assetSlugs = publicAssets.map(a => assetFileToSlug(deckSlug, a.relativePath))
-    const allDeckDeps = [...slideSlugs, ...assetSlugs]
+    const allDeckDeps = [...themeSlugs, ...layoutSlugs, ...slideSlugs, ...assetSlugs]
 
     // Bundle shared source files with the deck item so preview/install can resolve @/ imports
     const sharedFiles = sharedSources.map(s => ({
