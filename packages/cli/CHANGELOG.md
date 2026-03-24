@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.9](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.8...promptslide-v0.3.9) (2026-03-24)
+
+
+### Bug Fixes
+
+* preserve component name casing through publish/pull roundtrip ([a34e83a](https://github.com/prompticeu/promptslide/commit/a34e83a7b3869ef7487b361bba23fd4cce72a0b6))
+* preserve component name casing through publish/pull roundtrip ([e04d96c](https://github.com/prompticeu/promptslide/commit/e04d96c7367b69f8aff2f97c4a29a56a610a3c78))
+
 ## [0.3.8](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.7...promptslide-v0.3.8) (2026-03-23)
 
 
