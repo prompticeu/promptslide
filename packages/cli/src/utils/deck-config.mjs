@@ -224,11 +224,12 @@ export function parseDeckConfig(cwd) {
 
   const content = readFileSync(configPath, "utf-8")
 
-  // 1. Parse imports to build componentName -> slug map
+  // 1. Parse imports to build componentName -> slug map (and reverse)
   //    Handles: import { SlideTitle } from "@/slides/slide-title"
   //    Handles: import { default as SlideTitle } from "@/slides/slide-title"
   //    Handles: import { SlideTitle as Alias } from "@/slides/slide-title"
   const componentToSlug = {}
+  const slugToComponent = {}
   const importRegex = /import\s*\{([^}]+)\}\s*from\s*["']@\/slides\/([^"']+)["']/g
   for (const match of content.matchAll(importRegex)) {
     const importClause = match[1].trim()
@@ -238,6 +239,7 @@ export function parseDeckConfig(cwd) {
     const componentName = asMatch ? asMatch[1] : importClause.match(/(\w+)/)?.[1]
     if (componentName) {
       componentToSlug[componentName] = slug
+      slugToComponent[slug] = componentName
     }
   }
 
@@ -278,6 +280,8 @@ export function parseDeckConfig(cwd) {
       if (!slug) continue // layout or unknown import — skip
       const stepsMatch = body.match(/steps:\s*(\d+)/)
       const entry = { slug, steps: stepsMatch ? parseInt(stepsMatch[1], 10) : 0 }
+      // Preserve original component name so pull can reconstruct the correct export
+      if (slugToComponent[slug]) entry.componentName = slugToComponent[slug]
       const sectionMatch = body.match(/section:\s*["']([^"']+)["']/)
       if (sectionMatch) entry.section = sectionMatch[1]
       slides.push(entry)
