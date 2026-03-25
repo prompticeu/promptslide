@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.11](https://github.com/prompticeu/promptslide/compare/create-slides-v0.3.10...create-slides-v0.3.11) (2026-03-25)
+
+
+### Bug Fixes
+
+* **cli:** embed body margin reset and Math.min scaling ([7eb75ef](https://github.com/prompticeu/promptslide/commit/7eb75ef4e93eda2eeba23394ae50713eea0e55f0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * promptslide bumped from ^0.3.10 to ^0.3.11
+
 ## [0.3.10](https://github.com/prompticeu/promptslide/compare/create-slides-v0.3.9...create-slides-v0.3.10) (2026-03-25)
 
 
