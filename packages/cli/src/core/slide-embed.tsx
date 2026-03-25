@@ -102,10 +102,12 @@ export function SlideEmbed({ slides, transition, directionalTransition }: SlideE
     return () => window.removeEventListener("message", handleMessage)
   }, [handleMessage])
 
-  // Scale to fill viewport
+  // Scale to cover viewport (fills completely, may crop overflow)
   useEffect(() => {
     const calculateScale = () => {
-      setScale(window.innerWidth / SLIDE_DIMENSIONS.width)
+      const scaleX = window.innerWidth / SLIDE_DIMENSIONS.width
+      const scaleY = window.innerHeight / SLIDE_DIMENSIONS.height
+      setScale(Math.max(scaleX, scaleY))
     }
 
     calculateScale()
