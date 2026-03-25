@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.10](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.9...promptslide-v0.3.10) (2026-03-25)
+
+
+### Bug Fixes
+
+* **slide-embed:** scale slides to cover viewport ([9f07aed](https://github.com/prompticeu/promptslide/commit/9f07aedec92fb6531f101c108144b16e78e746af))
+
 ## [0.3.9](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.8...promptslide-v0.3.9) (2026-03-24)
 
 
