@@ -102,12 +102,12 @@ export function SlideEmbed({ slides, transition, directionalTransition }: SlideE
     return () => window.removeEventListener("message", handleMessage)
   }, [handleMessage])
 
-  // Scale to cover viewport (fills completely, may crop overflow)
+  // Scale to fit viewport while preserving aspect ratio
   useEffect(() => {
     const calculateScale = () => {
       const scaleX = window.innerWidth / SLIDE_DIMENSIONS.width
       const scaleY = window.innerHeight / SLIDE_DIMENSIONS.height
-      setScale(Math.max(scaleX, scaleY))
+      setScale(Math.min(scaleX, scaleY))
     }
 
     calculateScale()
@@ -116,13 +116,13 @@ export function SlideEmbed({ slides, transition, directionalTransition }: SlideE
   }, [])
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center overflow-hidden bg-black">
+    <div className="h-screen w-screen overflow-hidden bg-black">
       <div
-        className="relative overflow-hidden bg-black"
+        className="absolute left-1/2 top-1/2 overflow-hidden"
         style={{
           width: SLIDE_DIMENSIONS.width,
           height: SLIDE_DIMENSIONS.height,
-          transform: `scale(${scale})`,
+          transform: `translate(-50%, -50%) scale(${scale})`,
           transformOrigin: "center center"
         }}
       >
