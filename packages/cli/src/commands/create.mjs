@@ -48,7 +48,7 @@ export async function create(args) {
   let dirName = filteredArgs[0]
 
   if (dirName === "--help" || dirName === "-h") {
-    console.log(`  ${bold("Usage:")} promptslide create ${dim("<project-directory>")} ${dim("[options]")}`)
+    console.log(`  ${bold("Usage:")} promptslide create ${dim("[project-directory]")} ${dim("[options]")}`)
     console.log()
     console.log(`  Scaffolds a new PromptSlide slide deck project.`)
     console.log()
@@ -59,17 +59,23 @@ export async function create(args) {
     console.log(`  ${bold("Examples:")}`)
     console.log(`    promptslide create my-pitch-deck`)
     console.log(`    promptslide create my-pitch-deck --yes`)
-    console.log(`    promptslide create my-deck --from promptic-pitch-deck`)
+    console.log(`    promptslide create --from promptic-pitch-deck`)
     console.log()
     process.exit(0)
   }
 
   if (!dirName) {
     if (useDefaults) {
-      console.error(`  ${red("Error:")} Please provide a project directory name when using --yes.`)
-      process.exit(1)
+      // With --yes, use the --from slug as dir name, or error if neither provided
+      if (fromSlug) {
+        dirName = fromSlug
+      } else {
+        console.error(`  ${red("Error:")} Please provide a project directory name when using --yes.`)
+        process.exit(1)
+      }
+    } else {
+      dirName = await prompt("Project directory:", fromSlug || undefined)
     }
-    dirName = await prompt("Project directory:")
   }
 
   if (!dirName) {
