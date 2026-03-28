@@ -1,28 +1,31 @@
 # PromptSlide MCP Architecture — Paper.design Analysis
 
-> Analysis of how [paper.design](https://paper.design) implements MCP and desktop app integration, and how similar patterns could be applied to PromptSlide.
+> Analysis of how [paper.design](https://paper.design) implements MCP and desktop app integration, and how similar patterns could be applied to the PromptSlide registry.
 
 ## Table of Contents
 
-- [Paper.design Architecture](#paperdesign-architecture)
-- [Paper's MCP Tools](#papers-mcp-tools)
-- [File Storage & Collaboration](#file-storage--collaboration)
-- [Mapping to PromptSlide](#mapping-to-promptslide)
-- [Proposed PromptSlide MCP Architecture](#proposed-promptslide-mcp-architecture)
+- [Paper.design MCP Summary](#paperdesign-mcp--complete-summary)
+- [How This Maps to PromptSlide](#how-this-maps-to-promptslide)
 - [Proposed MCP Tools](#proposed-mcp-tools)
-- [Advantages Over Current Skills Approach](#advantages-over-current-skills-approach)
-- [Collaboration Strategy](#collaboration-strategy)
+- [Proposed Architecture](#proposed-architecture)
+- [Implementation Phases](#implementation-phases)
+- [Key Design Decisions](#key-design-decisions)
 - [Sources](#sources)
 
 ---
 
-## Paper.design Architecture
+## Paper.design MCP — Complete Summary
 
-### Core Philosophy
+### What It Is
 
-Paper's canvas IS code. It uses real HTML/CSS as its native format — no proprietary format, no translation layer. Every artboard is actual DOM elements with real flexbox, CSS properties, and font rendering. Because LLMs are excellent at understanding the DOM, this makes agent interaction natural and high-fidelity.
+A **desktop design tool** (Mac, Windows, Linux) by Stephen Haney (creator of Modulz/Radix UI). Still in **open alpha** (launched March 5, 2026). Its core differentiator: the canvas is **DOM-native** — real HTML/CSS, not a proprietary vector format.
 
-### Architecture — "Local Bridge Pattern"
+### Architecture
+
+- Desktop app runs a **local MCP HTTP server** at `http://127.0.0.1:29979/mcp`
+- Uses **Streamable HTTP** transport (not stdio)
+- Server starts automatically when a file is opened — zero config
+- Setup: `claude mcp add paper --transport http http://127.0.0.1:29979/mcp --scope user`
 
 ```
 [Coding Agent (Claude Code / Cursor / Copilot / Codex)]
@@ -40,28 +43,9 @@ Paper's canvas IS code. It uses real HTML/CSS as its native format — no propri
 [Paper Cloud Platform (app.paper.design)]
 ```
 
-### The Desktop App
+### MCP Tools (~24 total)
 
-The desktop app is the **linchpin** of the architecture. It exists specifically because a web app cannot easily host a local MCP server. The desktop app:
-
-- Runs on **macOS, Windows, and Linux**
-- **Auto-starts** the MCP server on `localhost:29979` when a file is open
-- **Bridges** coding agents (running in terminals/IDEs) to the visual design canvas
-- Uses **Streamable HTTP** transport (not stdio), enabling multiple potential clients
-
-Agent setup is a single command:
-
-```bash
-claude mcp add paper --transport http http://127.0.0.1:29979/mcp --scope user
-```
-
----
-
-## Paper's MCP Tools
-
-Paper exposes **24 tools** through its MCP server — significantly more than Figma's 3. The key differentiator is **full bidirectional access**: agents can both read and write to the canvas.
-
-### Read Tools (~9)
+**Read (9):**
 
 | Tool | Purpose |
 |------|---------|
@@ -71,11 +55,11 @@ Paper exposes **24 tools** through its MCP server — significantly more than Fi
 | `get_children` | Direct children of a node (IDs, names, types, child counts) |
 | `get_tree_summary` | Compact text summary of subtree hierarchy (optional depth limit) |
 | `get_screenshot` | Base64 screenshot of a node (1x or 2x scale) |
-| `get_jsx` | JSX output for a node and descendants (Tailwind or inline-styles format) |
+| `get_jsx` | JSX output for node and descendants (Tailwind or inline-styles format) |
 | `get_computed_styles` | Computed CSS styles for one or more nodes (batch) |
 | `get_fill_image` | Image data from a node with image fill (base64 JPEG) |
 
-### Write Tools (~7)
+**Write (7):**
 
 | Tool | Purpose |
 |------|---------|
@@ -87,182 +71,168 @@ Paper exposes **24 tools** through its MCP server — significantly more than Fi
 | `update_styles` | Update CSS styles on one or more nodes |
 | `delete_nodes` | Delete one or more nodes and all descendants |
 
-### Utility Tools
+**Utility (~8):**
 
 | Tool | Purpose |
 |------|---------|
-| `start_working_on_nodes` | Visual indicator that an agent is modifying artboards |
-| *(~8 more not publicly documented)* | Likely include undo/redo, viewport control, export, etc. |
+| `start_working_on_nodes` | Visual "agent is editing" indicator on artboards |
+| *(~7 more not publicly documented)* | Likely include undo/redo, viewport control, export, etc. |
 
----
+### How Agent Interaction Works
 
-## File Storage & Collaboration
+1. Agent **reads** the canvas — tree structure, screenshots, JSX
+2. Agent **writes HTML/CSS** — Paper renders it as visual design nodes
+3. Agent **exports code** — `get_jsx` returns production-ready React+Tailwind
+4. **HTML/CSS is the lingua franca** — no format translation, LLMs understand it natively
 
-### Storage
+**Key difference from Figma MCP:** Figma's MCP is **read-only** (3 tools). Paper is **bidirectional** (24 tools, read + write).
 
-- Designs live in **Paper's cloud platform** (app.paper.design), synced through the desktop app
+### File Storage
+
+- Stored in **Paper's cloud platform** (app.paper.design), synced through the desktop app
 - The MCP server operates on the **currently open file** in Paper Desktop
-- The Pro plan includes unlimited storage
+- Exports as standard **React + Tailwind JSX**
+- Pro plan includes unlimited storage
 
 ### Collaboration
 
-Paper is currently in **open alpha** and focused on the **solo/small-team AI-first** use case:
+- Human-agent collaboration via MCP is the primary model
+- `start_working_on_nodes` shows visual indicators when an agent is editing
+- Traditional multiplayer (live cursors) **not confirmed yet** — still alpha, focused on solo/small-team AI-first use case
+- Roadmap mentions file finding improvements (LLM smart search, nested folders, tags)
+- Community plugins: `paper-design/agent-plugins` (Cursor, Claude), `ripgrim/paper-mcp` (community MCP wrapper)
 
-- **No real-time multi-user collaboration** like Figma (yet)
-- `start_working_on_nodes` provides basic "agent is working here" visual awareness
-- A community MCP server exists for monitoring live design changes across collaborators
-- The roadmap mentions improvements for file finding (LLM smart search, nested folders, tags)
+### Open Source
+
+- `@paper-design/shaders` — canvas/WebGL shader library (PolyForm Shield license)
+- `ripgrim/paper-mcp` — community-built MCP wrapper for monitoring live design changes
 
 ### Pricing
 
-- **Free**: 100 MCP calls/week
-- **Pro** ($20/month): 1M MCP calls/week, video export, unlimited storage
+- **Free:** 100 MCP tool calls/week
+- **Pro ($20/mo, or $16/mo annual):** ~1M MCP calls/week + video export + unlimited storage
 
 ---
 
-## Mapping to PromptSlide
+## How This Maps to PromptSlide
 
-The conceptual parallel between Paper.design and PromptSlide is strong:
+### What You Already Have (~60% coverage)
 
-| Paper.design | PromptSlide Equivalent |
-|---|---|
-| HTML/CSS canvas (code-native) | React slide components (already code-native) |
-| Desktop app + local MCP server | `promptslide studio` (Vite) + embedded MCP server |
-| `get_jsx` / `get_screenshot` | Read slide .tsx source / screenshot via Playwright |
-| `write_html` / `update_styles` | Edit slide .tsx files / Tailwind classes |
-| `get_tree_summary` | Read deck-config.ts for slide structure |
-| `create_artboard` | Create new slide component + register in deck-config |
-| Cloud sync | Registry publish/clone system |
-| `start_working_on_nodes` | Annotation system (already exists) |
-| Artboards | Slides |
-| Nodes | React components / JSX elements within slides |
+| Paper Capability | PromptSlide Equivalent |
+|------------------|------------------------|
+| Node tree / artboards | Registry items (slides, layouts, decks) |
+| File storage + versioning | Vercel Blob + `registryItemVersions` table |
+| Code format (JSX) | Registry files are already React+Tailwind |
+| Multi-user collaboration | Org/member model with RLS |
+| Visual preview | `preview-renderer` (Vite app, port 3001) |
+| Feedback/annotations | `registryAnnotations` table |
+| Publishing workflow | `/api/publish` with approval workflow |
+| Search/discovery | `/api/r` public registry search |
+| Auth for agents | API keys via Better Auth |
 
-### Key Insight
+### What You'd Need to Build
 
-Paper needed a desktop app **specifically to host the local MCP server**. PromptSlide already has a local process (`promptslide studio` via Vite dev server). **The MCP server can be embedded directly into the existing Vite dev server** — no separate desktop app is needed for the MCP bridge.
-
----
-
-## Proposed PromptSlide MCP Architecture
-
-```
-[Coding Agent (Claude Code / Cursor / Copilot / Codex / OpenCode)]
-        |
-        | Streamable HTTP @ 127.0.0.1:{vite-port}/mcp
-        v
-[promptslide studio — Vite Dev Server + Embedded MCP Server]
-        |
-        | File system (read/write .tsx slide components)
-        v
-[Slide Components + deck-config.ts + theme.ts + annotations.json]
-        |
-        | promptslide publish / clone
-        v
-[PromptSlide Registry (community sharing)]
-```
-
-### Why This Works
-
-1. **No new process needed** — MCP endpoint mounts on the existing Vite dev server
-2. **Hot reload integration** — slide changes via MCP trigger Vite HMR automatically
-3. **Playwright already integrated** — `to-image` command provides screenshot capabilities
-4. **Annotation system already exists** — HTTP endpoint at `/__promptslide_annotations`
-5. **Code-native format** — slides are .tsx files, the format LLMs understand best
+1. **MCP server wrapper** — expose existing API as MCP tools
+2. **Desktop app shell** — local-first experience with embedded MCP server
+3. **Screenshot tool** — headless rendering for agent visual feedback
+4. **Visual slide editor** — the biggest gap, drag-and-drop canvas
 
 ---
 
 ## Proposed MCP Tools
 
-### Read Tools (~8)
+### Read
 
-| Tool | Purpose | Implementation Notes |
-|------|---------|---------------------|
-| `get_deck_info` | Deck name, slide count, theme summary, metadata | Read deck-config.ts + theme.ts |
-| `get_slide_list` | All slides with titles, step counts, sections, order | Parse deck-config.ts |
-| `get_slide_source` | TSX source code for a specific slide | Read from src/slides/*.tsx |
-| `get_slide_screenshot` | PNG screenshot of a specific slide | Playwright (existing `to-image`) |
-| `get_theme` | Current theme config (colors, fonts, logos) | Read theme.ts |
-| `get_annotations` | Open annotations for a slide or entire deck | Existing annotation HTTP API |
-| `get_layouts` | Available layout templates | Read src/layouts/*.tsx |
-| `get_speaker_notes` | Speaker notes for a slide | Parse deck-config.ts |
+| Tool | Purpose | Wraps |
+|------|---------|-------|
+| `get_deck_info` | Deck metadata, slide count, theme | `GET /api/items/[id]` |
+| `get_slide_content` | Slide JSX/HTML content | `GET /api/items/[id]/files` |
+| `get_slide_screenshot` | Visual preview as base64 | preview-renderer headless |
+| `get_deck_tree` | Ordered slide manifest | `deckConfig` field |
+| `search_registry` | Search available components | `GET /api/r` |
+| `get_theme` | Current theme/styles | theme registry items |
+| `get_annotations` | Feedback on slides | `GET /api/items/[id]/annotations` |
 
-### Write Tools (~8)
+### Write
 
-| Tool | Purpose | Implementation Notes |
-|------|---------|---------------------|
-| `create_slide` | Generate new slide component + register in deck-config | Write .tsx + update deck-config.ts |
-| `update_slide_source` | Replace or patch slide component code | Write to src/slides/*.tsx |
-| `update_slide_styles` | Modify Tailwind classes or inline styles | AST-aware edit of .tsx |
-| `reorder_slides` | Change slide order in deck-config | Update deck-config.ts array |
-| `delete_slide` | Remove slide component + deregister | Delete .tsx + update deck-config.ts |
-| `update_theme` | Modify colors, fonts, logos in theme.ts | Write to theme.ts |
-| `set_speaker_notes` | Add/update speaker notes for a slide | Update deck-config.ts |
-| `resolve_annotation` | Mark annotation as resolved with a note | Existing annotation API |
-
-### Utility Tools (~4)
-
-| Tool | Purpose | Implementation Notes |
-|------|---------|---------------------|
-| `preview_slide` | Get live preview URL for a specific slide | Return Vite dev server URL with slide index |
-| `export_pdf` | Trigger PDF export of entire deck | Playwright-based (existing capability) |
-| `publish_deck` | Publish deck to the registry | Existing `promptslide publish` |
-| `get_skill_instructions` | Return agent instructions for advanced workflows | Serve SKILL.md content |
+| Tool | Purpose | Wraps |
+|------|---------|-------|
+| `create_deck` | Create new empty deck | `POST /api/publish` (type: deck) |
+| `create_slide` | Add slide to deck | `POST /api/publish` (type: slide) |
+| `update_slide_content` | Modify slide JSX | `PATCH /api/items/[id]` |
+| `reorder_slides` | Change slide order | Update `deckConfig` |
+| `set_theme` | Apply theme to deck | Theme registry items |
+| `publish_deck` | Publish to registry | `POST /api/publish` |
+| `add_from_registry` | Pull a component | `GET /api/r/[slug]` |
+| `delete_slide` | Remove slide | `DELETE /api/items/[id]` |
+| `start_editing` | Show "agent is working" indicator | New: activity status |
 
 ---
 
-## Advantages Over Current Skills Approach
+## Proposed Architecture
 
-| Current (Skills / Agent Instructions) | Proposed (MCP Server) |
-|---|---|
-| Agent must learn file conventions from SKILL.md | Structured tools with typed inputs/outputs |
-| Agent reads/writes raw .tsx files directly | Semantic operations (`create_slide`, `update_theme`) |
-| No visual feedback loop | `get_slide_screenshot` for visual verification |
-| Works only with agents that support skills | Works with **any** MCP-compatible agent |
-| No guardrails on file edits | Server validates operations, prevents broken deck state |
-| Agent must parse deck-config manually | `get_slide_list` returns structured data |
-| No way to detect "agent is working" | Could add working indicators (like Paper's `start_working_on_nodes`) |
-
-### The Biggest Win
-
-**Universal agent compatibility.** Any agent (Cursor, Copilot, Codex, OpenCode, Claude Code) could work with PromptSlide presentations without needing custom skill files for each platform. MCP is the universal adapter.
-
-### Skills + MCP Coexistence
-
-The MCP server doesn't replace skills — it complements them. Skills provide rich context and best practices (animation patterns, layout guidelines). MCP provides the structured tool interface. An ideal workflow uses both:
-
-1. Agent reads skill instructions for design guidelines
-2. Agent uses MCP tools for structured read/write operations
-3. Agent uses `get_slide_screenshot` to verify visual output
+```
+┌─────────────────────┐     MCP (HTTP)      ┌──────────────────────┐
+│  Coding Agent        │◄──────────────────►│  PromptSlide Desktop  │
+│  (Claude, Cursor,    │                     │  App / MCP Server     │
+│   Windsurf, etc.)    │                     │                       │
+└─────────────────────┘                      │  ┌─────────────────┐ │
+                                             │  │ Slide Editor     │ │
+                                             │  │ (visual canvas)  │ │
+                                             │  └─────────────────┘ │
+                                             │  ┌─────────────────┐ │
+                                             │  │ Preview Renderer │ │
+                                             │  │ (already exists) │ │
+                                             │  └─────────────────┘ │
+                                             └──────────┬───────────┘
+                                                        │
+                                                        ▼
+                                             ┌──────────────────────┐
+                                             │  Registry API         │
+                                             │  (already exists)     │
+                                             └──────────────────────┘
+```
 
 ---
 
-## Collaboration Strategy
+## Implementation Phases
 
-Paper's collaboration is actually minimal right now. PromptSlide could match or exceed it:
+### Phase 1 — MCP Server (no desktop app needed)
 
-### Already Available
+- Add MCP HTTP endpoint to your Next.js app (or standalone process)
+- Wrap existing API routes as MCP tools
+- Auth via API keys (already supported)
+- Agents can create/read/update slides immediately
+- **Smallest effort, highest validation value**
 
-1. **Annotation-driven collaboration** — Humans pin visual feedback, agents read and resolve it
-2. **Registry as collaboration** — Publish, clone, and fork community decks
-3. **Git-based versioning** — Teams collaborate via branches and PRs
+### Phase 2 — Desktop App Shell (Tauri)
 
-### Future Possibilities
+- Wrap preview-renderer + minimal editor in **Tauri** (Rust, ~10MB binary vs Electron's ~150MB)
+- Run MCP server locally on a fixed port
+- Add `get_slide_screenshot` via headless preview-renderer
+- Offline-first with sync to registry
+- Auto-start MCP server when app opens (like Paper does)
 
-1. **Multi-agent awareness** — "Agent X is editing slide Y" indicators
-2. **Real-time sync** — WebSocket-based live updates for multi-user editing
-3. **Conflict resolution** — OT/CRDT for concurrent slide edits
-4. **Review workflows** — Comment threads on specific slides (extending annotations)
+### Phase 3 — Visual Slide Editor
 
-### Desktop App Consideration
+- Drag-and-drop canvas where agents and humans co-edit
+- Agent edits appear live in the editor
+- Human edits readable by agents via MCP
+- Real-time presence indicators (WebSocket/SSE) — leverage existing `registryActivity` table
 
-Paper needed a desktop app for MCP. PromptSlide's `studio` command already provides the local server. However, a **desktop app (Electron/Tauri)** could still add value for:
+---
 
-- **Non-developer users** — Double-click to open, no terminal needed
-- **System tray presence** — Always-on MCP server
-- **Native file associations** — Open `.promptslide` project files directly
-- **Auto-updates** — Seamless version management
+## Key Design Decisions
 
-This is a separate decision from MCP support and could come later.
+1. **HTML/CSS as interchange** — Your slides are already React+Tailwind, same as what agents write. No translation layer needed. This is Paper's biggest architectural win and you get it for free.
+
+2. **Cloud-first, not local-first** — Paper stores in the cloud with desktop sync. For PromptSlide, the registry IS the source of truth. Desktop app acts as a local cache. Simpler to start with.
+
+3. **Tauri over Electron** — ~10MB binary, native performance, Rust backend for MCP server, much better resource usage.
+
+4. **Phase 1 is the real test** — The MCP server alone (no desktop app) validates whether agents can productively build presentations through your API. If that works well, Phases 2-3 are about UX polish, not core capability.
+
+5. **Skills + MCP coexistence** — MCP doesn't replace skills, it complements them. Skills provide rich context and design best practices. MCP provides the structured tool interface. An ideal workflow uses both.
 
 ---
 
@@ -276,3 +246,4 @@ This is a separate decision from MCP support and could come later.
 - [A Guide to Paper and Claude Code for Designers](https://adplist.substack.com/p/a-guide-to-paper-and-claude-code)
 - [Paper Roadmap](https://paper.design/roadmap)
 - [Paper Downloads](https://paper.design/downloads)
+- [Paper MCP Server on LobeHub](https://lobehub.com/mcp/garaevruslan-paper-design-mcp)
