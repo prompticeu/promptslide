@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.12](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.11...promptslide-v0.3.12) (2026-03-28)
+
+
+### Features
+
+* add clone command, make create --from always template ([#87](https://github.com/prompticeu/promptslide/issues/87)) ([769fa7e](https://github.com/prompticeu/promptslide/commit/769fa7ed0ee77f7473f49f2eb608ca996142f3fd))
+
 ## [0.3.11](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.10...promptslide-v0.3.11) (2026-03-25)
 
 
