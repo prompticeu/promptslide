@@ -7,7 +7,7 @@ import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { hexToOklch, isValidHex } from "../utils/colors.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
-import { fetchRegistryItem, resolveRegistryDependencies, updateLockfilePublishConfig, writeLockfile } from "../utils/registry.mjs"
+import { fetchRegistryItem, resolveRegistryDependencies, writeLockfile } from "../utils/registry.mjs"
 import { toPascalCase, replaceDeckConfig } from "../utils/deck-config.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 
@@ -64,18 +64,48 @@ export async function create(args) {
     process.exit(0)
   }
 
+  // If --from is specified, fetch the deck info before the directory prompt
+  let fromItem = null
+  let fromAuth = null
+  if (fromSlug) {
+    fromAuth = requireAuth()
+
+    try {
+      fromItem = await fetchRegistryItem(fromSlug, fromAuth)
+    } catch (err) {
+      console.error(`  ${red("Error:")} ${err.message}`)
+      closePrompts()
+      process.exit(1)
+    }
+
+    if (fromItem.type !== "deck") {
+      console.error(`  ${red("Error:")} "${fromSlug}" is a ${fromItem.type}, not a deck. Use --from with a published deck.`)
+      closePrompts()
+      process.exit(1)
+    }
+
+    const versionTag = fromItem.version ? ` ${dim(`v${fromItem.version}`)}` : ""
+    console.log(`  Using deck ${bold(fromItem.title || fromItem.name)}${versionTag} as template`)
+
+    if (fromItem.promptslideVersion) {
+      const pubParts = fromItem.promptslideVersion.match(/^(\d+)\.(\d+)/)
+      const localParts = CLI_VERSION.match(/^(\d+)\.(\d+)/)
+      if (pubParts && localParts && pubParts[2] !== localParts[2]) {
+        console.log()
+        console.log(`  ${yellow("⚠")} This deck was published with promptslide ${bold(`v${fromItem.promptslideVersion}`)}`)
+        console.log(`    You have ${bold(`v${CLI_VERSION}`)} installed — some slides may need updating.`)
+      }
+    }
+
+    console.log()
+  }
+
   if (!dirName) {
     if (useDefaults) {
-      // With --yes, use the --from slug as dir name, or error if neither provided
-      if (fromSlug) {
-        dirName = fromSlug
-      } else {
-        console.error(`  ${red("Error:")} Please provide a project directory name when using --yes.`)
-        process.exit(1)
-      }
-    } else {
-      dirName = await prompt("Project directory:", fromSlug || undefined)
+      console.error(`  ${red("Error:")} Please provide a project directory name when using --yes.`)
+      process.exit(1)
     }
+    dirName = await prompt("Project directory:")
   }
 
   if (!dirName) {
@@ -162,40 +192,9 @@ export async function create(args) {
 
   // 7. Overlay deck files if --from was specified
   if (fromSlug) {
-    const auth = requireAuth()
-
-    let item
-    try {
-      item = await fetchRegistryItem(fromSlug, auth)
-    } catch (err) {
-      console.error(`  ${red("Error:")} ${err.message}`)
-      closePrompts()
-      process.exit(1)
-    }
-
-    if (item.type !== "deck") {
-      console.error(`  ${red("Error:")} "${fromSlug}" is a ${item.type}, not a deck. Use --from with a published deck.`)
-      closePrompts()
-      process.exit(1)
-    }
-
-    const versionTag = item.version ? ` ${dim(`v${item.version}`)}` : ""
-    console.log(`  Using deck ${bold(item.title || item.name)}${versionTag}`)
-
-    // Warn if the deck was published with a different minor version
-    if (item.promptslideVersion) {
-      const pubParts = item.promptslideVersion.match(/^(\d+)\.(\d+)/)
-      const localParts = CLI_VERSION.match(/^(\d+)\.(\d+)/)
-      if (pubParts && localParts && pubParts[2] !== localParts[2]) {
-        console.log()
-        console.log(`  ${yellow("⚠")} This deck was published with promptslide ${bold(`v${item.promptslideVersion}`)}`)
-        console.log(`    You have ${bold(`v${CLI_VERSION}`)} installed — some slides may need updating.`)
-      }
-    }
-
     let resolved
     try {
-      resolved = await resolveRegistryDependencies(item, auth, targetDir)
+      resolved = await resolveRegistryDependencies(fromItem, fromAuth, targetDir)
     } catch (err) {
       console.error(`  ${red("Error:")} ${err.message}`)
       closePrompts()
@@ -221,16 +220,16 @@ export async function create(args) {
     }
 
     // Reconstruct deck-config.ts from deckConfig metadata
-    if (item.meta?.slides) {
-      const slides = item.meta.slides.map(s => ({
+    if (fromItem.meta?.slides) {
+      const slides = fromItem.meta.slides.map(s => ({
         componentName: toPascalCase(s.slug),
         importPath: `@/slides/${s.slug}`,
         steps: s.steps,
         section: s.section
       }))
       replaceDeckConfig(targetDir, slides, {
-        transition: item.meta.transition,
-        directionalTransition: item.meta.directionalTransition
+        transition: fromItem.meta.transition,
+        directionalTransition: fromItem.meta.directionalTransition
       })
       console.log(`  ${green("✓")} Generated ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`)
     }
@@ -248,37 +247,8 @@ export async function create(args) {
       console.log(`  ${green("✓")} Added ${dim(pkgList.join(", "))} to package.json`)
     }
 
-    // Persist deck slug for future pull/publish in the new project
-    updateLockfilePublishConfig(targetDir, { deckSlug: fromSlug })
-
-    // Fetch annotations from registry
-    if (item.id) {
-      try {
-        const annotationsRes = await fetch(`${auth.registry}/api/items/${item.id}/annotations`, {
-          headers: { Authorization: `Bearer ${auth.token}`, ...(auth.organizationId ? { "X-Organization-Id": auth.organizationId } : {}) }
-        })
-        if (annotationsRes.ok) {
-          const data = await annotationsRes.json()
-          const annotations = data.annotations ?? []
-          if (annotations.length > 0) {
-            const annotationsFile = { version: 1, annotations: annotations.map(a => ({
-              id: a.id,
-              slideIndex: a.slideIndex,
-              slideTitle: a.slideTitle,
-              target: a.target,
-              body: a.body,
-              createdAt: a.createdAt,
-              status: a.status,
-              ...(a.resolution ? { resolution: a.resolution } : {})
-            })) }
-            writeFileSync(join(targetDir, "annotations.json"), JSON.stringify(annotationsFile, null, 2) + "\n", "utf-8")
-            console.log(`  ${green("✓")} Pulled ${cyan("annotations.json")} ${dim(`(${annotations.length} annotation${annotations.length === 1 ? "" : "s"})`)}`)
-          }
-        }
-      } catch {
-        // Annotations are non-critical; don't fail the create
-      }
-    }
+    // New deck identity — deckSlug stays as dirName (set in initial lockfile scaffold)
+    console.log(`  ${dim("Deck slug set to")} ${bold(dirName)} ${dim("(publish will create a new deck)")}`)
 
     console.log()
   }
