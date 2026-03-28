@@ -20,6 +20,7 @@ function printHelp() {
   console.log()
   console.log(`  ${bold("Commands:")}`)
   console.log(`    create ${dim("<dir>")}   Scaffold a new slide deck project`)
+  console.log(`    clone ${dim("<slug>")}    Clone a published deck to work on it`)
   console.log(`    studio          Start the development studio`)
   console.log(`    build           Build for production`)
   console.log(`    preview         Preview the production build`)
@@ -53,6 +54,11 @@ switch (command) {
   case "create": {
     const { create } = await import("./commands/create.mjs")
     await create(args)
+    break
+  }
+  case "clone": {
+    const { clone } = await import("./commands/clone.mjs")
+    await clone(args)
     break
   }
   case "studio": {
