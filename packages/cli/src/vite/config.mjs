@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/postcss"
 import react from "@vitejs/plugin-react"
 
 import { promptslidePlugin } from "./plugin.mjs"
+import { htmlSlidesPlugin, isHtmlDeck, tailwindSourcePlugin } from "../html/vite-plugin.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -17,18 +18,61 @@ const tailwindPath = resolve(dirname(require.resolve("tailwindcss")), "..")
 // Resolve promptslide core from source so Vite uses TS directly without a build step
 const promptslidePath = resolve(__dirname, "../core/index.ts")
 
-export function createViteConfig({ cwd, mode = "development" }) {
+// Resolve react entry points from CLI's deps so decks outside the monorepo work
+const reactEntry = require.resolve("react")
+const reactDomEntry = require.resolve("react-dom")
+const reactJsxRuntime = require.resolve("react/jsx-runtime")
+const reactJsxDevRuntime = require.resolve("react/jsx-dev-runtime")
+const reactDomClient = require.resolve("react-dom/client")
+
+export function createViteConfig({ cwd, mode = "development", forceHtmlMode = false }) {
+  const htmlMode = forceHtmlMode || isHtmlDeck(cwd)
+
+  const plugins = [react()]
+  if (htmlMode) {
+    plugins.push(tailwindSourcePlugin(), htmlSlidesPlugin({ root: cwd }))
+  } else {
+    plugins.push(promptslidePlugin({ root: cwd }))
+  }
+
+  // CLI's node_modules for optimizeDeps to find react etc.
+  const cliRoot = resolve(__dirname, "../..")
+
   return {
     configFile: false,
     root: cwd,
     mode,
-    plugins: [react(), promptslidePlugin({ root: cwd })],
+    // Disable Vite's SPA fallback so our plugin handles HTML routing
+    appType: htmlMode ? "custom" : undefined,
+    plugins,
     resolve: {
       alias: {
         "@": resolve(cwd, "src"),
         promptslide: promptslidePath,
         // CSS @import "tailwindcss" → resolved from CLI package
-        tailwindcss: tailwindPath
+        tailwindcss: tailwindPath,
+        // Resolve react from CLI's deps so decks don't need their own node_modules
+        "react/jsx-runtime": reactJsxRuntime,
+        "react/jsx-dev-runtime": reactJsxDevRuntime,
+        "react-dom/client": reactDomClient,
+        "react-dom": reactDomEntry,
+        react: reactEntry
+      }
+    },
+    server: {
+      fs: {
+        // Allow serving files from the CLI package (core, node_modules)
+        // so decks outside the monorepo can access framework code
+        allow: [cwd, cliRoot, resolve(cliRoot, "..")]
+      }
+    },
+    // Tell Vite's dependency optimizer to look in the CLI's node_modules
+    optimizeDeps: {
+      entries: [],
+      include: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "react-dom/client"],
+      esbuildOptions: {
+        resolveExtensions: [".mjs", ".js", ".ts", ".jsx", ".tsx", ".json"],
+        nodePaths: [resolve(cliRoot, "node_modules")]
       }
     },
     css: {

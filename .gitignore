@@ -144,3 +144,4 @@ vite.config.ts.timestamp-*
 .promptslide
 *.local
 .DS_Store
+test-html-deck/

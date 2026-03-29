@@ -145,3 +145,6 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
 }
 
 export { VIRTUAL_ENTRY_ID, getHtmlTemplate }
+
+// Re-export HTML mode detection for use by other modules
+export { isHtmlDeck } from "../html/vite-plugin.mjs"
