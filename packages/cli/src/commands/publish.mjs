@@ -71,7 +71,7 @@ function detectSteps(content) {
   return max
 }
 
-function detectNpmDeps(content) {
+function detectNpmDeps(content, projectDeps = {}) {
   const deps = {}
   // Match both unscoped (foo) and scoped (@scope/foo) packages, exclude relative imports
   const importRegex = /import\s+.*?\s+from\s+["']((?:@[a-zA-Z0-9-]+\/)?[a-zA-Z0-9-][^"']*)["']/g
@@ -81,7 +81,7 @@ function detectNpmDeps(content) {
     const pkg = full.startsWith("@") ? full.split("/").slice(0, 2).join("/") : full.split("/")[0]
     // Skip relative imports, react, and internal packages
     if (pkg.startsWith(".") || pkg === "react" || pkg === "react-dom" || pkg.startsWith("@promptslide/")) continue
-    deps[pkg] = "latest"
+    deps[pkg] = projectDeps[pkg] ?? "latest"
   }
   return deps
 }
@@ -94,6 +94,15 @@ function detectRegistryDeps(content) {
     deps.push(name)
   }
   return deps
+}
+
+function readProjectDeps(cwd) {
+  const pkgPath = join(cwd, "package.json")
+  if (!existsSync(pkgPath)) return {}
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"))
+    return { ...pkg.devDependencies, ...pkg.dependencies }
+  } catch { return {} }
 }
 
 /** Detect sibling layout imports — both relative ("./foo") and absolute ("@/layouts/foo"). */
@@ -321,7 +330,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
 
   const type = typeOverride || detectType(filePath) || "slide"
   const steps = detectSteps(content)
-  const npmDeps = detectNpmDeps(content)
+  const npmDeps = detectNpmDeps(content, readProjectDeps(cwd))
   const registryDeps = detectRegistryDeps(content)
   const target = type === "layout" ? "src/layouts/" : "src/slides/"
 
@@ -396,6 +405,7 @@ async function publishItem({ filePath, cwd, auth, typeOverride, interactive = tr
 
 export async function publish(args) {
   const cwd = process.cwd()
+  const projectDeps = readProjectDeps(cwd)
 
   console.log()
   console.log(`  ${bold("promptslide")} ${dim("publish")}`)
@@ -692,7 +702,7 @@ export async function publish(args) {
         skipped++
       } else {
         const assetDeps = detectAssetDepsInContent(themeContent, deckSlug, publicFileSet)
-        const npmDeps = detectNpmDeps(themeContent)
+        const npmDeps = detectNpmDeps(themeContent, projectDeps)
 
         try {
           const result = await publishToRegistry({
@@ -730,7 +740,7 @@ export async function publish(args) {
         }
 
         const assetDeps = detectAssetDepsInContent(content, deckSlug, publicFileSet)
-        const npmDeps = detectNpmDeps(content)
+        const npmDeps = detectNpmDeps(content, projectDeps)
         const siblingDeps = detectLayoutSiblingDeps(content).map(d => `${deckSlug}/${d}`)
         const regDeps = hasTheme ? [`${deckSlug}/theme`] : []
         regDeps.push(...siblingDeps, ...assetDeps)
@@ -775,7 +785,7 @@ export async function publish(args) {
 
         const assetDeps = detectAssetDepsInContent(content, deckSlug, publicFileSet)
         const layoutDeps = detectRegistryDeps(content).map(d => `${deckSlug}/${d}`)
-        const npmDeps = detectNpmDeps(content)
+        const npmDeps = detectNpmDeps(content, projectDeps)
         const steps = detectSteps(content)
         const slideConfig = deckConfig.slides.find(s => s.slug === slideName)
         const section = slideConfig?.section || undefined
@@ -836,7 +846,7 @@ export async function publish(args) {
     // Collect npm deps from shared source files
     const sharedNpmDeps = {}
     for (const f of sharedFiles) {
-      Object.assign(sharedNpmDeps, detectNpmDeps(f.content))
+      Object.assign(sharedNpmDeps, detectNpmDeps(f.content, projectDeps))
     }
 
     let deckItemId = null
@@ -905,7 +915,7 @@ export async function publish(args) {
   // Detect metadata
   const type = typeOverride || detectType(filePath) || "slide"
   const steps = detectSteps(content)
-  const npmDeps = detectNpmDeps(content)
+  const npmDeps = detectNpmDeps(content, projectDeps)
   const registryDeps = detectRegistryDeps(content)
   const target = type === "layout" ? "src/layouts/" : "src/slides/"
 

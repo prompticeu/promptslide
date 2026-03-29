@@ -167,7 +167,7 @@ export async function add(args) {
     const shouldReplace = await confirm("  Replace entire deck-config.ts with this deck?", true)
     if (shouldReplace) {
       const slides = item.meta.slides.map(s => ({
-        componentName: toPascalCase(s.slug),
+        componentName: s.componentName || toPascalCase(s.slug),
         importPath: `@/slides/${s.slug}`,
         steps: s.steps,
         section: s.section
@@ -180,7 +180,7 @@ export async function add(args) {
     } else {
       // Append individual slides
       for (const s of item.meta.slides) {
-        const componentName = toPascalCase(s.slug)
+        const componentName = s.componentName || toPascalCase(s.slug)
         const importPath = `@/slides/${s.slug}`
         const updated = addSlideToDeckConfig(cwd, { componentName, importPath, steps: s.steps })
         if (updated) {
