@@ -1,6 +1,6 @@
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion"
 import { ChevronLeft, ChevronRight, Download, Grid3X3, List, Maximize, Monitor } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 
 import type { SlideTransitionType } from "./transitions"
 import type { SlideConfig } from "./types"
@@ -58,6 +58,43 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
           <SlideComponent slideNumber={clampedIndex + 1} totalSlides={slides.length} />
         </SlideErrorBoundary>
       </AnimationProvider>
+    </div>
+  )
+}
+
+// =============================================================================
+// GRID THUMBNAIL (renders slide at fixed 1280×720 and scales to fit card)
+// =============================================================================
+
+function GridSlideContainer({ children }: { children: ReactNode }) {
+  const outerRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(0.25)
+
+  useEffect(() => {
+    const el = outerRef.current
+    if (!el) return
+    const update = () => {
+      const w = el.clientWidth
+      if (w > 0) setScale(w / SLIDE_DIMENSIONS.width)
+    }
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={outerRef} className="absolute inset-0">
+      <div
+        className="origin-top-left overflow-hidden"
+        style={{
+          width: SLIDE_DIMENSIONS.width,
+          height: SLIDE_DIMENSIONS.height,
+          transform: `scale(${scale})`
+        }}
+      >
+        {children}
+      </div>
     </div>
   )
 }
@@ -423,10 +460,7 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
                     }}
                     className="group relative aspect-video w-full overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-sm transition-all hover:border-primary hover:shadow-lg hover:shadow-primary/10"
                   >
-                    <div
-                      className="h-full w-full origin-top-left scale-[0.25]"
-                      style={{ width: "400%", height: "400%" }}
-                    >
+                    <GridSlideContainer>
                       <AnimationProvider
                         currentStep={slideConfig.steps}
                         totalSteps={slideConfig.steps}
@@ -436,7 +470,7 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
                           <SlideComponent slideNumber={index + 1} totalSlides={slides.length} />
                         </SlideErrorBoundary>
                       </AnimationProvider>
-                    </div>
+                    </GridSlideContainer>
                     <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
                     <div className="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white">
                       {slideConfig.title ? `${index + 1}. ${slideConfig.title}` : index + 1}
