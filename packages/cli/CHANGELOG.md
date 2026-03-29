@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.13](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.12...promptslide-v0.3.13) (2026-03-29)
+
+
+### Bug Fixes
+
+* pin dependency versions and preserve component names in publish pipeline ([#89](https://github.com/prompticeu/promptslide/issues/89)) ([22b7dcb](https://github.com/prompticeu/promptslide/commit/22b7dcbe33c9852fac2fbfef70943254a0d871cd))
+
 ## [0.3.12](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.11...promptslide-v0.3.12) (2026-03-28)
 
 

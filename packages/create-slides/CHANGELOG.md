@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.13](https://github.com/prompticeu/promptslide/compare/create-slides-v0.3.12...create-slides-v0.3.13) (2026-03-29)
+
+
+### Miscellaneous Chores
+
+* **create-slides:** Synchronize promptslide versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * promptslide bumped from ^0.3.12 to ^0.3.13
+
 ## [0.3.12](https://github.com/prompticeu/promptslide/compare/create-slides-v0.3.11...create-slides-v0.3.12) (2026-03-28)
 
 
