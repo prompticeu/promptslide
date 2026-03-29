@@ -39,12 +39,24 @@ export function parseSlide(html) {
     }
   }
 
+  // Extract all data- attributes as potential layout slots
+  // (except data-layout, data-transition, data-step, data-animate, etc.)
+  const reservedAttrs = new Set(["data-layout", "data-transition", "data-step", "data-animate", "data-delay", "data-duration", "data-stagger", "data-morph"])
+  const slots = {}
+  for (const [key, value] of Object.entries(section.attributes || {})) {
+    if (key.startsWith("data-") && !reservedAttrs.has(key)) {
+      // data-title → title, data-section → section
+      slots[key.slice(5)] = value
+    }
+  }
+
   return {
     // Return the full outer HTML so <section> classes/styles are preserved
     content: section.outerHTML,
     layout: section.getAttribute("data-layout") || null,
     transition: section.getAttribute("data-transition") || null,
-    steps: detectSteps(section)
+    steps: detectSteps(section),
+    slots
   }
 }
 

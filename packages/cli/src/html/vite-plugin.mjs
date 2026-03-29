@@ -103,7 +103,8 @@ export function htmlSlidesPlugin({ root: initialRoot } = {}) {
         content: parsed.content,
         layout: parsed.layout,
         deckRoot: deckPath,
-        slideName: slideEntry.file
+        slideName: slideEntry.file,
+        slots: parsed.slots
       })
       compiled.set(slideEntry.file, compiledSrc)
     }
@@ -396,22 +397,41 @@ createRoot(document.getElementById("root")).render(
             content: parsed.content,
             layout: parsed.layout,
             deckRoot: deckPath,
-            slideName: filename
+            slideName: filename,
+            slots: parsed.slots
           })
           if (!compiledSlidesMap.has(slug)) compiledSlidesMap.set(slug, new Map())
           compiledSlidesMap.get(slug).set(filename, compiled)
 
-          // Invalidate the specific slide module
+          // Invalidate the specific slide module — Vite HMR handles the rest
+          // React Fast Refresh will hot-swap the component without losing state
           const slideModId = RESOLVED_SLIDE_PREFIX + slug + "/" + filename + VIRTUAL_SLIDE_SUFFIX
           const slideMod = server.moduleGraph.getModuleById(slideModId)
-          if (slideMod) server.moduleGraph.invalidateModule(slideMod)
+          if (slideMod) {
+            server.moduleGraph.invalidateModule(slideMod)
+            // Send HMR update for just this module
+            server.ws.send({
+              type: "update",
+              updates: [{
+                type: "js-update",
+                path: slideMod.url,
+                acceptedPath: slideMod.url,
+                timestamp: Date.now()
+              }]
+            })
+          }
 
-          // Also invalidate entry (steps may have changed)
-          const entryModId = RESOLVED_HTML_ENTRY + "--" + slug
-          const entryMod = server.moduleGraph.getModuleById(entryModId)
-          if (entryMod) server.moduleGraph.invalidateModule(entryMod)
+          // Check if steps changed — if so, entry needs update too (requires reload)
+          const oldSteps = manifests.get(slug)?.slides?.find(s => s.file === filename)?._cachedSteps
+          const newSteps = parsed.steps
+          if (oldSteps !== undefined && oldSteps !== newSteps) {
+            // Steps changed — need to reload entry to update step counts
+            const entryModId = RESOLVED_HTML_ENTRY + "--" + slug
+            const entryMod = server.moduleGraph.getModuleById(entryModId)
+            if (entryMod) server.moduleGraph.invalidateModule(entryMod)
+            server.ws.send({ type: "full-reload" })
+          }
 
-          server.ws.send({ type: "full-reload" })
           return
         }
 
@@ -421,15 +441,25 @@ createRoot(document.getElementById("root")).render(
           if (deckSlides) {
             for (const [filename] of deckSlides) {
               const mod = server.moduleGraph.getModuleById(RESOLVED_SLIDE_PREFIX + slug + "/" + filename + VIRTUAL_SLIDE_SUFFIX)
-              if (mod) server.moduleGraph.invalidateModule(mod)
+              if (mod) {
+                server.moduleGraph.invalidateModule(mod)
+                server.ws.send({
+                  type: "update",
+                  updates: [{
+                    type: "js-update",
+                    path: mod.url,
+                    acceptedPath: mod.url,
+                    timestamp: Date.now()
+                  }]
+                })
+              }
             }
           }
-          server.ws.send({ type: "full-reload" })
           return
         }
 
         if (relToDeck.startsWith("themes/") && relToDeck.endsWith(".css")) {
-          server.ws.send({ type: "full-reload" })
+          // CSS changes are handled by Vite's built-in CSS HMR — no full reload needed
         }
       })
 

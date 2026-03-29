@@ -18,8 +18,10 @@ export function registerWriteTools(server, context) {
   server.tool(
     "create_deck",
     `Create a new empty deck. Creates the directory structure and deck.json manifest. ` +
-    `Slides use HTML with Tailwind CSS classes. Use data-step and data-animate attributes ` +
-    `for click-to-reveal animations (types: fade, slide-up, slide-down, slide-left, slide-right, scale). ` +
+    `After creating a deck, create 2-3 slide master layouts first (write_layout) ` +
+    `for consistent structure across slides. Then create slides that reference ` +
+    `layouts via data-layout="name" and pass data-title, data-section, etc. ` +
+    `See get_guide("layouts") for layout template syntax. ` +
     `Slide dimensions: 1280x720 (16:9).`,
     {
       name: z.string().describe("Deck display name"),
@@ -100,11 +102,12 @@ export function registerWriteTools(server, context) {
   // ─── write_layout ───
   server.tool(
     "write_layout",
-    `Create or update a slide master layout. Layouts are HTML templates in layouts/ ` +
-    `that provide consistent structure (headers, footers, spacing) across slides. ` +
-    `Use <!-- content --> as the placeholder where slide content is injected. ` +
-    `Use <!-- slideNumber --> and <!-- totalSlides --> for page numbers. ` +
-    `Slides reference layouts via data-layout="name" on their <section> element.`,
+    `Create or update a slide master layout (like PowerPoint slide masters). ` +
+    `Layouts define repeating structure (headers, footers, section numbering) shared across slides. ` +
+    `Use <!-- slot:name --> markers for flexible slots. Text slots come from data- attributes ` +
+    `on <section> (e.g. data-title → <!-- slot:title -->). Content slots come from <slot name="..."> ` +
+    `elements in the slide. Use <!-- content --> for remaining slide HTML. ` +
+    `Also available: <!-- slideNumber --> and <!-- totalSlides -->.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
       name: z.string().describe("Layout name (e.g. 'master', 'title', 'split')"),

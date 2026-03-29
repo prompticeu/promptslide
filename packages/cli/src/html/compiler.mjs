@@ -19,12 +19,12 @@ import { join } from "node:path"
  * @param {string} options.slideName - Slide filename (for component name)
  * @returns {string} React component source code using createElement
  */
-export function compileSlide({ content, layout, deckRoot, slideName }) {
+export function compileSlide({ content, layout, deckRoot, slideName, slots }) {
   let html = content
 
   // If a layout is specified, inject content into the layout template
   if (layout) {
-    html = applyLayout(html, layout, deckRoot)
+    html = applyLayout(html, layout, deckRoot, slots)
   }
 
   // Ensure the root <section> has h-full so child elements can use
@@ -73,18 +73,65 @@ export function compileSlide({ content, layout, deckRoot, slideName }) {
 export default function ${componentName}({ slideNumber, totalSlides }) {
   return ${bodyCode}
 }
+
+if (import.meta.hot) {
+  import.meta.hot.accept()
+}
 `
 }
 
 /**
  * Apply a layout template to slide content.
+ *
+ * Supports two types of slots:
+ *
+ * 1. Text slots (via data- attributes on <section>):
+ *    <section data-layout="content" data-title="Hello" data-section="03">
+ *    Layout uses: <!-- slot:title -->  <!-- slot:section -->
+ *
+ * 2. Content slots (via <slot name="..."> elements):
+ *    <section data-layout="split">
+ *      <slot name="left"><h1>Left content</h1></slot>
+ *      <slot name="right"><p>Right content</p></slot>
+ *    </section>
+ *    Layout uses: <!-- slot:left -->  <!-- slot:right -->
+ *
+ * 3. Default content (everything not in a <slot>):
+ *    Layout uses: <!-- content -->
+ *
+ * slideNumber / totalSlides are handled later in nodeToCreateElement.
  */
-function applyLayout(content, layoutName, deckRoot) {
+function applyLayout(content, layoutName, deckRoot, slots = {}) {
   const layoutPath = join(deckRoot, "layouts", `${layoutName}.html`)
   if (!existsSync(layoutPath)) return content
 
   let layoutHtml = readFileSync(layoutPath, "utf-8")
-  layoutHtml = layoutHtml.replace(/<!--\s*content\s*-->/g, content)
+
+  // Extract named <slot> elements from the slide content
+  const namedSlots = {}
+  let remainingContent = content
+
+  // Parse <slot name="...">...</slot> elements
+  const slotRegex = /<slot\s+name="([^"]+)"[^>]*>([\s\S]*?)<\/slot>/gi
+  let match
+  while ((match = slotRegex.exec(content)) !== null) {
+    namedSlots[match[1]] = match[2].trim()
+    remainingContent = remainingContent.replace(match[0], "")
+  }
+
+  // Replace <!-- content --> with remaining (non-slot) content
+  layoutHtml = layoutHtml.replace(/<!--\s*content\s*-->/g, remainingContent)
+
+  // Replace <!-- slot:name --> markers with named slot content or data- attribute values
+  layoutHtml = layoutHtml.replace(/<!--\s*slot:(\w[\w-]*)\s*-->/g, (marker, name) => {
+    // Content slots (from <slot> elements) take priority
+    if (namedSlots[name] !== undefined) return namedSlots[name]
+    // Text slots (from data- attributes)
+    if (slots && slots[name] !== undefined && slots[name] !== null) return slots[name]
+    // Unmatched slot — remove marker
+    return ""
+  })
+
   return layoutHtml
 }
 

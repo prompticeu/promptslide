@@ -349,71 +349,162 @@ both \`:root\` (light) and \`.dark\` (dark mode) selectors.
 
 ## What Layouts Are
 
-Layouts (slide masters) are HTML template files in the \`layouts/\` directory.
-They define consistent structure (headers, footers, spacing) shared across slides.
+Layouts work like PowerPoint slide masters. They define the repeating structure
+(headers, footers, section numbering, background treatment) shared across slides.
+The slide provides its content; the layout controls where it goes.
 
-## Template Syntax
+**Create layouts early** — they ensure visual consistency and make batch edits easy.
+When a layout changes, all slides using it update automatically.
 
-Layouts use HTML comment markers as slots:
+## Template Slots
 
-| Marker | Replaced With |
-|--------|---------------|
-| \`<!-- content -->\` | The slide's content (inside <section>) |
-| \`<!-- slideNumber -->\` | Current slide number |
-| \`<!-- totalSlides -->\` | Total slide count |
+Layouts use \`<!-- slot:name -->\` markers. Slots are flexible — define any you need.
 
-## Example Layout
+### Text Slots (from data- attributes)
+
+Any \`data-*\` attribute on \`<section>\` becomes a text slot:
+\`\`\`html
+<section data-layout="content" data-title="Memory" data-section="04">
+\`\`\`
+Layout uses: \`<!-- slot:title -->\` → "Memory", \`<!-- slot:section -->\` → "04"
+
+### Content Slots (from <slot> elements)
+
+For rich HTML content, use named \`<slot>\` elements:
+\`\`\`html
+<section data-layout="split">
+  <slot name="left"><h1>Problem</h1><p>Details...</p></slot>
+  <slot name="right"><img src="asset://chart.png" /><p data-step="1">Insight</p></slot>
+</section>
+\`\`\`
+Layout uses: \`<!-- slot:left -->\` and \`<!-- slot:right -->\`
+
+### Built-in Markers
+
+| Marker | Source |
+|--------|--------|
+| \`<!-- content -->\` | Remaining slide HTML (not inside a \`<slot>\`) |
+| \`<!-- slideNumber -->\` | Auto — current slide number |
+| \`<!-- totalSlides -->\` | Auto — total slide count |
+
+## Example: Content Layout (text slots)
 
 \`\`\`html
-<!-- layouts/master.html -->
-<div class="flex h-full w-full flex-col overflow-hidden bg-background px-12 pt-10 pb-6">
+<!-- layouts/content.html -->
+<div class="flex h-full w-full flex-col bg-background">
+  <!-- Header -->
+  <div class="flex items-baseline gap-6 px-20 pt-12 pb-8 border-b border-border">
+    <span class="text-xs text-muted-foreground uppercase tracking-[0.3em]"><!-- slot:section --></span>
+    <h2 class="text-4xl font-bold tracking-tight text-foreground"><!-- slot:title --></h2>
+  </div>
 
-  <!-- Slide content -->
-  <div class="min-h-0 w-full flex-1">
+  <!-- Content area -->
+  <div class="flex-1 px-20 py-10 overflow-hidden">
     <!-- content -->
   </div>
 
   <!-- Footer -->
-  <div class="flex items-center justify-between pt-4">
-    <img src="asset://logo.svg" class="h-8" />
-    <span class="text-sm text-muted-foreground">
+  <div class="flex items-center justify-between px-20 py-4 border-t border-border">
+    <img src="asset://logo.svg" class="h-6" />
+    <span class="text-xs text-muted-foreground">
       <!-- slideNumber --> / <!-- totalSlides -->
     </span>
   </div>
 </div>
 \`\`\`
 
-## Using a Layout
-
-Reference it with \`data-layout\` on the slide's <section>:
-
 \`\`\`html
-<section data-layout="master">
-  <h1 class="text-5xl font-bold">My Content</h1>
-  <p data-step="1" data-animate="fade">Details...</p>
+<section data-layout="content" data-section="03" data-title="The Agentic Loop">
+  <div class="grid grid-cols-3 gap-8">
+    <div data-step="1" data-animate="slide-up">Card 1</div>
+    <div data-step="2" data-animate="slide-up">Card 2</div>
+    <div data-step="3" data-animate="slide-up">Card 3</div>
+  </div>
 </section>
 \`\`\`
 
-The framework injects the slide's inner HTML at the \`<!-- content -->\` marker.
+\`data-section\` → \`<!-- slot:section -->\`, \`data-title\` → \`<!-- slot:title -->\`,
+inner HTML → \`<!-- content -->\`.
 
-## When to Use Layouts
+## Example: Split Layout (content slots)
 
-- Use layouts when multiple slides share the same structure (footer, header, spacing)
-- Change the layout file → all slides using it update
-- Slides without \`data-layout\` are freeform (full 1280×720 container)
+\`\`\`html
+<!-- layouts/split.html -->
+<div class="flex h-full w-full bg-background">
+  <div class="w-2/5 flex flex-col justify-center px-16 border-r border-border">
+    <!-- slot:sidebar -->
+  </div>
+  <div class="w-3/5 flex flex-col justify-center px-16">
+    <!-- slot:main -->
+  </div>
+</div>
+\`\`\`
+
+\`\`\`html
+<section data-layout="split">
+  <slot name="sidebar">
+    <span class="text-xs text-muted-foreground uppercase tracking-[0.3em] mb-4">04</span>
+    <h2 class="text-5xl font-bold tracking-tight text-foreground leading-tight">Memory Systems</h2>
+    <p class="mt-6 text-muted-foreground leading-relaxed">How agents persist knowledge across sessions.</p>
+  </slot>
+  <slot name="main">
+    <div class="space-y-6" data-step="1" data-animate="slide-up" data-stagger="100">
+      <div>Short-term: context window</div>
+      <div>Long-term: vector stores</div>
+      <div>Episodic: experience replay</div>
+    </div>
+  </slot>
+</section>
+\`\`\`
+
+Content slots give full control over each panel's HTML, including animations.
+
+## Mix Text and Content Slots
+
+You can combine both in one layout:
+
+\`\`\`html
+<!-- layouts/titled-split.html -->
+<div class="flex h-full w-full flex-col bg-background">
+  <div class="px-20 pt-12 pb-6 border-b border-border">
+    <span class="text-xs text-muted-foreground uppercase tracking-[0.3em]"><!-- slot:section --></span>
+    <h2 class="text-4xl font-bold text-foreground mt-2"><!-- slot:title --></h2>
+  </div>
+  <div class="flex flex-1">
+    <div class="w-1/2 px-16 py-10 border-r border-border"><!-- slot:left --></div>
+    <div class="w-1/2 px-16 py-10"><!-- slot:right --></div>
+  </div>
+</div>
+\`\`\`
+
+\`\`\`html
+<section data-layout="titled-split" data-section="05" data-title="Comparison">
+  <slot name="left"><h3>Traditional RAG</h3><p>Single retrieval step...</p></slot>
+  <slot name="right"><h3>Agentic RAG</h3><p>Iterative reasoning...</p></slot>
+</section>
+\`\`\`
+
+## Recommended Workflow
+
+1. **Create 2-3 layouts early** (after create_deck):
+   - \`content.html\` — standard content slides with header + footer
+   - \`title.html\` — section title slides, large centered text
+   - \`split.html\` — two-column layout for comparison/detail slides
+2. **Use layouts on most slides** — only go freeform for hero/closing slides
+3. **Edit a layout to update all slides** — change the footer logo once, not 14 times
 
 ## Multiple Layouts
 
-You can create multiple layouts for different slide types:
-
 \`\`\`
 layouts/
-├── master.html        # Standard slides with footer
-├── title.html         # Title slides, no footer, centered
-└── split.html         # Two-column layout
+├── content.html     # Standard with header/section/footer
+├── title.html       # Section title, large centered
+├── split.html       # Two-column with structured left panel
+└── full.html        # Minimal — just padding and centering
 \`\`\`
 
-Each slide chooses its layout independently via \`data-layout\`.`
+Each slide chooses its layout independently via \`data-layout\`.
+Slides without \`data-layout\` are freeform (full 1280×720 container).`
 }
 
 /**
