@@ -159,7 +159,7 @@ export async function clone(args) {
   // 6. Generate deck-config.ts
   if (item.meta?.slides) {
     const slides = item.meta.slides.map(s => ({
-      componentName: toPascalCase(s.slug),
+      componentName: s.componentName || toPascalCase(s.slug),
       importPath: `@/slides/${s.slug}`,
       steps: s.steps,
       section: s.section

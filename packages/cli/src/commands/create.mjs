@@ -222,7 +222,7 @@ export async function create(args) {
     // Reconstruct deck-config.ts from deckConfig metadata
     if (fromItem.meta?.slides) {
       const slides = fromItem.meta.slides.map(s => ({
-        componentName: toPascalCase(s.slug),
+        componentName: s.componentName || toPascalCase(s.slug),
         importPath: `@/slides/${s.slug}`,
         steps: s.steps,
         section: s.section

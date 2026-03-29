@@ -190,36 +190,53 @@ export async function fetchOrganizations(auth) {
  * @param {{ registry: string, apiKey: string }} auth - Auth credentials
  * @returns {Promise<object>} Registry item JSON
  */
-export async function fetchRegistryItem(nameOrUrl, auth) {
+export async function fetchRegistryItem(nameOrUrl, auth, { retries = 2 } = {}) {
   const url = nameOrUrl.startsWith("http")
     ? nameOrUrl
     : `${auth.registry}/api/r/${nameOrUrl}.json`
 
-  const res = await fetch(url, {
-    headers: authHeaders(auth)
-  })
+  let lastError
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: authHeaders(auth)
+      })
 
-  if (res.status === 401) {
-    throw new Error("Authentication failed. Run `promptslide login` to re-authenticate.")
-  }
-  if (res.status === 403) {
-    const body = await res.json().catch(() => ({}))
-    if (body.status === "pending_review") {
-      throw new Error(`Item "${nameOrUrl}" is pending review. An admin must approve it first.`)
-    }
-    if (body.status === "rejected") {
-      throw new Error(`Item "${nameOrUrl}" was rejected by an admin.`)
-    }
-    throw new Error("Access denied. This item belongs to a different organization.")
-  }
-  if (res.status === 404) {
-    throw new Error(`Item not found: ${nameOrUrl}`)
-  }
-  if (!res.ok) {
-    throw new Error(`Registry error (${res.status}): ${await res.text()}`)
-  }
+      if (res.status === 401) {
+        throw new Error("Authentication failed. Run `promptslide login` to re-authenticate.")
+      }
+      if (res.status === 403) {
+        const body = await res.json().catch(() => ({}))
+        if (body.status === "pending_review") {
+          throw new Error(`Item "${nameOrUrl}" is pending review. An admin must approve it first.`)
+        }
+        if (body.status === "rejected") {
+          throw new Error(`Item "${nameOrUrl}" was rejected by an admin.`)
+        }
+        throw new Error("Access denied. This item belongs to a different organization.")
+      }
+      if (res.status === 404) {
+        throw new Error(`Item not found: ${nameOrUrl}`)
+      }
+      if (!res.ok) {
+        throw new Error(`Registry error (${res.status}): ${await res.text()}`)
+      }
 
-  return res.json()
+      return res.json()
+    } catch (err) {
+      lastError = err
+      // Only retry on network errors (fetch failed), not on HTTP-level errors
+      if (err.message.includes("Authentication") || err.message.includes("Access denied") ||
+          err.message.includes("not found") || err.message.includes("pending review") ||
+          err.message.includes("rejected") || err.message.includes("Registry error")) {
+        throw err
+      }
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+      }
+    }
+  }
+  throw lastError
 }
 
 /**
