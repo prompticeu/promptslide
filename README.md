@@ -4,6 +4,19 @@
 
 PromptSlide is a local-first slide framework built with React, Tailwind CSS, and Framer Motion. Open your coding agent (Claude Code, Cursor, Windsurf, etc.), describe the slides you want in natural language, and watch them appear in real-time via Vite's hot module replacement.
 
+<table>
+  <tr>
+    <td><img src="docs/showcase/consulting-ai-cover.png" alt="AI Consulting cover slide — dark elegant theme" width="360" /></td>
+    <td><img src="docs/showcase/gen-z-cover.png" alt="Gen-Z cover slide — bold orange theme" width="360" /></td>
+    <td><img src="docs/showcase/agentic-rag-cover.png" alt="Agentic RAG cover slide — dark tech theme" width="360" /></td>
+  </tr>
+  <tr>
+    <td><img src="docs/showcase/consulting-ai-split.png" alt="Split design with pricing stats" width="360" /></td>
+    <td><img src="docs/showcase/gen-z-cards.png" alt="Card layout with AI agent examples" width="360" /></td>
+    <td><img src="docs/showcase/promptslide-bento.png" alt="Bento grid capabilities overview" width="360" /></td>
+  </tr>
+</table>
+
 ## Install the Skill
 
 ```bash
