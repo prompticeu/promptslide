@@ -289,12 +289,14 @@ function buildProps(node, includeAnimAttrs) {
   // Build the props string manually for better output
   const parts = []
   for (const [key, value] of Object.entries(propsObj)) {
+    // Quote keys that aren't valid JS identifiers (e.g. data-section)
+    const safeKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : JSON.stringify(key)
     if (key === "__style") {
       parts.push(`style: ${styleToObject(value)}`)
     } else if (typeof value === "boolean") {
-      parts.push(`${key}: true`)
+      parts.push(`${safeKey}: true`)
     } else {
-      parts.push(`${key}: ${JSON.stringify(value)}`)
+      parts.push(`${safeKey}: ${JSON.stringify(value)}`)
     }
   }
 

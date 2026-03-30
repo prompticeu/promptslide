@@ -1,18 +1,22 @@
 /**
  * Guide content for the get_guide MCP tool.
+ *
+ * Two guides:
+ * - "framework" — comprehensive reference for the slide format, animations,
+ *   layouts, theming, and workflow. Read once at the start of a session.
+ * - "design-recipes" — optional code snippets for backgrounds, card styles,
+ *   layout patterns, data visualization, and typography.
  */
 
 const guides = {
-  "getting-started": `# Getting Started with PromptSlide
+  framework: `# PromptSlide Framework Reference
 
-## How It Works
-
-PromptSlide slides are HTML files with Tailwind CSS. The framework handles animations,
+Slides are HTML files with Tailwind CSS. The framework handles animations,
 transitions, theming, keyboard navigation, and presentation mode.
 
 ## Slide Format
 
-Each slide is a \`.html\` file in the \`slides/\` directory containing a \`<section>\` element:
+Each slide is a \`.html\` file in \`slides/\` containing a \`<section>\` element:
 
 \`\`\`html
 <section class="relative flex items-center justify-center overflow-hidden bg-background">
@@ -26,23 +30,23 @@ Each slide is a \`.html\` file in the \`slides/\` directory containing a \`<sect
 </section>
 \`\`\`
 
-The framework auto-adds \`h-full\` to the root \`<section>\` so it fills the 1280×720 slide container.
+The framework auto-adds \`h-full\` to the root \`<section>\`.
 Use \`flex items-center justify-center\` for vertical centering.
-Use \`data-layout="name"\` to wrap in a slide master layout instead.
+Use \`data-layout="name"\` to wrap in a slide master layout.
 
-## Data Attributes
+Slide dimensions: **1280×720** (16:9). Content scales automatically.
 
-**On <section>:**
-- \`data-layout="name"\` — wrap in a slide master layout from layouts/
-- \`data-transition="type"\` — per-slide transition override
+## Directory Structure
 
-**On any element:**
-- \`data-step="N"\` — reveal on Nth click (1-indexed)
-- \`data-animate="type"\` — animation type (fade, slide-up, slide-down, slide-left, slide-right, scale)
-- \`data-delay="ms"\` — delay in milliseconds
-- \`data-duration="ms"\` — duration in milliseconds
-- \`data-stagger="ms"\` — stagger children by ms (on parent element)
-- \`data-morph="id"\` — shared element transition between slides
+\`\`\`
+my-deck/
+├── deck.json           # Manifest (slide order, theme, transitions)
+├── slides/             # Slide HTML files
+├── layouts/            # Slide master templates
+├── themes/             # CSS theme files
+├── assets/             # Images, logos, etc.
+└── annotations.json    # Feedback/comments (optional)
+\`\`\`
 
 ## Deck Manifest (deck.json)
 
@@ -60,66 +64,35 @@ Use \`data-layout="name"\` to wrap in a slide master layout instead.
 }
 \`\`\`
 
-Steps are auto-detected from the HTML (highest data-step value).
+Steps are auto-detected from HTML (highest data-step value). No manual counts.
 
-## Directory Structure
+## Data Attributes
 
-\`\`\`
-my-deck/
-├── deck.json           # Manifest (slide order, theme, transitions)
-├── slides/             # Slide HTML files
-├── layouts/            # Slide master templates (optional)
-├── themes/             # CSS theme files
-├── assets/             # Images, logos, etc.
-└── annotations.json    # Feedback/comments (optional)
-\`\`\`
+**On <section>:**
+- \`data-layout="name"\` — wrap in a slide master layout from layouts/
+- \`data-transition="type"\` — per-slide transition override
 
-## Semantic Color Classes
+**On any element:**
+- \`data-step="N"\` — reveal on Nth click (1-indexed)
+- \`data-animate="type"\` — animation type (fade, slide-up, slide-down, slide-left, slide-right, scale)
+- \`data-delay="ms"\` — delay in milliseconds
+- \`data-duration="ms"\` — animation duration in milliseconds
+- \`data-stagger="ms"\` — stagger children by ms (on parent element)
+- \`data-morph="id"\` — shared element transition between slides
 
-Always use these for consistent theming:
-- \`text-foreground\` — primary text
-- \`text-muted-foreground\` — secondary/description text
-- \`text-primary\` — brand color text
-- \`bg-background\` — slide background
-- \`bg-card\` — card/panel background
-- \`bg-primary\` — brand color background
-- \`bg-primary/10\` — subtle brand background
-- \`border-border\` — standard borders
+## Animations
 
-## Slide Dimensions
-
-1280×720 pixels (16:9). Content scales automatically in presentation mode.
-
-## Asset Protocol
-
-Use \`asset://filename\` for images:
-\`\`\`html
-<img src="asset://logo.svg" class="h-8" />
-<img src="asset://hero-bg.jpg" class="absolute inset-0 object-cover -z-10" />
-\`\`\`
-
-Upload assets with the upload_asset tool.`,
-
-  animations: `# Animation Reference
-
-## Click-to-Reveal (data-step)
-
-Elements with \`data-step="N"\` are hidden until the Nth click:
+### Click-to-Reveal
 
 \`\`\`html
-<!-- Always visible -->
-<h1>Title</h1>
-
-<!-- Appears on 1st click -->
-<p data-step="1" data-animate="fade">First point</p>
-
-<!-- Appears on 2nd click -->
-<p data-step="2" data-animate="slide-up">Second point</p>
+<h1>Always visible</h1>
+<p data-step="1" data-animate="fade">Appears on 1st click</p>
+<p data-step="2" data-animate="slide-up">Appears on 2nd click</p>
 \`\`\`
 
-Steps are 1-indexed. Multiple elements can share the same step (appear together).
+Steps are 1-indexed. Multiple elements can share the same step.
 
-## Animation Types
+### Animation Types
 
 | Type | Effect |
 |------|--------|
@@ -130,26 +103,19 @@ Steps are 1-indexed. Multiple elements can share the same step (appear together)
 | \`slide-right\` | Slide from left + fade |
 | \`scale\` | Scale up from 0.8 + fade |
 
-## Timing
-
-- \`data-delay="200"\` — delay in ms before animation starts
-- \`data-duration="400"\` — animation duration in ms
-
-## Stagger (Group Animation)
+### Stagger
 
 Add \`data-stagger="100"\` to a parent to stagger children:
 
 \`\`\`html
 <div data-step="1" data-animate="slide-up" data-stagger="100">
-  <div class="card">First</div>
-  <div class="card">Second</div>
-  <div class="card">Third</div>
+  <div>First</div>
+  <div>Second</div>
+  <div>Third</div>
 </div>
 \`\`\`
 
-Children appear one by one with 100ms between each.
-
-## Entrance Animation (No Step)
+### Entrance Animation (No Step)
 
 Elements with \`data-animate\` but no \`data-step\` animate on slide entry:
 
@@ -157,276 +123,77 @@ Elements with \`data-animate\` but no \`data-step\` animate on slide entry:
 <h1 data-animate="scale">Always animates in</h1>
 \`\`\`
 
-## Cross-Slide Morph (data-morph)
-
-Smoothly transition elements between consecutive slides:
+### Cross-Slide Morph
 
 \`\`\`html
-<!-- Slide 1 -->
-<h1 data-morph="title" class="text-7xl">Title</h1>
-
-<!-- Slide 2 (same data-morph ID) -->
-<h1 data-morph="title" class="text-3xl">Title</h1>
+<!-- Slide 1 --><h1 data-morph="title" class="text-7xl">Title</h1>
+<!-- Slide 2 --><h1 data-morph="title" class="text-3xl">Title</h1>
 \`\`\`
 
-The element morphs smoothly between sizes/positions.
+### Slide Transitions
 
-## Patterns
+Set in deck.json or per-slide via \`data-transition\`:
+\`fade\` (default), \`slide-left\`, \`slide-right\`, \`slide-up\`, \`slide-down\`,
+\`zoom\`, \`zoom-fade\`, \`morph\`, \`none\`
 
-**Sequential cards** — each on its own step:
-\`\`\`html
-<div data-step="1" data-animate="slide-up">Card A</div>
-<div data-step="2" data-animate="slide-up">Card B</div>
-<div data-step="3" data-animate="slide-up">Card C</div>
-\`\`\`
+## Slide Master Layouts
 
-**Staggered grid** — all at once with visual stagger:
-\`\`\`html
-<div class="grid grid-cols-3 gap-6"
-     data-step="1" data-animate="slide-up" data-stagger="100">
-  <div>Item 1</div>
-  <div>Item 2</div>
-  <div>Item 3</div>
-</div>
-\`\`\`
+Layouts define repeating structure (headers, footers, numbering) shared across
+slides. Create 2-3 layouts early for visual consistency.
 
-**Two-phase reveal** — header then details:
-\`\`\`html
-<h2 data-step="1" data-animate="fade">The Answer</h2>
-<div data-step="2" data-animate="slide-up" data-stagger="80">
-  <p>Detail 1</p>
-  <p>Detail 2</p>
-</div>
-\`\`\`
+### Template Slots
 
-## Slide Transitions
+Layouts use \`<!-- slot:name -->\` markers.
 
-Set on the deck level in deck.json or per-slide via data-transition:
-- \`fade\` (default), \`slide-left\`, \`slide-right\`, \`slide-up\`, \`slide-down\`
-- \`zoom\`, \`zoom-fade\`, \`morph\`, \`none\``,
-
-  design: `# Slide Design Guide
-
-## Visual Diversity
-
-When creating multiple slides, VARY the visual treatment. Do not repeat the same
-layout pattern on consecutive slides.
-
-## Background Variety
-
-Not every slide needs plain \`bg-background\`. Alternate between:
-
-**Gradient mesh:**
-\`\`\`html
-<div class="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background"></div>
-<div class="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl"></div>
-\`\`\`
-
-**Split background:**
-\`\`\`html
-<div class="absolute inset-y-0 left-0 w-1/2 bg-primary"></div>
-\`\`\`
-
-**Radial spotlight:**
-\`\`\`html
-<div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--primary)_0%,_transparent_70%)] opacity-10"></div>
-\`\`\`
-
-## Card Style Variety
-
-Do NOT use \`rounded-xl border border-border bg-card\` on every slide. Alternate:
-
-- **Glass:** \`rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md\`
-- **Gradient:** \`bg-gradient-to-br from-primary/15 to-transparent border border-primary/10\`
-- **Elevated:** \`shadow-xl shadow-primary/10\`
-- **Accent border:** \`border-l-4 border-l-primary\`
-- **No cards** — use large typography or data visualizations directly
-
-## Layout Patterns
-
-Don't make every slide a 3-column equal grid. Use:
-- Asymmetric splits (\`grid-cols-5\` with \`col-span-2\` + \`col-span-3\`)
-- Bento grids with mixed tile sizes
-- Vertical timelines with alternating left/right
-- Full-width typography-driven layouts
-- Side-by-side comparisons with contrasting panels
-
-## Animation Variety
-
-Use different animations on different slides:
-- \`fade\` for quotes, images, subtle reveals
-- \`slide-left\` / \`slide-right\` for split-screen content
-- \`scale\` for hero elements and card grids
-- \`slide-up\` for sequential list items
-- \`data-stagger\` for grids and collections
-
-## Typography Tips
-
-- Hero titles: \`text-6xl\` to \`text-8xl\`, \`font-bold\`, \`tracking-tight\`
-- Section titles: \`text-3xl\` to \`text-5xl\`
-- Body: \`text-lg\` to \`text-xl\`, \`text-muted-foreground\`
-- Eyebrows: \`text-xs font-bold tracking-[0.2em] text-primary uppercase\`
-- Numbers/stats: \`text-5xl font-bold text-primary\`
-
-## Icons
-
-Use Lucide icons as inline SVGs or reference them by name in content.
-Common useful icons: ArrowRight, Check, Star, Zap, Shield, Globe, Code, etc.`,
-
-  theming: `# Theming Reference
-
-## Theme Files
-
-Themes are CSS files in the \`themes/\` directory. Each theme defines CSS custom
-properties for colors, fonts, and spacing.
-
-A theme file MUST start with \`@import "tailwindcss";\` and define variables in
-both \`:root\` (light) and \`.dark\` (dark mode) selectors.
-
-## CSS Variables
-
-### Required Variables
-
-\`\`\`css
-:root {
-  --background: oklch(1 0 0);          /* Page background */
-  --foreground: oklch(0.145 0 0);      /* Primary text */
-  --card: oklch(1 0 0);               /* Card/panel background */
-  --card-foreground: oklch(0.145 0 0); /* Card text */
-  --primary: oklch(0.55 0.2 250);      /* Brand color */
-  --primary-foreground: oklch(0.985 0 0); /* Text on primary bg */
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0); /* Secondary text */
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --border: oklch(0.922 0 0);          /* Borders */
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
-}
-\`\`\`
-
-### Dark Mode (always include)
-
-\`\`\`css
-.dark {
-  --background: oklch(0.159 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --primary: oklch(0.6 0.2 250);       /* Slightly brighter for dark */
-  --muted-foreground: oklch(0.712 0 0);
-  --border: oklch(0.269 0 0);
-}
-\`\`\`
-
-## OKLCH Color Format
-
-\`oklch(lightness chroma hue)\`
-
-- **Lightness**: 0 (black) to 1 (white)
-- **Chroma**: 0 (gray) to ~0.4 (vivid)
-- **Hue**: 0-360 (0=red, 60=yellow, 120=green, 195=teal, 250=blue, 300=purple)
-
-### Brand Color Examples
-
-| Brand | Light | Dark | Hue |
-|-------|-------|------|-----|
-| Blue | oklch(0.55 0.2 250) | oklch(0.6 0.2 250) | 250 |
-| Purple | oklch(0.55 0.2 300) | oklch(0.6 0.2 300) | 300 |
-| Green | oklch(0.6 0.2 145) | oklch(0.65 0.2 145) | 145 |
-| Orange | oklch(0.661 0.201 41) | oklch(0.7 0.2 41) | 41 |
-| Teal | oklch(0.6 0.15 195) | oklch(0.65 0.15 195) | 195 |
-
-## Tips
-
-- Light mode primary: lightness 0.5–0.6, chroma 0.15–0.25
-- Dark mode: increase lightness by 0.05 for readability
-- Dark mode is the default and recommended mode`,
-
-  layouts: `# Slide Master Layouts
-
-## What Layouts Are
-
-Layouts work like PowerPoint slide masters. They define the repeating structure
-(headers, footers, section numbering, background treatment) shared across slides.
-The slide provides its content; the layout controls where it goes.
-
-**Create layouts early** — they ensure visual consistency and make batch edits easy.
-When a layout changes, all slides using it update automatically.
-
-## Template Slots
-
-Layouts use \`<!-- slot:name -->\` markers. Slots are flexible — define any you need.
-
-### Text Slots (from data- attributes)
-
-Any \`data-*\` attribute on \`<section>\` becomes a text slot:
+**Text slots** — from \`data-*\` attributes on \`<section>\`:
 \`\`\`html
 <section data-layout="content" data-title="Memory" data-section="04">
 \`\`\`
 Layout uses: \`<!-- slot:title -->\` → "Memory", \`<!-- slot:section -->\` → "04"
 
-### Content Slots (from <slot> elements)
-
-For rich HTML content, use named \`<slot>\` elements:
+**Content slots** — from \`<slot>\` elements:
 \`\`\`html
 <section data-layout="split">
   <slot name="left"><h1>Problem</h1><p>Details...</p></slot>
-  <slot name="right"><img src="asset://chart.png" /><p data-step="1">Insight</p></slot>
+  <slot name="right"><img src="asset://chart.png" /></slot>
 </section>
 \`\`\`
-Layout uses: \`<!-- slot:left -->\` and \`<!-- slot:right -->\`
 
-### Built-in Markers
+**Built-in markers:** \`<!-- content -->\`, \`<!-- slideNumber -->\`, \`<!-- totalSlides -->\`
 
-| Marker | Source |
-|--------|--------|
-| \`<!-- content -->\` | Remaining slide HTML (not inside a \`<slot>\`) |
-| \`<!-- slideNumber -->\` | Auto — current slide number |
-| \`<!-- totalSlides -->\` | Auto — total slide count |
+### Content Wrapping
 
-## Example: Content Layout (text slots)
+The compiler may wrap injected content in a plain \`<div>\` when there are
+multiple siblings. This breaks direct flex/grid child relationships. Handle it
+by wrapping the slot marker in a flex container:
+
+\`\`\`html
+<!-- Vertically centered -->
+<div class="flex-1 flex items-center justify-center px-20 py-10 overflow-hidden">
+  <!-- content -->
+</div>
+\`\`\`
+
+### Example: Content Layout
 
 \`\`\`html
 <!-- layouts/content.html -->
 <div class="flex h-full w-full flex-col bg-background">
-  <!-- Header -->
   <div class="flex items-baseline gap-6 px-20 pt-12 pb-8 border-b border-border">
     <span class="text-xs text-muted-foreground uppercase tracking-[0.3em]"><!-- slot:section --></span>
     <h2 class="text-4xl font-bold tracking-tight text-foreground"><!-- slot:title --></h2>
   </div>
-
-  <!-- Content area -->
   <div class="flex-1 px-20 py-10 overflow-hidden">
     <!-- content -->
   </div>
-
-  <!-- Footer -->
   <div class="flex items-center justify-between px-20 py-4 border-t border-border">
     <img src="asset://logo.svg" class="h-6" />
-    <span class="text-xs text-muted-foreground">
-      <!-- slideNumber --> / <!-- totalSlides -->
-    </span>
+    <span class="text-xs text-muted-foreground"><!-- slideNumber --> / <!-- totalSlides --></span>
   </div>
 </div>
 \`\`\`
 
-\`\`\`html
-<section data-layout="content" data-section="03" data-title="The Agentic Loop">
-  <div class="grid grid-cols-3 gap-8">
-    <div data-step="1" data-animate="slide-up">Card 1</div>
-    <div data-step="2" data-animate="slide-up">Card 2</div>
-    <div data-step="3" data-animate="slide-up">Card 3</div>
-  </div>
-</section>
-\`\`\`
-
-\`data-section\` → \`<!-- slot:section -->\`, \`data-title\` → \`<!-- slot:title -->\`,
-inner HTML → \`<!-- content -->\`.
-
-## Example: Split Layout (content slots)
+### Example: Split Layout
 
 \`\`\`html
 <!-- layouts/split.html -->
@@ -440,71 +207,287 @@ inner HTML → \`<!-- content -->\`.
 </div>
 \`\`\`
 
-\`\`\`html
-<section data-layout="split">
-  <slot name="sidebar">
-    <span class="text-xs text-muted-foreground uppercase tracking-[0.3em] mb-4">04</span>
-    <h2 class="text-5xl font-bold tracking-tight text-foreground leading-tight">Memory Systems</h2>
-    <p class="mt-6 text-muted-foreground leading-relaxed">How agents persist knowledge across sessions.</p>
-  </slot>
-  <slot name="main">
-    <div class="space-y-6" data-step="1" data-animate="slide-up" data-stagger="100">
-      <div>Short-term: context window</div>
-      <div>Long-term: vector stores</div>
-      <div>Episodic: experience replay</div>
-    </div>
-  </slot>
-</section>
+Slides without \`data-layout\` are freeform (full 1280×720 container).
+
+## Theming
+
+Themes are CSS files in \`themes/\`. A \`default.css\` is auto-created with the
+Tailwind import and color mappings — do NOT add \`@import "tailwindcss"\` in
+custom themes (it's already in default.css and duplicating it breaks colors).
+
+Custom themes should only contain:
+- \`@import url(...)\` for external fonts (optional)
+- \`@theme inline { ... }\` for font overrides (use \`inline\` to extend, not replace)
+- \`:root\` and \`.dark\` blocks with CSS variable overrides
+
+Define variables in both \`:root\` (light) and \`.dark\` selectors.
+Dark mode is the default.
+
+### Brand Color
+
+\`\`\`css
+:root { --primary: oklch(0.55 0.2 250); }
+.dark { --primary: oklch(0.6 0.2 250); }
 \`\`\`
 
-Content slots give full control over each panel's HTML, including animations.
+OKLCH: \`oklch(lightness chroma hue)\` — lightness 0-1, chroma 0-0.4, hue 0-360
 
-## Mix Text and Content Slots
+| Brand | Light | Dark | Hue |
+|-------|-------|------|-----|
+| Blue | oklch(0.55 0.2 250) | oklch(0.6 0.2 250) | 250 |
+| Purple | oklch(0.55 0.2 300) | oklch(0.6 0.2 300) | 300 |
+| Green | oklch(0.6 0.2 145) | oklch(0.65 0.2 145) | 145 |
+| Orange | oklch(0.661 0.201 41) | oklch(0.7 0.2 41) | 41 |
+| Teal | oklch(0.6 0.15 195) | oklch(0.65 0.15 195) | 195 |
 
-You can combine both in one layout:
+### Semantic Color Classes
 
+- \`text-foreground\` / \`text-muted-foreground\` / \`text-primary\`
+- \`bg-background\` / \`bg-card\` / \`bg-primary\` / \`bg-primary/10\`
+- \`border-border\`
+
+### Asset Protocol
+
+Use \`asset://filename\` for images:
 \`\`\`html
-<!-- layouts/titled-split.html -->
-<div class="flex h-full w-full flex-col bg-background">
-  <div class="px-20 pt-12 pb-6 border-b border-border">
-    <span class="text-xs text-muted-foreground uppercase tracking-[0.3em]"><!-- slot:section --></span>
-    <h2 class="text-4xl font-bold text-foreground mt-2"><!-- slot:title --></h2>
+<img src="asset://logo.svg" class="h-8" />
+\`\`\`
+
+Upload assets with the upload_asset tool.
+
+## Visual Verification
+
+**Always verify slides visually after creating or editing them.**
+
+- **get_screenshot(slide)** — capture a single slide as PNG. Use after every
+  create_slide, write_slide, or edit_slide call.
+- **get_deck_overview** — thumbnail grid of all slides. Check visual consistency.
+
+Common issues only visible in rendered output: broken alignment, wrong colors,
+text overflow, content clipped by overflow-hidden.
+
+## Workflow
+
+1. create_deck → directory structure
+2. write_layout × 2-3 → slide master layouts
+3. write_theme (optional) → brand colors
+4. create_slide × N → slides referencing layouts
+5. get_screenshot / get_deck_overview → verify visuals
+6. edit_slide / write_slide → iterate
+7. open_preview → present in browser
+8. export_pdf → export for sharing`,
+
+  "design-recipes": `# Design Recipes
+
+Ready-to-use code snippets for visually diverse slides.
+Do not repeat the same pattern on consecutive slides.
+
+## Background Treatments
+
+### Gradient Mesh
+\`\`\`html
+<div class="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background"></div>
+<div class="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl"></div>
+<div class="absolute bottom-1/4 right-10 h-64 w-64 rounded-full bg-primary/5 blur-2xl"></div>
+<div class="relative z-10">Content here</div>
+\`\`\`
+
+### Split Background
+\`\`\`html
+<div class="absolute inset-y-0 left-0 w-2/5 bg-primary"></div>
+<div class="relative flex h-full">
+  <div class="w-2/5 flex flex-col justify-center px-12">
+    <h2 class="text-5xl font-bold text-primary-foreground">Statement</h2>
   </div>
-  <div class="flex flex-1">
-    <div class="w-1/2 px-16 py-10 border-r border-border"><!-- slot:left --></div>
-    <div class="w-1/2 px-16 py-10"><!-- slot:right --></div>
+  <div class="w-3/5 flex flex-col justify-center px-12">Content</div>
+</div>
+\`\`\`
+
+### Radial Spotlight
+\`\`\`html
+<div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--primary)_0%,_transparent_70%)] opacity-10"></div>
+\`\`\`
+
+## Card Styles
+
+### Glass
+\`\`\`html
+<div class="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-lg shadow-primary/5 backdrop-blur-md">
+\`\`\`
+
+### Gradient
+\`\`\`html
+<div class="rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/15 to-transparent p-8">
+\`\`\`
+
+### Elevated
+\`\`\`html
+<div class="rounded-2xl bg-card p-8 shadow-xl shadow-primary/10">
+\`\`\`
+
+### Accent Border
+\`\`\`html
+<div class="rounded-2xl border border-border border-l-4 border-l-primary bg-card p-8">
+\`\`\`
+
+## Layout Patterns
+
+### Bento Grid
+\`\`\`html
+<div class="grid h-full grid-cols-3 grid-rows-2 gap-4">
+  <div class="col-span-2 rounded-2xl bg-gradient-to-br from-primary/15 to-transparent p-8"
+       data-step="1" data-animate="scale">Wide tile</div>
+  <div class="row-span-2 rounded-2xl border border-border bg-card p-6"
+       data-step="1" data-animate="scale" data-delay="100">Tall tile</div>
+  <div class="rounded-2xl bg-muted/30 p-6"
+       data-step="1" data-animate="scale" data-delay="200">Small</div>
+  <div class="rounded-2xl bg-primary p-6"
+       data-step="1" data-animate="scale" data-delay="300">
+    <span class="text-primary-foreground">Highlight</span></div>
+</div>
+\`\`\`
+
+### Vertical Timeline
+\`\`\`html
+<div class="relative flex h-full items-center justify-center">
+  <div class="absolute left-1/2 top-4 bottom-4 w-px -translate-x-1/2 bg-border"></div>
+  <div class="relative w-full max-w-4xl space-y-8">
+    <div class="relative flex items-center" data-step="1" data-animate="fade">
+      <div class="absolute left-1/2 h-4 w-4 -translate-x-1/2 rounded-full bg-primary ring-4 ring-background"></div>
+      <div class="w-1/2 pr-12 text-right">
+        <div class="text-xs font-mono text-primary/60 mb-1">01</div>
+        <h3 class="text-lg font-semibold text-foreground">Step One</h3>
+        <p class="text-sm text-muted-foreground">Description</p>
+      </div>
+      <div class="w-1/2"></div>
+    </div>
   </div>
 </div>
 \`\`\`
 
+### Comparison / Before-After
 \`\`\`html
-<section data-layout="titled-split" data-section="05" data-title="Comparison">
-  <slot name="left"><h3>Traditional RAG</h3><p>Single retrieval step...</p></slot>
-  <slot name="right"><h3>Agentic RAG</h3><p>Iterative reasoning...</p></slot>
-</section>
+<div class="relative flex h-full items-center">
+  <div class="grid w-full grid-cols-2 gap-8">
+    <div data-step="1" data-animate="slide-right"
+         class="rounded-2xl border border-border bg-muted/30 p-8">
+      <h3 class="mb-6 text-lg font-semibold text-muted-foreground">The Old Way</h3>
+    </div>
+    <div data-step="2" data-animate="slide-left"
+         class="rounded-2xl border border-primary/20 bg-primary/5 p-8 shadow-lg shadow-primary/10">
+      <h3 class="mb-6 text-lg font-semibold text-primary">The New Way</h3>
+    </div>
+  </div>
+  <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background px-3 py-1 text-xs font-bold text-muted-foreground">VS</div>
+</div>
 \`\`\`
 
-## Recommended Workflow
-
-1. **Create 2-3 layouts early** (after create_deck):
-   - \`content.html\` — standard content slides with header + footer
-   - \`title.html\` — section title slides, large centered text
-   - \`split.html\` — two-column layout for comparison/detail slides
-2. **Use layouts on most slides** — only go freeform for hero/closing slides
-3. **Edit a layout to update all slides** — change the footer logo once, not 14 times
-
-## Multiple Layouts
-
-\`\`\`
-layouts/
-├── content.html     # Standard with header/section/footer
-├── title.html       # Section title, large centered
-├── split.html       # Two-column with structured left panel
-└── full.html        # Minimal — just padding and centering
+### Asymmetric Two-Column
+\`\`\`html
+<div class="grid h-full grid-cols-5 gap-12 items-center">
+  <div class="col-span-3">Larger content</div>
+  <div class="col-span-2">Supporting content</div>
+</div>
 \`\`\`
 
-Each slide chooses its layout independently via \`data-layout\`.
-Slides without \`data-layout\` are freeform (full 1280×720 container).`
+## Data Visualization
+
+### Big Numbers + Progress Bars
+\`\`\`html
+<div class="grid grid-cols-3 gap-10" data-step="1" data-animate="slide-up" data-stagger="100">
+  <div>
+    <div class="text-6xl font-bold tracking-tight text-primary">$10M</div>
+    <div class="mt-4 h-1 w-4/5 rounded-full bg-gradient-to-r from-primary to-primary/30"></div>
+    <div class="mt-3 text-lg font-semibold text-foreground">Revenue</div>
+    <div class="text-sm text-muted-foreground">Annual recurring</div>
+  </div>
+</div>
+\`\`\`
+
+### CSS Bar Chart
+\`\`\`html
+<div class="flex h-48 items-end gap-4">
+  <div class="flex w-16 flex-col items-center gap-2">
+    <div class="w-full rounded-t-lg bg-primary/80" style="height: 80%"></div>
+    <span class="text-xs text-muted-foreground">Q1</span>
+  </div>
+</div>
+\`\`\`
+
+### SVG Donut Ring
+\`\`\`html
+<svg class="h-32 w-32 -rotate-90" viewBox="0 0 120 120">
+  <circle cx="60" cy="60" r="50" fill="none" stroke-width="10" class="stroke-border" />
+  <circle cx="60" cy="60" r="50" fill="none" stroke-width="10"
+    stroke-dasharray="314" stroke-dashoffset="78" stroke-linecap="round"
+    class="stroke-primary" />
+</svg>
+<div class="text-3xl font-bold text-primary">75%</div>
+\`\`\`
+
+## Typography
+
+### Large Quote
+\`\`\`html
+<div class="flex h-full flex-col items-center justify-center text-center">
+  <span class="block font-serif text-[120px] leading-none text-primary/20">&ldquo;</span>
+  <p class="-mt-10 max-w-4xl text-3xl font-light leading-relaxed italic text-foreground"
+     data-step="1" data-animate="fade">Quote text here.</p>
+  <div class="mx-auto mt-8 mb-6 h-px w-16 bg-primary/40"></div>
+  <div class="text-lg font-semibold text-foreground">Speaker Name</div>
+  <div class="text-sm text-muted-foreground">Title, Company</div>
+</div>
+\`\`\`
+
+### Headline-Only
+\`\`\`html
+<div class="flex h-full flex-col items-center justify-center text-center">
+  <h1 class="max-w-5xl text-6xl font-bold leading-tight text-foreground">
+    We don't just build products.<br />
+    We build <span class="text-primary">movements</span>.
+  </h1>
+</div>
+\`\`\`
+
+## Typography Scale
+
+- Hero: \`text-6xl\` to \`text-8xl\`, \`font-bold\`, \`tracking-tight\`
+- Section: \`text-3xl\` to \`text-5xl\`
+- Body: \`text-lg\` to \`text-xl\`, \`text-muted-foreground\`
+- Eyebrow: \`text-xs font-bold tracking-[0.2em] text-primary uppercase\`
+- Stats: \`text-5xl font-bold text-primary\`
+
+## Animation Matching
+
+| Layout | Animation | Why |
+|--------|----------|-----|
+| Hero/Title | \`scale\` or \`fade\` | Dramatic, non-directional |
+| Split Screen | \`slide-right\` + \`slide-left\` | Panels from edges |
+| Card Grid | \`data-stagger\` + \`scale\` | Uniform pop-in |
+| Timeline | \`fade\` | Clean, no movement |
+| Comparison | \`slide-right\` + \`slide-left\` | Opposing directions |
+| Metrics | \`slide-up\` | Vertical reveal |
+| Quote | \`fade\` | Let words speak |
+
+## Anti-Patterns
+
+- Same card style on every slide
+- \`slide-up\` on everything
+- All equal-width columns
+- Two consecutive slides with same layout pattern
+
+## Pitch Deck Order
+
+1. Title — hero gradient, large typography
+2. Problem — comparison (old vs new)
+3. Solution — split screen, bold statement
+4. How It Works — timeline or process
+5. Features — bento grid
+6. Market — big numbers
+7. Traction — data viz
+8. Team — glass cards on gradient
+9. Business Model — accent-border or split
+10. CTA — quote or headline-only`
 }
 
 /**

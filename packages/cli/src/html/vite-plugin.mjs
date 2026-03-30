@@ -68,6 +68,8 @@ export function htmlSlidesPlugin({ root: initialRoot } = {}) {
   const manifests = new Map()
   /** @type {Map<string, Map<string, string>>} slug -> (filename -> compiled source) */
   const compiledSlidesMap = new Map()
+  /** @type {Map<string, Map<string, number>>} slug -> (filename -> step count) — for detecting step changes */
+  const slideStepsMap = new Map()
 
   function loadManifest(slug) {
     const deckPath = join(root, slug)
@@ -92,6 +94,7 @@ export function htmlSlidesPlugin({ root: initialRoot } = {}) {
 
     const deckPath = join(root, slug)
     const compiled = new Map()
+    const steps = new Map()
 
     for (const slideEntry of manifest.slides) {
       const slidePath = join(deckPath, "slides", slideEntry.file)
@@ -107,9 +110,11 @@ export function htmlSlidesPlugin({ root: initialRoot } = {}) {
         slots: parsed.slots
       })
       compiled.set(slideEntry.file, compiledSrc)
+      steps.set(slideEntry.file, parsed.steps)
     }
 
     compiledSlidesMap.set(slug, compiled)
+    slideStepsMap.set(slug, steps)
   }
 
   function compileAllDecks() {
@@ -159,7 +164,8 @@ export function htmlSlidesPlugin({ root: initialRoot } = {}) {
         steps = parsed.steps
       }
 
-      const configParts = [`component: ${varName}`, `steps: ${steps}`]
+      const slideId = entry.file.replace(/\.html$/, "")
+      const configParts = [`id: "${slideId}"`, `component: ${varName}`, `steps: ${steps}`]
       if (entry.section) configParts.push(`section: "${entry.section}"`)
       if (entry.transition) configParts.push(`transition: "${entry.transition}"`)
 
@@ -316,6 +322,38 @@ createRoot(document.getElementById("root")).render(
     },
 
     configureServer(server) {
+      // PDF export endpoint: /api/export/:slug.pdf
+      server.middlewares.use(async (req, res, next) => {
+        const url = req.url || ""
+        const pdfMatch = url.match(/^\/api\/export\/([^/]+)\.pdf$/)
+        if (pdfMatch) {
+          const slug = pdfMatch[1]
+          if (!manifests.has(slug)) {
+            res.statusCode = 404
+            res.end(JSON.stringify({ error: `Deck "${slug}" not found` }))
+            return
+          }
+
+          try {
+            const { exportPdfBuffer } = await import("../mcp/pdf-export.mjs")
+            const address = server.httpServer?.address()
+            const port = typeof address === "object" ? address?.port : 5173
+            const pdfBuffer = await exportPdfBuffer({ deckSlug: slug, devServerPort: port })
+
+            res.setHeader("Content-Type", "application/pdf")
+            res.setHeader("Content-Disposition", `attachment; filename="${slug}.pdf"`)
+            res.setHeader("Content-Length", pdfBuffer.length)
+            res.end(pdfBuffer)
+          } catch (err) {
+            res.statusCode = 500
+            res.setHeader("Content-Type", "application/json")
+            res.end(JSON.stringify({ error: `PDF export failed: ${err.message}` }))
+          }
+          return
+        }
+        next()
+      })
+
       // Serve assets for specific decks: /:slug/assets/*
       server.middlewares.use((req, res, next) => {
         const url = req.url || ""
@@ -403,6 +441,12 @@ createRoot(document.getElementById("root")).render(
           if (!compiledSlidesMap.has(slug)) compiledSlidesMap.set(slug, new Map())
           compiledSlidesMap.get(slug).set(filename, compiled)
 
+          // Track step count changes
+          const oldSteps = slideStepsMap.get(slug)?.get(filename)
+          const newSteps = parsed.steps
+          if (!slideStepsMap.has(slug)) slideStepsMap.set(slug, new Map())
+          slideStepsMap.get(slug).set(filename, newSteps)
+
           // Invalidate the specific slide module — Vite HMR handles the rest
           // React Fast Refresh will hot-swap the component without losing state
           const slideModId = RESOLVED_SLIDE_PREFIX + slug + "/" + filename + VIRTUAL_SLIDE_SUFFIX
@@ -421,11 +465,8 @@ createRoot(document.getElementById("root")).render(
             })
           }
 
-          // Check if steps changed — if so, entry needs update too (requires reload)
-          const oldSteps = manifests.get(slug)?.slides?.find(s => s.file === filename)?._cachedSteps
-          const newSteps = parsed.steps
+          // If steps changed, entry module needs update too (step counts are in the entry)
           if (oldSteps !== undefined && oldSteps !== newSteps) {
-            // Steps changed — need to reload entry to update step counts
             const entryModId = RESOLVED_HTML_ENTRY + "--" + slug
             const entryMod = server.moduleGraph.getModuleById(entryModId)
             if (entryMod) server.moduleGraph.invalidateModule(entryMod)
@@ -564,18 +605,30 @@ createRoot(document.getElementById("root")).render(
  * Vite plugin that injects @source for framework core files BEFORE PostCSS/Tailwind runs.
  * This ensures Tailwind scans SlideDeck, Animated, etc. for utility class names.
  */
-export function tailwindSourcePlugin() {
+export function tailwindSourcePlugin({ deckRoot } = {}) {
   const corePath = resolve(__dirname, "../core")
   return {
     name: "promptslide:tailwind-source",
     enforce: "pre",
     transform(code, id) {
       if (id.endsWith(".css") && code.includes("@import") && code.includes("tailwindcss")) {
-        // @source must come after @import in Tailwind v4
-        return code.replace(
-          /@import\s+["']tailwindcss["'];?/,
-          `$&\n@source "${corePath}";`
-        )
+        // @source must come after ALL @import statements (CSS requires @import before other rules)
+        // Find the last @import statement and inject @source after it
+        const importRegex = /@import\s+[^;]+;/g
+        let lastImportEnd = 0
+        let match
+        while ((match = importRegex.exec(code)) !== null) {
+          lastImportEnd = match.index + match[0].length
+        }
+        if (lastImportEnd > 0) {
+          let sources = `\n@source "${corePath}";`
+          // Also scan deck HTML files (slides, layouts) so Tailwind generates
+          // CSS for all utility classes used in slide content
+          if (deckRoot) {
+            sources += `\n@source "${deckRoot}";`
+          }
+          return code.slice(0, lastImportEnd) + sources + code.slice(lastImportEnd)
+        }
       }
     }
   }

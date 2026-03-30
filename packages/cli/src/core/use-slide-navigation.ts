@@ -35,6 +35,38 @@ export interface UseSlideNavigationReturn {
 }
 
 // =============================================================================
+// URL HASH HELPERS
+// =============================================================================
+
+/** Read slide index from URL hash. Supports both ID (#architecture) and legacy number (#3) */
+function readSlideFromHash(slides: SlideConfig[]): number | null {
+  if (typeof window === "undefined") return null
+  const hash = window.location.hash.slice(1) // remove #
+  if (!hash) return null
+
+  // Try matching by slide ID first
+  const idx = slides.findIndex(s => s.id === hash)
+  if (idx >= 0) return idx
+
+  // Fallback: legacy 1-based number
+  const num = parseInt(hash, 10)
+  if (!isNaN(num) && num >= 1 && num <= slides.length) return num - 1
+
+  return null
+}
+
+/** Write current slide ID to URL hash */
+function writeSlideToHash(slides: SlideConfig[], index: number): void {
+  if (typeof window === "undefined") return
+  const id = slides[index]?.id
+  if (!id) return
+  const newHash = `#${id}`
+  if (window.location.hash !== newHash) {
+    history.replaceState(null, "", newHash)
+  }
+}
+
+// =============================================================================
 // HOOK
 // =============================================================================
 
@@ -43,7 +75,10 @@ export function useSlideNavigation({
   initialSlide = 0,
   onSlideChange
 }: UseSlideNavigationOptions): UseSlideNavigationReturn {
-  const [currentSlide, setCurrentSlide] = useState(initialSlide)
+  const [currentSlide, setCurrentSlide] = useState(() => {
+    const fromHash = readSlideFromHash(slides)
+    return fromHash ?? initialSlide
+  })
   const [animationStep, setAnimationStep] = useState(0)
 
   const [navState, setNavState] = useState<NavigationState>({
@@ -54,6 +89,27 @@ export function useSlideNavigation({
   const [queuedAction, setQueuedAction] = useState<QueuedAction>(null)
 
   const totalSteps = slides[currentSlide]?.steps ?? 0
+
+  // Sync slide index → URL hash
+  useEffect(() => {
+    writeSlideToHash(slides, currentSlide)
+  }, [currentSlide, slides])
+
+  // Listen for hash changes (manual URL edits, back/forward)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const fromHash = readSlideFromHash(slides)
+      if (fromHash !== null && fromHash !== currentSlide) {
+        const direction = fromHash > currentSlide ? 1 : -1
+        setNavState({ status: "transitioning", direction })
+        setAnimationStep(0)
+        setCurrentSlide(fromHash)
+        onSlideChange?.(fromHash)
+      }
+    }
+    window.addEventListener("hashchange", handleHashChange)
+    return () => window.removeEventListener("hashchange", handleHashChange)
+  }, [currentSlide, slides, onSlideChange])
 
   const onTransitionComplete = useCallback(() => {
     setNavState(prev => {

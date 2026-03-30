@@ -1,6 +1,6 @@
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, Download, Grid3X3, List, Maximize, Monitor } from "lucide-react"
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
+import { ChevronLeft, ChevronRight, Download, Grid3X3, List, Loader2, Maximize, Monitor } from "lucide-react"
+import { Fragment, type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 
 import type { SlideTransitionType } from "./transitions"
 import type { SlideConfig } from "./types"
@@ -119,6 +119,7 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
   const [viewMode, setViewMode] = useState<ViewMode>("slide")
   const [isPresentationMode, setIsPresentationMode] = useState(false)
   const [scale, setScale] = useState(1)
+  const [isExporting, setIsExporting] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const {
@@ -171,7 +172,31 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
     return () => window.removeEventListener("resize", calculateScale)
   }, [isPresentationMode])
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
+    // Try API-based export first (no print dialog), fall back to window.print()
+    const slug = window.location.pathname.replace(/^\//, "").split("/")[0]
+    if (slug) {
+      setIsExporting(true)
+      try {
+        const response = await fetch(`/api/export/${slug}.pdf`)
+        if (!response.ok) throw new Error("Export failed")
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = `${slug}.pdf`
+        link.click()
+        URL.revokeObjectURL(url)
+      } catch {
+        // Fallback to print dialog on error
+        window.print()
+      } finally {
+        setIsExporting(false)
+      }
+      return
+    }
+
+    // Fallback: window.print()
     const previousMode = viewMode
     setViewMode("list")
 
@@ -292,10 +317,20 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
 
         <button
           onClick={handleExportPdf}
-          className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
-          title="Download PDF"
+          disabled={isExporting}
+          className={cn(
+            "rounded-md p-2 transition-colors",
+            isExporting
+              ? "cursor-wait text-primary"
+              : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
+          )}
+          title={isExporting ? "Exporting PDF..." : "Download PDF"}
         >
-          <Download className="h-4 w-4" />
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="h-4 w-4" />
+          )}
         </button>
         <button
           onClick={togglePresentationMode}
@@ -447,9 +482,9 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
               const showSectionHeader = slideConfig.section && slideConfig.section !== prevSection
 
               return (
-                <div key={index} className={showSectionHeader ? "col-span-full" : undefined}>
+                <Fragment key={index}>
                   {showSectionHeader && (
-                    <h3 className="mt-4 mb-3 text-xs font-bold tracking-[0.2em] text-neutral-500 uppercase first:mt-0">
+                    <h3 className="col-span-full mt-4 mb-3 text-xs font-bold tracking-[0.2em] text-neutral-500 uppercase first:mt-0">
                       {slideConfig.section}
                     </h3>
                   )}
@@ -476,7 +511,7 @@ export function SlideDeck({ slides, transition, directionalTransition }: SlideDe
                       {slideConfig.title ? `${index + 1}. ${slideConfig.title}` : index + 1}
                     </div>
                   </button>
-                </div>
+                </Fragment>
               )
             })}
           </div>

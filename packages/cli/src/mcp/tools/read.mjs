@@ -339,11 +339,12 @@ export function registerReadTools(server, context) {
   // ─── get_guide ───
   server.tool(
     "get_guide",
-    `Get detailed framework documentation on a specific topic. ` +
-    `Available topics: "getting-started", "animations", "design", "theming", "layouts".`,
+    `Get framework documentation. Two guides available: ` +
+    `"framework" — comprehensive reference for slide format, animations, layouts, theming, and workflow (read once at start). ` +
+    `"design-recipes" — code snippets for backgrounds, card styles, layout patterns, data viz, and typography.`,
     {
-      topic: z.enum(["getting-started", "animations", "design", "theming", "layouts"])
-        .describe('Guide topic: "getting-started", "animations", "design", "theming", or "layouts"')
+      topic: z.enum(["framework", "design-recipes"])
+        .describe('Guide topic: "framework" (comprehensive reference) or "design-recipes" (code snippets)')
     },
     { readOnlyHint: true, destructiveHint: false },
     async ({ topic }) => {

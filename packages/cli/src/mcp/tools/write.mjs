@@ -21,7 +21,6 @@ export function registerWriteTools(server, context) {
     `After creating a deck, create 2-3 slide master layouts first (write_layout) ` +
     `for consistent structure across slides. Then create slides that reference ` +
     `layouts via data-layout="name" and pass data-title, data-section, etc. ` +
-    `See get_guide("layouts") for layout template syntax. ` +
     `Slide dimensions: 1280x720 (16:9).`,
     {
       name: z.string().describe("Deck display name"),
@@ -188,7 +187,7 @@ export function registerWriteTools(server, context) {
         writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
       }
 
-      return { content: [{ type: "text", text: JSON.stringify({ file: filename, message: "Slide created and added to deck." }) }] }
+      return { content: [{ type: "text", text: JSON.stringify({ file: filename, message: "Slide created and added to deck. Use get_screenshot to verify the visual result." }) }] }
     }
   )
 
@@ -219,7 +218,7 @@ export function registerWriteTools(server, context) {
       }
 
       writeFileSync(slidePath, content)
-      return { content: [{ type: "text", text: JSON.stringify({ success: true, file: filename }) }] }
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, file: filename, message: "Slide updated. Use get_screenshot to verify the visual result." }) }] }
     }
   )
 
@@ -266,7 +265,7 @@ export function registerWriteTools(server, context) {
       const updated = content.replace(old_string, new_string)
       writeFileSync(slidePath, updated)
 
-      return { content: [{ type: "text", text: JSON.stringify({ success: true, file: filename }) }] }
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, file: filename, message: "Slide edited. Use get_screenshot to verify the visual result." }) }] }
     }
   )
 

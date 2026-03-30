@@ -63,7 +63,7 @@ export async function ensureDevServer({ deckRoot, port }) {
   // Spawn Vite as a child process
   const child = spawn(
     process.execPath,
-    [CLI_ENTRY, "studio", `--port=${targetPort}`, `--deck-root=${deckRoot}`],
+    [CLI_ENTRY, "studio", "--html", `--port=${targetPort}`, `--deck-root=${deckRoot}`],
     {
       cwd: deckRoot,
       stdio: ["ignore", "pipe", "pipe"],

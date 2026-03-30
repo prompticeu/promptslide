@@ -14,6 +14,7 @@ export async function studio(args) {
   const port = portArg ? parseInt(portArg.split("=")[1], 10) : 5173
   const isMcp = args.includes("--mcp")
   const deckRootArg = args.find(a => a.startsWith("--deck-root="))
+  const forceHtml = args.includes("--html")
 
   // Determine working directory
   let cwd
@@ -29,7 +30,7 @@ export async function studio(args) {
     mkdirSync(cwd, { recursive: true })
   }
 
-  const htmlMode = isMcp || isHtmlDeck(cwd)
+  const htmlMode = isMcp || forceHtml || isHtmlDeck(cwd)
 
   // Only require tsconfig for React/TSX mode
   if (!htmlMode && !isMcp) {

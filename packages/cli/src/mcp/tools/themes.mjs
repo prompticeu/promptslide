@@ -45,9 +45,11 @@ export function registerThemeTools(server, context) {
     "write_theme",
     `Create or update a theme CSS file. Themes use CSS custom properties: ` +
     `--primary, --background, --foreground, --card, --card-foreground, ` +
-    `--muted, --muted-foreground, --border, --font-heading, --font-body. ` +
+    `--muted, --muted-foreground, --border. ` +
     `Colors in OKLCH format: oklch(lightness chroma hue). ` +
-    `Include both :root (light) and .dark sections. Must start with @import "tailwindcss";`,
+    `Include both :root (light) and .dark sections. ` +
+    `Do NOT include @import "tailwindcss" — it is already in default.css. ` +
+    `For font overrides, use @theme inline { ... } (the "inline" keyword extends rather than replaces).`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
       name: z.string().describe("Theme name (e.g. 'corporate', 'minimal')"),

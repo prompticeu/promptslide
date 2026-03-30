@@ -31,8 +31,8 @@ Slides are HTML files with Tailwind CSS. The framework handles
 animations, transitions, theming, and presentation mode.
 
 Use get_deck_info to see current state.
-Use get_guide("getting-started") for framework details.
-Use get_guide("design") for slide design best practices.`
+Use get_guide("framework") for a comprehensive reference.
+Use get_guide("design-recipes") for code snippets and patterns.`
   })
 
   const context = { deckRoot }

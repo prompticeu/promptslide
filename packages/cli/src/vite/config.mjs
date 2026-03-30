@@ -30,7 +30,7 @@ export function createViteConfig({ cwd, mode = "development", forceHtmlMode = fa
 
   const plugins = [react()]
   if (htmlMode) {
-    plugins.push(tailwindSourcePlugin(), htmlSlidesPlugin({ root: cwd }))
+    plugins.push(tailwindSourcePlugin({ deckRoot: cwd }), htmlSlidesPlugin({ root: cwd }))
   } else {
     plugins.push(promptslidePlugin({ root: cwd }))
   }
@@ -63,16 +63,24 @@ export function createViteConfig({ cwd, mode = "development", forceHtmlMode = fa
       fs: {
         // Allow serving files from the CLI package (core, node_modules)
         // so decks outside the monorepo can access framework code
-        allow: [cwd, cliRoot, resolve(cliRoot, "..")]
+        allow: [cwd, cliRoot, resolve(cliRoot, ".."), resolve(cliRoot, "node_modules")]
       }
     },
-    // Tell Vite's dependency optimizer to look in the CLI's node_modules
+    // Tell Vite's dependency optimizer where to find react etc.
+    // esbuild aliases ensure pre-bundling works regardless of Vite root location.
     optimizeDeps: {
       entries: [],
       include: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "react-dom/client"],
       esbuildOptions: {
         resolveExtensions: [".mjs", ".js", ".ts", ".jsx", ".tsx", ".json"],
-        nodePaths: [resolve(cliRoot, "node_modules")]
+        nodePaths: [resolve(cliRoot, "node_modules")],
+        alias: {
+          react: reactEntry,
+          "react-dom": reactDomEntry,
+          "react/jsx-runtime": reactJsxRuntime,
+          "react/jsx-dev-runtime": reactJsxDevRuntime,
+          "react-dom/client": reactDomClient
+        }
       }
     },
     css: {
