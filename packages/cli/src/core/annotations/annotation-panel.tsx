@@ -39,11 +39,8 @@ export function AnnotationPanel({ annotations, selectedId, onSelect, onDelete, o
 
       <div className="flex-1 overflow-y-auto p-2">
         {annotations.length === 0 && (
-          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.04]">
-              <MessageCircle className="h-5 w-5 text-neutral-600" />
-            </div>
-            <p className="text-sm text-neutral-500">Click on slide elements to add annotations</p>
+          <div className="flex flex-col gap-4 px-3 py-6">
+            <WorkflowHint />
           </div>
         )}
 
@@ -82,6 +79,35 @@ export function AnnotationPanel({ annotations, selectedId, onSelect, onDelete, o
             ))}
           </div>
         )}
+      </div>
+
+      {annotations.length > 0 && (
+        <>
+          <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+          <div className="px-3 py-3">
+            <WorkflowHint />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function WorkflowHint() {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[11px] font-medium tracking-wider text-neutral-500 uppercase">Workflow</p>
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/15 text-[10px] font-semibold text-[#FF6B35]">1</div>
+        <p className="text-[12px] leading-snug text-neutral-400">Annotate everything you want to fix</p>
+      </div>
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/15 text-[10px] font-semibold text-[#FF6B35]">2</div>
+        <p className="text-[12px] leading-snug text-neutral-400">Switch to your coding agent</p>
+      </div>
+      <div className="flex items-start gap-2.5">
+        <div className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/15 text-[10px] font-semibold text-[#FF6B35]">3</div>
+        <p className="text-[12px] leading-snug text-neutral-400">"Fix open annotations"</p>
       </div>
     </div>
   )
