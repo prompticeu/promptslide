@@ -66,10 +66,10 @@ export async function startMcpServer({ deckRoot }) {
  *
  * @param {Object} options
  * @param {string} options.deckRoot - Path to the deck directory
- * @param {number} [options.mcpPort=3001] - Port for the HTTP MCP server
+ * @param {number} [options.mcpPort=29170] - Port for the HTTP MCP server
  * @returns {Promise<import("node:http").Server>} The HTTP server instance
  */
-export async function startMcpHttpServer({ deckRoot, mcpPort = 3001 }) {
+export async function startMcpHttpServer({ deckRoot, mcpPort = 29170 }) {
   const { createServer: createHttpServer } = await import("node:http")
   const { randomUUID } = await import("node:crypto")
   const { StreamableHTTPServerTransport } = await import(

@@ -18,7 +18,7 @@ export async function studio(args) {
   const transportArg = args.find(a => a.startsWith("--transport="))
   const transport = transportArg ? transportArg.split("=")[1] : "stdio"
   const mcpPortArg = args.find(a => a.startsWith("--mcp-port="))
-  const mcpPort = mcpPortArg ? parseInt(mcpPortArg.split("=")[1], 10) : 3001
+  const mcpPort = mcpPortArg ? parseInt(mcpPortArg.split("=")[1], 10) : 29170
   const hasHost = args.includes("--host") || args.some(a => a.startsWith("--host="))
   const hostArg = args.find(a => a.startsWith("--host="))
   const host = hasHost ? (hostArg ? hostArg.split("=")[1] || "0.0.0.0" : "0.0.0.0") : undefined
@@ -60,23 +60,26 @@ export async function studio(args) {
 
       await viteServer.listen()
 
+      // Get the actual port Vite is listening on (may differ from requested if port was taken)
+      const actualPort = viteServer.httpServer.address().port
+
       // Register the already-running dev server so MCP tools reuse it
       const { registerExternalDevServer } = await import("../mcp/dev-server.mjs")
-      registerExternalDevServer(viteServer.config.server.port)
+      registerExternalDevServer(actualPort)
 
       const mcpHttpServer = await startMcpHttpServer({ deckRoot: cwd, mcpPort })
 
       console.log()
       console.log(`  ${bold("promptslide")} ${dim("studio")} ${dim("(app mode)")}`)
       console.log()
-      console.log(`  ${dim("→")} Dev server:  ${bold(`http://localhost:${viteServer.config.server.port}`)}`)
+      console.log(`  ${dim("→")} Dev server:  ${bold(`http://localhost:${actualPort}`)}`)
       console.log(`  ${dim("→")} MCP server:  ${bold(`http://localhost:${mcpPort}/mcp`)}`)
       console.log()
 
       // Write connection info to stdout as JSON for the Tauri app to parse
       if (args.includes("--json")) {
         const info = {
-          devServer: `http://localhost:${viteServer.config.server.port}`,
+          devServer: `http://localhost:${actualPort}`,
           mcpServer: `http://localhost:${mcpPort}/mcp`
         }
         // Write to fd 3 if available (Tauri sidecar pipe), otherwise stderr

@@ -5,7 +5,7 @@
   "build": {
     "beforeDevCommand": "node src/launcher.mjs",
     "frontendDist": "../src",
-    "devUrl": "http://localhost:5173"
+    "devUrl": "http://localhost:29171"
   },
   "app": {
     "windows": [

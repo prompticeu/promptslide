@@ -17,18 +17,10 @@ PromptSlide is a local-first slide framework built with React, Tailwind CSS, and
   </tr>
 </table>
 
-## Install the Skill
-
-```bash
-npx skills add prompticeu/promptslide
-```
-
-This gives your coding agent everything it needs to create, edit, and publish slide decks. The Skill is also installed automatically when you scaffold a new deck (see below).
-
 ## Quick Start
 
 ```bash
-bun create slides my-deck
+promptslide create my-deck
 cd my-deck
 bun install
 bun run dev
@@ -38,17 +30,84 @@ Then open your coding agent and say:
 
 > "Create me a 10-slide deck about AgenticRAG"
 
-The agent uses the [promptslide Skill](https://github.com/prompticeu/promptslide/tree/main/skills/promptslide), generates slide files in `src/slides/`, updates `src/deck-config.ts`, and Vite hot-reloads them instantly.
+## MCP Server
+
+Connect the PromptSlide MCP server to give your AI tools for creating, editing, and previewing slides — including visual screenshots.
+
+### Claude Code
+
+Add to `.mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "promptslide": {
+      "command": "npx",
+      "args": ["promptslide", "studio", "--mcp"]
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Add to your `claude_desktop_config.json` (Settings > Developer > Edit Config):
+
+```json
+{
+  "mcpServers": {
+    "promptslide": {
+      "command": "npx",
+      "args": ["promptslide", "studio", "--mcp"]
+    }
+  }
+}
+```
+
+### Desktop App (Tauri)
+
+For the desktop app experience (like [paper.design](https://paper.design)):
+
+```bash
+# Install Rust (if not installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Start the app
+cd packages/app
+bun install
+bun run tauri:dev
+```
+
+Then connect Claude Desktop to the running MCP server:
+
+```json
+{
+  "mcpServers": {
+    "promptslide": {
+      "command": "npx",
+      "args": ["mcp-remote", "http://127.0.0.1:29170/mcp"]
+    }
+  }
+}
+```
+
+### Cursor / Other Agents
+
+Install the PromptSlide skill for agents that don't support MCP:
+
+```bash
+npx skills add prompticeu/promptslide
+```
 
 ## How It Works
 
-1. **Install the Skill** — `npx skills add prompticeu/promptslide`
+1. **Connect the MCP server** or install the Skill
 2. **You describe** what you want in natural language
-3. **Your coding agent** creates `.tsx` slide files in `src/slides/`
+3. **Your coding agent** creates HTML slide files with Tailwind CSS
 4. **Vite hot-reloads** — slides appear instantly in your browser
 5. **Present** in fullscreen or export to PDF
 
-No server, no API, no sandbox. Just a local Vite project + your coding agent.
+No cloud, no API keys. Just a local Vite project + your coding agent.
 
 ## Keyboard Shortcuts
 
@@ -64,7 +123,7 @@ No server, no API, no sandbox. Just a local Vite project + your coding agent.
 
 - **Presentation**: Single slide with navigation controls
 - **Grid**: Thumbnail overview — click to jump
-- **List**: Vertical scroll — use browser print for PDF export
+- **List**: Vertical scroll — optimized for PDF export
 
 ## Tech Stack
 

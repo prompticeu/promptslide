@@ -75,7 +75,7 @@ Slides must look genuinely designed, not AI-generated. Apply these principles wi
 
 Fonts are projected large and seen at a distance — they carry real visual weight in slides.
 
-- **Choose fonts that fit the deck's personality.** Don't default to the first familiar name. Browse [Google Fonts](https://fonts.google.com) or [Fontshare](https://www.fontshare.com) and pick something that matches the mood. See [theming-and-branding.md](theming-and-branding.md) for pairing principles.
+- **Choose fonts that fit the deck's personality.** Don't default to the first familiar name. Browse [Google Fonts](https://fonts.google.com) or [Fontshare](https://www.fontshare.com) and pick something that matches the mood. See [theming.md](theming.md) for color and font configuration.
 - **Use weight contrast for hierarchy.** Headings at 800–900 weight, body at 400. Heavy titles against light body text creates structure without needing color or size alone.
 - **Vary heading sizes across slides.** Not every title needs to be `text-3xl`. A hero stat at `text-8xl` next to a slide with a `text-xl` heading creates rhythm.
 

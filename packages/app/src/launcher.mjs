@@ -6,7 +6,7 @@
  * Starts the promptslide backend (MCP HTTP + Vite dev server) and opens the browser.
  * Use this during development without needing Tauri/Rust installed.
  *
- * Usage: node src/launcher.mjs [--port=5173] [--mcp-port=3001]
+ * Usage: node src/launcher.mjs [--port=29171] [--mcp-port=29170]
  */
 
 import { spawn } from "node:child_process"
@@ -20,9 +20,9 @@ const cliEntry = resolve(__dirname, "../../cli/src/index.mjs")
 
 const args = process.argv.slice(2)
 const portArg = args.find(a => a.startsWith("--port="))
-const port = portArg ? portArg.split("=")[1] : "5173"
+const port = portArg ? portArg.split("=")[1] : "29171"
 const mcpPortArg = args.find(a => a.startsWith("--mcp-port="))
-const mcpPort = mcpPortArg ? mcpPortArg.split("=")[1] : "3001"
+const mcpPort = mcpPortArg ? mcpPortArg.split("=")[1] : "29170"
 
 const deckRoot = resolve(homedir(), ".promptslide", "decks")
 if (!existsSync(deckRoot)) {
