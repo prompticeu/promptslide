@@ -20,6 +20,7 @@ function printHelp() {
   console.log()
   console.log(`  ${bold("Commands:")}`)
   console.log(`    create ${dim("<dir>")}   Scaffold a new slide deck project`)
+  console.log(`    clone ${dim("<slug>")}    Clone a published deck to work on it`)
   console.log(`    studio          Start the development studio`)
   console.log(`    build           Build for production`)
   console.log(`    preview         Preview the production build`)
@@ -31,10 +32,14 @@ function printHelp() {
   console.log(`    add ${dim("<name>")}     Install a slide/deck from the registry`)
   console.log(`    publish ${dim("[file]")} Publish a slide to the registry`)
   console.log(`    update ${dim("[name]")}  Check for and apply updates`)
+  console.log(`    pull            Pull the latest deck from the registry`)
   console.log(`    remove ${dim("<name>")}  Remove an installed item`)
   console.log(`    info ${dim("<name>")}    Show details about a registry item`)
   console.log(`    search ${dim("<query>")} Search the registry`)
   console.log(`    list ${dim("[--type]")}  List registry items`)
+  console.log()
+  console.log(`  ${bold("Tools:")}`)
+  console.log(`    to-image ${dim("<slide>")} Export a slide as a PNG image`)
   console.log()
   console.log(`  ${bold("Options:")}`)
   console.log(`    --help, -h      Show this help message`)
@@ -49,6 +54,11 @@ switch (command) {
   case "create": {
     const { create } = await import("./commands/create.mjs")
     await create(args)
+    break
+  }
+  case "clone": {
+    const { clone } = await import("./commands/clone.mjs")
+    await clone(args)
     break
   }
   case "studio": {
@@ -96,6 +106,11 @@ switch (command) {
     await update(args)
     break
   }
+  case "pull": {
+    const { pull } = await import("./commands/pull.mjs")
+    await pull(args)
+    break
+  }
   case "search": {
     const { search } = await import("./commands/search.mjs")
     await search(args)
@@ -114,6 +129,11 @@ switch (command) {
   case "info": {
     const { info } = await import("./commands/info.mjs")
     await info(args)
+    break
+  }
+  case "to-image": {
+    const { toImage } = await import("./commands/to-image.mjs")
+    await toImage(args)
     break
   }
   case "--help":

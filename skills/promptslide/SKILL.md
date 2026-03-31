@@ -4,8 +4,9 @@ description: >-
   Creates and authors slide deck presentations using the PromptSlide framework
   (HTML + Tailwind CSS). Use when the user wants to create a new slide deck,
   add or edit slides, customize themes or branding, work with layouts, or
-  manage slide animations and transitions. Triggers on mentions of slides,
-  decks, presentations, PromptSlide, or slide-related tasks.
+  manage slide animations and transitions, capture slides as images, or
+  visually verify slide appearance. Triggers on mentions of slides,
+  decks, presentations, PromptSlide, slide screenshots, or slide-related tasks.
 metadata:
   author: prompticeu
   version: "3.0"
@@ -27,7 +28,35 @@ Check if a PromptSlide project already exists:
 
 ## Creating a New Deck
 
-### Scaffold via CLI
+### Step 1: Content Discovery
+
+Before writing any code, ask the user:
+
+1. **What is this presentation about?** (topic, key message)
+2. **Who is the audience?** (investors, team, customers, conference)
+3. **How many slides?** (suggest 5–10 for a focused deck, 10–15 for a detailed one)
+4. **Do you have content ready?** (outline, bullet points, or should the agent draft it)
+
+Use the answers to plan slide structure before scaffolding.
+
+### Step 2: Style Direction
+
+Determine the visual direction before writing any code:
+
+1. **Ask if they have brand guidelines** — logo, colors, fonts. If yes, use those directly.
+2. **If no brand guidelines**, suggest 2–3 presets from [references/style-presets.md](references/style-presets.md). Briefly describe each (one sentence + mood), let the user pick or mix.
+3. **If the user wants something custom**, ask: dark or light? What mood? (professional, playful, dramatic, techy). Then build a custom direction from the building blocks in the presets.
+
+The chosen direction determines what you configure in Steps 3–4:
+
+- **Colors** → Theme CSS files with CSS custom properties
+- **Fonts** → Theme CSS with `@theme inline { ... }`
+- **Layouts** → HTML templates in `layouts/` (like PowerPoint masters)
+- **Card styles & animations** → Applied per-slide based on the direction
+
+Presets are starting points, not rigid templates. The user can change everything — it's all HTML, CSS, and Tailwind.
+
+### Step 3: Scaffold and start
 
 ```bash
 promptslide create my-deck
@@ -49,6 +78,27 @@ my-deck/
 ```
 
 `bun run dev` starts `promptslide studio` — the dev server with hot module replacement. Slides update instantly as files change.
+
+### Step 4: Design Thinking
+
+Before writing any slide code, commit to a clear aesthetic direction and plan the deck holistically. Generic, template-looking slides are worse than no slides at all.
+
+#### Pick a direction and commit
+
+Choose a distinct visual personality — editorial, brutalist, luxury-minimal, bold geometric, warm organic — and execute it with precision throughout the deck. The key is intentionality, not intensity. A restrained minimal deck executed with perfect spacing and typography is just as strong as a bold maximalist one. What kills a deck is indecision: a little of everything, committing to nothing.
+
+#### Design each slide for its content
+
+- **What does this content want to be?** A single powerful stat deserves to be big and alone on the slide. A comparison wants two sides. A list of features might work as clean typography with whitespace — not everything needs cards.
+- **What's the rhythm of the deck?** Alternate between dense and spacious, dark and light, structured and freeform. Three white slides in a row is monotonous. Break runs with a dark "breather" slide, a full-bleed color block, or an asymmetric layout.
+- **Where are the hero moments?** Every deck needs 1–2 slides that break the pattern — an oversized number, a bold color block, a single sentence with generous whitespace. These are what people remember.
+- **What makes this deck UNFORGETTABLE?** Ask this before coding. If the answer is "nothing" — the design direction isn't strong enough.
+
+Don't default to the first layout that comes to mind. Consider 2–3 options for each slide and pick the one that best serves the message.
+
+**Share your design plan with the user before coding.** Briefly describe the visual direction, color strategy, and your layout approach for each slide (e.g., "slide 3: asymmetric two-column with oversized stat", "slide 7: dark hero slide — the most important in the deck"). Let them approve or adjust — don't just decide and start building.
+
+### Step 5: Create your slides
 
 ---
 
@@ -302,6 +352,7 @@ OKLCH format: `oklch(lightness chroma hue)`
 | Teal | `oklch(0.6 0.15 195)` | `oklch(0.65 0.15 195)` | 195 |
 
 ### Semantic Color Classes
+### Semantic Color Classes
 
 Always use these for consistent theming:
 
@@ -330,7 +381,7 @@ Use `asset://filename` for images:
 
 ## Visual Diversity Guidelines
 
-When creating a deck with multiple slides, **vary the visual treatment**. Do not repeat the same layout pattern on consecutive slides.
+When creating a deck with multiple slides, **vary the visual treatment**. Do not repeat the same layout pattern on consecutive slides. Don't overwrite the user's primary color without asking.
 
 **Rotate backgrounds**: gradient mesh, split backgrounds, radial spotlights — not just plain `bg-background`.
 
@@ -339,6 +390,8 @@ When creating a deck with multiple slides, **vary the visual treatment**. Do not
 **Mix animations**: `fade` for quotes, `slide-left`/`slide-right` for splits, `scale` for grids, `slide-up` for metrics, `data-stagger` for collections.
 
 **Layout variety**: asymmetric splits, bento grids, vertical timelines, typography-driven layouts — not all equal-column grids.
+
+**Use primary color sparingly** — for impact, not on every element.
 
 For ready-to-use design recipes (background treatments, card styles, layout patterns, data visualization, typography), see [references/design-patterns.md](references/design-patterns.md).
 
@@ -372,3 +425,39 @@ Common issues only visible in rendered output:
 1. **Slide view** (default): Single slide with navigation controls
 2. **Grid view**: Thumbnail overview — click any slide to jump to it
 3. **List view**: Vertical scroll — optimized for PDF export
+
+---
+
+## Styling Constraints (PDF Compatibility)
+
+These rules ensure slides look identical on screen and in PDF export:
+
+- **No blur**: `filter: blur()` and `backdrop-filter: blur()` are silently dropped by Chromium's PDF pipeline
+- **No gradients**: `bg-gradient-to-*` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., `bg-primary/5`, `bg-muted/20`)
+- **No shadows**: `box-shadow` (including `shadow-sm`, `shadow-lg`, `shadow-2xl`) does not export correctly to PDF — use borders or background tints instead (e.g., `border border-border`, `bg-white/5`)
+
+---
+
+## Annotations (User Feedback)
+
+Users can leave annotations — text feedback attached to slides. Annotations are stored in `annotations.json` in the deck directory.
+
+Each annotation has:
+- `slide` — which slide filename
+- `body` — the user's feedback
+- `status` — `"open"` or `"resolved"`
+
+After addressing feedback, resolve the annotation via the MCP `resolve_annotation` tool.
+
+When creating slides, add `data-annotate="descriptive-name"` to key elements (headings, feature cards, stat blocks) to make annotations more stable across edits:
+
+```html
+<h2 data-annotate="main-title" class="text-4xl font-bold">Title</h2>
+<div data-annotate="feature-card-1" class="rounded-2xl bg-card p-6">...</div>
+```
+
+---
+
+## Publish Metadata
+
+After all slides are authored, update `.promptslide-lock.json` with `deckMeta` (title, description, 3–6 tags) and per-slide `meta` entries (title, tags, section) under `items`. These become pre-filled defaults when the user runs `promptslide publish`. Read the existing lockfile first and merge — don't overwrite other fields.

@@ -5,6 +5,11 @@
       "source": "browser-use/browser-use",
       "sourceType": "github",
       "computedHash": "f974fac2783f80ac2a1a2cb45d576b5cca55123015dc73db8adfd02277002461"
+    },
+    "promptslide": {
+      "source": "/Users/danielschroter/conductor/workspaces/promptslide/richmond",
+      "sourceType": "local",
+      "computedHash": "ab6a0b23e446a304f9380967669677d3823528c924624af0039471c326102013"
     }
   }
 }

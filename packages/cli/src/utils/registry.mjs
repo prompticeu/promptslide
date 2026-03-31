@@ -71,11 +71,71 @@ export function isFileDirty(cwd, relativePath, storedHash) {
  */
 export function updateLockfileItem(cwd, slug, version, files) {
   const lock = readLockfile(cwd)
+  const existing = lock.items[slug] || {}
   lock.items[slug] = {
+    ...existing,
     version,
     installedAt: new Date().toISOString().split("T")[0],
     files
   }
+  writeLockfile(cwd, lock)
+}
+
+/**
+ * Store publish configuration (deckSlug) in the lockfile.
+ * Removes the legacy deckPrefix key if present.
+ * @param {string} cwd
+ * @param {{ deckSlug?: string }} config
+ */
+export function updateLockfilePublishConfig(cwd, config) {
+  const lock = readLockfile(cwd)
+  if (config.deckSlug !== undefined) lock.deckSlug = config.deckSlug
+  delete lock.deckPrefix
+  writeLockfile(cwd, lock)
+}
+
+/**
+ * Read stored deck-level publish metadata (title, description, tags).
+ * @param {string} cwd
+ * @returns {{ title?: string, description?: string, tags?: string[] }}
+ */
+export function readDeckMeta(cwd) {
+  const lock = readLockfile(cwd)
+  return lock.deckMeta || {}
+}
+
+/**
+ * Persist deck-level publish metadata so it can be reused as defaults.
+ * @param {string} cwd
+ * @param {{ title?: string, description?: string, tags?: string[] }} meta
+ */
+export function updateDeckMeta(cwd, meta) {
+  const lock = readLockfile(cwd)
+  lock.deckMeta = { ...lock.deckMeta, ...meta }
+  writeLockfile(cwd, lock)
+}
+
+/**
+ * Read stored per-item publish metadata (title, description, tags, section).
+ * @param {string} cwd
+ * @param {string} slug
+ * @returns {{ title?: string, description?: string, tags?: string[], section?: string }}
+ */
+export function readItemMeta(cwd, slug) {
+  const lock = readLockfile(cwd)
+  return lock.items[slug]?.meta || {}
+}
+
+/**
+ * Persist per-item publish metadata alongside the version/files entry.
+ * @param {string} cwd
+ * @param {string} slug
+ * @param {{ title?: string, description?: string, tags?: string[], section?: string }} meta
+ */
+export function updateItemMeta(cwd, slug, meta) {
+  const lock = readLockfile(cwd)
+  if (!lock.items[slug]) lock.items[slug] = {}
+  lock.items[slug].meta = meta
   writeLockfile(cwd, lock)
 }
 
@@ -130,36 +190,53 @@ export async function fetchOrganizations(auth) {
  * @param {{ registry: string, apiKey: string }} auth - Auth credentials
  * @returns {Promise<object>} Registry item JSON
  */
-export async function fetchRegistryItem(nameOrUrl, auth) {
+export async function fetchRegistryItem(nameOrUrl, auth, { retries = 2 } = {}) {
   const url = nameOrUrl.startsWith("http")
     ? nameOrUrl
     : `${auth.registry}/api/r/${nameOrUrl}.json`
 
-  const res = await fetch(url, {
-    headers: authHeaders(auth)
-  })
+  let lastError
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: authHeaders(auth)
+      })
 
-  if (res.status === 401) {
-    throw new Error("Authentication failed. Run `promptslide login` to re-authenticate.")
-  }
-  if (res.status === 403) {
-    const body = await res.json().catch(() => ({}))
-    if (body.status === "pending_review") {
-      throw new Error(`Item "${nameOrUrl}" is pending review. An admin must approve it first.`)
-    }
-    if (body.status === "rejected") {
-      throw new Error(`Item "${nameOrUrl}" was rejected by an admin.`)
-    }
-    throw new Error("Access denied. This item belongs to a different organization.")
-  }
-  if (res.status === 404) {
-    throw new Error(`Item not found: ${nameOrUrl}`)
-  }
-  if (!res.ok) {
-    throw new Error(`Registry error (${res.status}): ${await res.text()}`)
-  }
+      if (res.status === 401) {
+        throw new Error("Authentication failed. Run `promptslide login` to re-authenticate.")
+      }
+      if (res.status === 403) {
+        const body = await res.json().catch(() => ({}))
+        if (body.status === "pending_review") {
+          throw new Error(`Item "${nameOrUrl}" is pending review. An admin must approve it first.`)
+        }
+        if (body.status === "rejected") {
+          throw new Error(`Item "${nameOrUrl}" was rejected by an admin.`)
+        }
+        throw new Error("Access denied. This item belongs to a different organization.")
+      }
+      if (res.status === 404) {
+        throw new Error(`Item not found: ${nameOrUrl}`)
+      }
+      if (!res.ok) {
+        throw new Error(`Registry error (${res.status}): ${await res.text()}`)
+      }
 
-  return res.json()
+      return res.json()
+    } catch (err) {
+      lastError = err
+      // Only retry on network errors (fetch failed), not on HTTP-level errors
+      if (err.message.includes("Authentication") || err.message.includes("Access denied") ||
+          err.message.includes("not found") || err.message.includes("pending review") ||
+          err.message.includes("rejected") || err.message.includes("Registry error")) {
+        throw err
+      }
+      if (attempt < retries) {
+        await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+      }
+    }
+  }
+  throw lastError
 }
 
 /**
@@ -186,26 +263,23 @@ export async function resolveRegistryDependencies(item, auth, cwd) {
       Object.assign(npmDeps, current.dependencies)
     }
 
-    // Check if any files need writing (skip if all exist)
-    const needsInstall = current.files?.some(f => {
-      const targetPath = join(cwd, f.target, f.path)
-      return !existsSync(targetPath)
-    })
+    // Always include items — add.mjs handles identical/overwrite logic per file
+    items.push(current)
 
-    if (needsInstall || current === item) {
-      items.push(current)
-    }
-
-    // Recurse into registry dependencies
+    // Resolve registry dependencies in parallel
     if (current.registryDependencies?.length) {
-      for (const depName of current.registryDependencies) {
-        try {
-          const depItem = await fetchRegistryItem(depName, auth)
-          await resolve(depItem)
-        } catch (err) {
-          console.warn(`  Warning: Could not resolve dependency "${depName}": ${err.message}`)
-        }
-      }
+      const fetches = current.registryDependencies
+        .filter(depName => !seen.has(depName))
+        .map(async (depName) => {
+          try {
+            return await fetchRegistryItem(depName, auth)
+          } catch (err) {
+            console.warn(`  Warning: Could not resolve dependency "${depName}": ${err.message}`)
+            return null
+          }
+        })
+      const depItems = (await Promise.all(fetches)).filter(Boolean)
+      await Promise.all(depItems.map(dep => resolve(dep)))
     }
   }
 
@@ -316,4 +390,117 @@ export function getInstallCommand(pm, packages) {
     default:
       return { cmd: "npm", args: ["install", ...packages], display: `npm install ${packages.join(" ")}` }
   }
+}
+
+/**
+ * Request pre-signed upload tokens for binary files.
+ * Returns empty array if registry doesn't support direct upload (local dev).
+ *
+ * @param {string} slug - Item slug
+ * @param {{ path: string, contentType: string, size: number }[]} files
+ * @param {{ registry: string, token: string }} auth
+ * @returns {Promise<{ path: string, clientToken: string, pathname: string }[]>}
+ */
+export async function requestUploadTokens(slug, files, auth) {
+  const res = await fetch(`${auth.registry}/api/publish/upload-tokens`, {
+    method: "POST",
+    headers: {
+      ...authHeaders(auth),
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ slug, files })
+  })
+
+  if (res.status === 404) {
+    // Registry doesn't have this endpoint (older version) — fall back to inline
+    return []
+  }
+  if (res.status === 401) {
+    throw new Error("Authentication failed. Run `promptslide login` to re-authenticate.")
+  }
+  if (!res.ok) {
+    throw new Error(`Failed to get upload tokens (${res.status}): ${await res.text()}`)
+  }
+
+  const data = await res.json()
+  return data.tokens || []
+}
+
+/**
+ * Upload a binary file directly to Vercel Blob using a scoped client token.
+ * Uses raw fetch — no @vercel/blob dependency needed.
+ *
+ * @param {Buffer} buffer - Raw file bytes
+ * @param {string} pathname - Target pathname in blob storage
+ * @param {string} contentType - MIME type
+ * @param {string} clientToken - Scoped Vercel Blob client token
+ * @returns {Promise<string>} The permanent blob URL
+ */
+export async function uploadBinaryToBlob(buffer, pathname, contentType, clientToken) {
+  const res = await fetch(`https://blob.vercel-storage.com/${pathname}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${clientToken}`,
+      "x-content-type": contentType,
+      "x-api-version": "7",
+      "x-vercel-blob-access": "private"
+    },
+    body: buffer
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Blob upload failed (${res.status}): ${text}`)
+  }
+
+  const result = await res.json()
+  return result.url
+}
+
+/**
+ * Convert a public/ file path to a registry slug.
+ * Deterministic mapping used both during publish (to create the slug)
+ * and during asset reference detection (to find the right dependency slug).
+ *
+ * "logo.png"           → "{prefix}/logo-png"
+ * "images/hero.jpg"    → "{prefix}/images-hero-jpg"
+ *
+ * @param {string} prefix - Deck prefix (e.g. "my-deck")
+ * @param {string} relativePath - Path relative to public/ (e.g. "images/hero.jpg")
+ * @returns {string} Full registry slug
+ */
+export function assetFileToSlug(prefix, relativePath) {
+  const segment = relativePath
+    .replace(/[/\\]/g, "-")
+    .replace(/[^a-z0-9-]/gi, "-")
+    .toLowerCase()
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+  return `${prefix}/${segment}`
+}
+
+/**
+ * Scan component source for references to public/ assets.
+ * Detects patterns like src="/file.png", href="/file.woff2", url('/file.jpg').
+ *
+ * @param {string} content - File source code (.tsx, .ts, .css)
+ * @param {string} prefix - Registry prefix (e.g. "my-deck")
+ * @param {Set<string>} publicFiles - Set of known public/ file paths (relative to public/)
+ * @returns {string[]} Array of registry dependency slugs
+ */
+export function detectAssetDepsInContent(content, prefix, publicFiles) {
+  const deps = new Set()
+  const patterns = [
+    /(?:src|href|poster|data-src)\s*=\s*\{?\s*["']\/([^"']+)["']/g,
+    /url\(\s*["']?\/([^"')]+)["']?\s*\)/g,
+  ]
+  for (const pattern of patterns) {
+    for (const match of content.matchAll(pattern)) {
+      const filePath = match[1]
+      if (publicFiles.has(filePath)) {
+        deps.add(assetFileToSlug(prefix, filePath))
+      }
+    }
+  }
+  return Array.from(deps)
 }

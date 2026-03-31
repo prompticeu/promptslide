@@ -16,11 +16,6 @@ export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
         <p className="text-muted-foreground mt-6 max-w-3xl text-xl font-light md:text-2xl">
           A presentation built with PromptSlide
         </p>
-
-        <div className="text-muted-foreground mt-16 text-sm">
-          Press <kbd className="rounded bg-card px-2 py-0.5 font-mono text-xs">Space</kbd> or{" "}
-          <kbd className="rounded bg-card px-2 py-0.5 font-mono text-xs">&rarr;</kbd> to navigate
-        </div>
       </div>
     </SlideLayoutCentered>
   );

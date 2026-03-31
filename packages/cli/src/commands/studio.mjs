@@ -19,6 +19,9 @@ export async function studio(args) {
   const transport = transportArg ? transportArg.split("=")[1] : "stdio"
   const mcpPortArg = args.find(a => a.startsWith("--mcp-port="))
   const mcpPort = mcpPortArg ? parseInt(mcpPortArg.split("=")[1], 10) : 3001
+  const hasHost = args.includes("--host") || args.some(a => a.startsWith("--host="))
+  const hostArg = args.find(a => a.startsWith("--host="))
+  const host = hasHost ? (hostArg ? hostArg.split("=")[1] || "0.0.0.0" : "0.0.0.0") : undefined
 
   // Determine working directory
   let cwd
@@ -100,7 +103,7 @@ export async function studio(args) {
     const config = createViteConfig({ cwd, mode: "development", forceHtmlMode: htmlMode })
     const server = await createServer({
       ...config,
-      server: { ...config.server, port, strictPort: false }
+      server: { ...config.server, port, strictPort: false, ...(host && { host, allowedHosts: true }) }
     })
 
     await server.listen()

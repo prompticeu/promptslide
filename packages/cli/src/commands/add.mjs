@@ -1,8 +1,9 @@
-import { existsSync, writeFileSync, mkdirSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { execFileSync } from "node:child_process"
-import { join, dirname, resolve, sep } from "node:path"
+import { dirname, join, resolve, sep } from "node:path"
+import { fileURLToPath } from "node:url"
 
-import { bold, green, cyan, red, dim } from "../utils/ansi.mjs"
+import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import {
   fetchRegistryItem,
@@ -10,6 +11,7 @@ import {
   detectPackageManager,
   getInstallCommand,
   updateLockfileItem,
+  updateLockfilePublishConfig,
   hashContent,
   hashFile
 } from "../utils/registry.mjs"
@@ -20,6 +22,15 @@ import {
   replaceDeckConfig
 } from "../utils/deck-config.mjs"
 import { confirm, closePrompts } from "../utils/prompts.mjs"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const CLI_VERSION = JSON.parse(readFileSync(join(__dirname, "..", "..", "package.json"), "utf-8")).version
+
+/** Extract minor version number from a version string like "0.3.0" or "^0.3.0". */
+function parseMinor(version) {
+  const match = version.replace(/^[\^~>=<\s]+/, "").match(/^(\d+)\.(\d+)/)
+  return match ? Number(match[2]) : null
+}
 
 export async function add(args) {
   const cwd = process.cwd()
@@ -85,8 +96,17 @@ export async function add(args) {
       const newHash = hashContent(file.content)
 
       if (existsSync(targetPath)) {
-        const existingHash = hashFile(targetPath)
-        if (existingHash === newHash) {
+        // For binary files (data URIs), compare decoded bytes directly
+        const dataUriMatch = file.content.match(/^data:[^;]+;base64,/)
+        let identical
+        if (dataUriMatch) {
+          const newBuf = Buffer.from(file.content.slice(dataUriMatch[0].length), "base64")
+          const existingBuf = readFileSync(targetPath)
+          identical = newBuf.equals(existingBuf)
+        } else {
+          identical = hashFile(targetPath) === newHash
+        }
+        if (identical) {
           console.log(`  ${dim("Skipped")} ${relativePath} ${dim("(identical)")}`)
           fileHashes[relativePath] = newHash
           continue
@@ -99,7 +119,12 @@ export async function add(args) {
       }
 
       mkdirSync(targetDir, { recursive: true })
-      writeFileSync(targetPath, file.content, "utf-8")
+      const dataUriPrefix = file.content.match(/^data:[^;]+;base64,/)
+      if (dataUriPrefix) {
+        writeFileSync(targetPath, Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64"))
+      } else {
+        writeFileSync(targetPath, file.content, "utf-8")
+      }
       fileHashes[relativePath] = newHash
       written.push({ item: regItem, file })
       console.log(`  ${green("✓")} Added ${cyan(relativePath)}${regItem !== item ? dim(" (dependency)") : ""}`)
@@ -118,8 +143,13 @@ export async function add(args) {
   }
 
   // Update lockfile for all items (root + dependencies)
-  for (const [name, { regItem, fileHashes }] of writtenByItem) {
-    updateLockfileItem(cwd, name, regItem.version ?? 0, fileHashes)
+  for (const [itemName, { regItem, fileHashes }] of writtenByItem) {
+    updateLockfileItem(cwd, itemName, regItem.version ?? 0, fileHashes)
+  }
+
+  // Persist deck slug for future pull/publish if this is a deck
+  if (item.type === "deck") {
+    updateLockfilePublishConfig(cwd, { deckSlug: item.name })
   }
 
   // Auto-update deck-config.ts
@@ -137,7 +167,7 @@ export async function add(args) {
     const shouldReplace = await confirm("  Replace entire deck-config.ts with this deck?", true)
     if (shouldReplace) {
       const slides = item.meta.slides.map(s => ({
-        componentName: toPascalCase(s.slug),
+        componentName: s.componentName || toPascalCase(s.slug),
         importPath: `@/slides/${s.slug}`,
         steps: s.steps,
         section: s.section
@@ -150,7 +180,7 @@ export async function add(args) {
     } else {
       // Append individual slides
       for (const s of item.meta.slides) {
-        const componentName = toPascalCase(s.slug)
+        const componentName = s.componentName || toPascalCase(s.slug)
         const importPath = `@/slides/${s.slug}`
         const updated = addSlideToDeckConfig(cwd, { componentName, importPath, steps: s.steps })
         if (updated) {
@@ -160,16 +190,31 @@ export async function add(args) {
     }
   }
 
+  // Check promptslide version compatibility
+  const publishedVersion = item.promptslideVersion
+  if (publishedVersion) {
+    const publishedMinor = parseMinor(publishedVersion)
+    const localMinor = parseMinor(CLI_VERSION)
+    if (publishedMinor !== null && localMinor !== null && publishedMinor !== localMinor) {
+      console.log()
+      console.log(`  ${yellow("⚠")} This content was published with promptslide ${bold(`v${publishedVersion}`)}`)
+      console.log(`    You have ${bold(`v${CLI_VERSION}`)} installed — this may cause issues.`)
+      const pm = detectPackageManager(cwd)
+      const installCmd = pm === "bun" ? "bun add" : pm === "pnpm" ? "pnpm add" : pm === "yarn" ? "yarn add" : "npm install"
+      console.log(`    Run: ${cyan(`${installCmd} promptslide@^${publishedVersion}`)}`)
+    }
+  }
+
   // Install npm dependencies
   const existingPkg = join(cwd, "package.json")
   if (Object.keys(resolved.npmDeps).length > 0 && existsSync(existingPkg)) {
     const pm = detectPackageManager(cwd)
-    const pkgList = Object.entries(resolved.npmDeps).map(([name, ver]) => `${name}@${ver}`)
-    const { cmd, args, display } = getInstallCommand(pm, pkgList)
+    const pkgList = Object.entries(resolved.npmDeps).map(([pkg, ver]) => `${pkg}@${ver}`)
+    const { cmd, args: installArgs, display } = getInstallCommand(pm, pkgList)
     console.log()
     console.log(`  ${dim(`Installing dependencies: ${display}`)}`)
     try {
-      execFileSync(cmd, args, { cwd, stdio: "inherit" })
+      execFileSync(cmd, installArgs, { cwd, stdio: "inherit" })
       console.log(`  ${green("✓")} Dependencies installed`)
     } catch {
       console.log(`  ${red("⚠")} Dependency installation failed. Run manually:`)

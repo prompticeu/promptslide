@@ -60,14 +60,22 @@ export type {
 export { SlideThemeProvider, useTheme } from "./theme-context"
 export type { ThemeConfig } from "./types"
 
-// Shared Footer
-export { SlideFooter } from "./layouts/shared-footer"
+// SlideRenderer
+export { SlideRenderer } from "./slide-renderer"
+export type { SlideRendererProps } from "./slide-renderer"
+
+// SlideEmbed
+export { SlideEmbed } from "./slide-embed"
 
 // SlideDeck
 export { SlideDeck } from "./slide-deck"
 
 // Error Boundary
 export { SlideErrorBoundary } from "./slide-error-boundary"
+
+// Annotations
+export { AnnotationOverlay, useAnnotations, createHttpAdapter } from "./annotations"
+export type { Annotation, AnnotationsFile, AnnotationStorageAdapter, AnnotationTarget } from "./annotations"
 
 // Utils
 export { cn } from "./utils"

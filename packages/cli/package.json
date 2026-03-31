@@ -1,6 +1,6 @@
 {
   "name": "promptslide",
-  "version": "0.2.1",
+  "version": "0.3.13",
   "description": "CLI and slide engine for PromptSlide presentations",
   "type": "module",
   "main": "./dist/index.js",
@@ -18,7 +18,9 @@
   "files": [
     "src/",
     "dist/",
-    "templates/"
+    "templates/",
+    "CHANGELOG.md",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -56,11 +58,6 @@
     "playwright": "",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
-  },
-  "peerDependenciesMeta": {
-    "playwright": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

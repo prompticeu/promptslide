@@ -1,6 +1,16 @@
-# PromptSlide — Agent Documentation
+# PromptSlide
 
-This file documents the slide presentation framework for coding agents (Claude Code, Cursor, Windsurf, etc.). Read this before creating or modifying slides.
+Slide deck framework: Vite + React 19 + Tailwind v4 + Framer Motion. Each slide is a React component styled with Tailwind CSS.
+
+> **Recommended**: Install the [PromptSlide skill](https://github.com/prompticeu/promptslide) for guided slide authoring, style presets, design recipes, and best practices: `npx skills add prompticeu/promptslide`
+
+## Before You Start
+
+Do not jump straight to writing slides. First confirm the visual direction with the user — theme colors, fonts, and overall style. Then, for each slide, think about what design approach fits the content before coding. Not everything needs cards or grids — let the content shape the layout.
+
+If the PromptSlide skill is installed, follow its workflow — it includes design planning steps that should happen before writing any slides.
+
+---
 
 ## Quick Start
 
@@ -96,6 +106,12 @@ Themes are CSS files in `themes/` with CSS custom properties in OKLCH format. Da
 **Semantic colors**: `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border`
 
 **Assets**: Use `asset://filename` for images — `<img src="asset://logo.svg" class="h-8" />`
+
+---
+
+## Key Constraints
+
+- **PDF compatibility**: No `blur()` or `backdrop-filter` (dropped by Chromium). No gradients (use solid colors with opacity). No `box-shadow` (doesn't export correctly) — use borders or background tints instead.
 
 ---
 

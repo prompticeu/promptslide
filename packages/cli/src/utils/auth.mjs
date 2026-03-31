@@ -5,7 +5,7 @@ import { homedir } from "node:os"
 const AUTH_DIR = join(homedir(), ".promptslide")
 const AUTH_FILE = join(AUTH_DIR, "auth.json")
 
-const DEFAULT_REGISTRY = "https://registry.promptslide.dev"
+const DEFAULT_REGISTRY = "https://promptslide.eu"
 
 /**
  * Load stored auth credentials.
@@ -20,7 +20,8 @@ export function loadAuth() {
       registry: data.registry || DEFAULT_REGISTRY,
       token: data.token,
       organizationId: data.organizationId || null,
-      organizationName: data.organizationName || null
+      organizationName: data.organizationName || null,
+      organizationSlug: data.organizationSlug || null
     }
   } catch {
     return null
@@ -30,13 +31,14 @@ export function loadAuth() {
 /**
  * Save auth credentials to ~/.promptslide/auth.json.
  */
-export function saveAuth({ registry, token, organizationId, organizationName }) {
+export function saveAuth({ registry, token, organizationId, organizationName, organizationSlug }) {
   mkdirSync(AUTH_DIR, { recursive: true })
   const data = {
     registry: registry || DEFAULT_REGISTRY,
     token,
     organizationId: organizationId || null,
-    organizationName: organizationName || null
+    organizationName: organizationName || null,
+    organizationSlug: organizationSlug || null
   }
   writeFileSync(AUTH_FILE, JSON.stringify(data, null, 2) + "\n", { encoding: "utf-8", mode: 0o600 })
 }
