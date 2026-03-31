@@ -10,7 +10,7 @@
  * module knows which deck to load at runtime.
  */
 
-import { readFileSync, existsSync, readdirSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs"
 import { join, basename, resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -335,6 +335,16 @@ if (import.meta.hot) {
     name: "promptslide-html-slides",
     enforce: "pre",
 
+    config() {
+      return {
+        server: {
+          watch: {
+            ignored: ["**/annotations.json"]
+          }
+        }
+      }
+    },
+
     configResolved(config) {
       root = initialRoot || config.root
       loadAllManifests()
@@ -441,6 +451,66 @@ if (import.meta.hot) {
           }
         }
         next()
+      })
+
+      // Annotation middleware: GET /__promptslide_annotations?deck=<slug>
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "GET") return next()
+        const url = new URL(req.url, `http://${req.headers.host}`)
+        if (url.pathname !== "/__promptslide_annotations") return next()
+
+        const slug = url.searchParams.get("deck")
+        if (!slug) {
+          res.statusCode = 400
+          res.end(JSON.stringify({ error: "Missing deck query parameter" }))
+          return
+        }
+
+        const filePath = join(root, slug, "annotations.json")
+        try {
+          if (existsSync(filePath)) {
+            const content = readFileSync(filePath, "utf-8")
+            res.setHeader("Content-Type", "application/json")
+            res.statusCode = 200
+            res.end(content)
+          } else {
+            res.setHeader("Content-Type", "application/json")
+            res.statusCode = 200
+            res.end(JSON.stringify({ version: 1, annotations: [] }))
+          }
+        } catch {
+          res.statusCode = 500
+          res.end()
+        }
+      })
+
+      // Annotation middleware: POST /__promptslide_annotations?deck=<slug>
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "POST") return next()
+        const url = new URL(req.url, `http://${req.headers.host}`)
+        if (url.pathname !== "/__promptslide_annotations") return next()
+
+        const slug = url.searchParams.get("deck")
+        if (!slug) {
+          res.statusCode = 400
+          res.end(JSON.stringify({ error: "Missing deck query parameter" }))
+          return
+        }
+
+        let body = ""
+        req.on("data", chunk => { body += chunk })
+        req.on("end", () => {
+          try {
+            const data = JSON.parse(body)
+            const filePath = join(root, slug, "annotations.json")
+            writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8")
+            res.statusCode = 204
+            res.end()
+          } catch {
+            res.statusCode = 400
+            res.end()
+          }
+        })
       })
 
       // Watch all deck directories for changes

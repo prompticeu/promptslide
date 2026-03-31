@@ -12,14 +12,17 @@ function readAnnotations(deckPath) {
   const path = join(deckPath, "annotations.json")
   if (!existsSync(path)) return []
   try {
-    return JSON.parse(readFileSync(path, "utf-8"))
+    const raw = JSON.parse(readFileSync(path, "utf-8"))
+    // Support both formats: { version, annotations: [...] } and flat [...]
+    return Array.isArray(raw) ? raw : (raw.annotations || [])
   } catch {
     return []
   }
 }
 
 function writeAnnotationsFile(deckPath, annotations) {
-  writeFileSync(join(deckPath, "annotations.json"), JSON.stringify(annotations, null, 2))
+  const data = { version: 1, annotations }
+  writeFileSync(join(deckPath, "annotations.json"), JSON.stringify(data, null, 2) + "\n")
 }
 
 export function registerAnnotationTools(server, context) {
@@ -50,7 +53,9 @@ export function registerAnnotationTools(server, context) {
       if (slide) {
         const filename = slide.endsWith(".html") ? slide : `${slide}.html`
         annotations = annotations.filter(a =>
-          a.slideTitle === filename || a.slideTitle === slide
+          // Match by slideTitle (display name) or slideIndex
+          a.slideTitle === filename || a.slideTitle === slide ||
+          a.slide === filename || a.slide === slide
         )
       }
 
@@ -84,14 +89,24 @@ export function registerAnnotationTools(server, context) {
       const annotations = readAnnotations(deckPath)
       const filename = slide.endsWith(".html") ? slide : `${slide}.html`
 
+      // Read deck manifest to find slide index and title
+      let slideIndex = 0
+      let slideTitle = filename
+      try {
+        const manifest = JSON.parse(readFileSync(join(deckPath, "deck.json"), "utf-8"))
+        const idx = manifest.slides.findIndex(s => s.file === filename)
+        if (idx >= 0) slideIndex = idx
+        slideTitle = manifest.slides[idx]?.title || filename
+      } catch {}
+
       const annotation = {
         id: crypto.randomUUID(),
-        slideTitle: filename,
-        text,
-        author: author || "agent",
-        timestamp: new Date().toISOString(),
-        status: "open",
-        resolved: false
+        slideIndex,
+        slideTitle,
+        target: { contentNearPin: text.slice(0, 100), position: { xPercent: 50, yPercent: 50 } },
+        body: text,
+        createdAt: new Date().toISOString(),
+        status: "open"
       }
 
       annotations.push(annotation)

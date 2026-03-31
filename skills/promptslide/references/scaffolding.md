@@ -30,8 +30,6 @@ Presets are starting points, not rigid templates. The user can change everything
 
 ## Step 3: Scaffold and start
 
-If the MCP server is connected, use the `create_deck` tool. Otherwise, use the CLI:
-
 ```bash
 promptslide create my-deck
 cd my-deck
@@ -52,6 +50,29 @@ my-deck/
 ```
 
 `bun run dev` starts `promptslide studio` — the dev server with hot module replacement. Slides update instantly as files change.
+
+### Deck Manifest (deck.json)
+
+Controls slide order, theme, and transitions:
+
+```json
+{
+  "name": "My Deck",
+  "slug": "my-deck",
+  "theme": "default",
+  "transition": "fade",
+  "directionalTransition": true,
+  "slides": [
+    { "file": "hero.html" },
+    { "file": "problem.html", "section": "Introduction" }
+  ]
+}
+```
+
+- **Add a slide**: Create the `.html` file in `slides/`, add an entry to the `slides` array
+- **Remove a slide**: Remove from the array (keep the file if you want it later)
+- **Reorder slides**: Change position in the array
+- **Steps are auto-detected** from the HTML (highest `data-step` value) — no manual step counts needed
 
 ## Step 4: Design Thinking
 

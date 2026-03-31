@@ -1,5 +1,5 @@
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, Download, Grid3X3, List, Loader2, Maximize, MessageCircle, Monitor } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Grid3X3, Home, List, Loader2, Maximize, MessageCircle, Monitor } from "lucide-react"
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type { SlideTransitionType } from "./transitions"
@@ -296,6 +296,16 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
           isAnnotationMode && showAnnotationPanel ? "right-[19.5rem]" : "right-4"
         )}
       >
+        <a
+          href="/"
+          className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
+          title="All Decks"
+        >
+          <Home className="h-4 w-4" />
+        </a>
+
+        <div className="mx-1 w-px bg-neutral-800" />
+
         <button
           onClick={() => setViewMode("slide")}
           className={cn(

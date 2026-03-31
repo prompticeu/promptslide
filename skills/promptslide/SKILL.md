@@ -28,9 +28,9 @@ Check if a PromptSlide project already exists:
 
 ## Creating a New Deck
 
-Follow the step-by-step workflow in [references/scaffolding.md](references/scaffolding.md): content discovery → style direction → scaffold → design thinking → create slides.
+**With MCP** (recommended): Use the `create_deck` tool to create a deck, then `write_layout`, `create_slide`, etc. The MCP tools handle all file management.
 
-Quick start: `promptslide create my-deck` (CLI) or `create_deck` (MCP tool).
+**Without MCP** (CLI scaffolding): Follow the step-by-step workflow in [references/scaffolding.md](references/scaffolding.md): content discovery → style direction → scaffold → design thinking → create slides. Quick start: `promptslide create my-deck`.
 
 ---
 
@@ -58,32 +58,9 @@ The framework auto-adds `h-full` to the root `<section>` so it fills the 1280×7
 
 ---
 
-## Deck Manifest (deck.json)
+## Slide Transitions
 
-Controls slide order, theme, and transitions:
-
-```json
-{
-  "name": "My Deck",
-  "slug": "my-deck",
-  "theme": "default",
-  "transition": "fade",
-  "directionalTransition": true,
-  "slides": [
-    { "file": "hero.html" },
-    { "file": "problem.html", "section": "Introduction" }
-  ]
-}
-```
-
-- **Add a slide**: Create the `.html` file in `slides/`, add an entry to the `slides` array
-- **Remove a slide**: Remove from the array (keep the file if you want it later)
-- **Reorder slides**: Change position in the array
-- **Steps are auto-detected** from the HTML (highest `data-step` value) — no manual step counts needed
-
-### Slide Transitions
-
-Set the default transition in `deck.json` via the `transition` field, or override per-slide with `data-transition` on the `<section>`:
+Set via `update_deck` (MCP) or `deck.json` `transition` field (CLI). Override per-slide with `data-transition` on the `<section>`.
 
 Options: `fade` (default), `slide-left`, `slide-right`, `slide-up`, `slide-down`, `zoom`, `zoom-fade`, `morph`, `none`
 
