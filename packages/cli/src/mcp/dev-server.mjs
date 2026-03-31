@@ -14,10 +14,20 @@ import { dirname, resolve } from "node:path"
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const CLI_ENTRY = resolve(__dirname, "../index.mjs")
 
-/** @type {{ child: import("node:child_process").ChildProcess, port: number } | null} */
+/** @type {{ child: import("node:child_process").ChildProcess | null, port: number } | null} */
 let serverInstance = null
 
 let cleanupRegistered = false
+
+/**
+ * Register an externally managed dev server (e.g. started by the Tauri app launcher).
+ * When set, ensureDevServer() will reuse this port instead of spawning a child process.
+ *
+ * @param {number} port - The port the dev server is already running on
+ */
+export function registerExternalDevServer(port) {
+  serverInstance = { child: null, port }
+}
 
 /**
  * Check if a port is already in use (i.e. dev server already running).
@@ -48,6 +58,8 @@ function isPortInUse(port) {
 export async function ensureDevServer({ deckRoot, port }) {
   // Already running — reuse
   if (serverInstance) {
+    // External server (no child process) — always trust it
+    if (!serverInstance.child) return serverInstance.port
     const alive = await isPortInUse(serverInstance.port)
     if (alive) return serverInstance.port
     // Child died, clean up
@@ -133,4 +145,14 @@ export async function ensureDevServer({ deckRoot, port }) {
  */
 export function getDevServerPort() {
   return serverInstance?.port || null
+}
+
+/**
+ * Check if the dev server is externally managed (e.g. by the Tauri app).
+ * When true, open_preview should NOT open a browser — the app window is already showing it.
+ *
+ * @returns {boolean}
+ */
+export function isExternalDevServer() {
+  return serverInstance !== null && serverInstance.child === null
 }

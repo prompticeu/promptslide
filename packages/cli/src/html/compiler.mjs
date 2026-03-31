@@ -73,10 +73,6 @@ export function compileSlide({ content, layout, deckRoot, slideName, slots }) {
 export default function ${componentName}({ slideNumber, totalSlides }) {
   return ${bodyCode}
 }
-
-if (import.meta.hot) {
-  import.meta.hot.accept()
-}
 `
 }
 

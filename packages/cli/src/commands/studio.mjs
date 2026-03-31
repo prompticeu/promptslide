@@ -15,6 +15,10 @@ export async function studio(args) {
   const isMcp = args.includes("--mcp")
   const deckRootArg = args.find(a => a.startsWith("--deck-root="))
   const forceHtml = args.includes("--html")
+  const transportArg = args.find(a => a.startsWith("--transport="))
+  const transport = transportArg ? transportArg.split("=")[1] : "stdio"
+  const mcpPortArg = args.find(a => a.startsWith("--mcp-port="))
+  const mcpPort = mcpPortArg ? parseInt(mcpPortArg.split("=")[1], 10) : 3001
 
   // Determine working directory
   let cwd
@@ -38,9 +42,52 @@ export async function studio(args) {
   }
 
   if (isMcp) {
-    // MCP mode: lightweight server on stdio, spawns Vite as child when needed
-    const { startMcpServer } = await import("../mcp/server.mjs")
-    await startMcpServer({ deckRoot: cwd })
+    if (transport === "http") {
+      // HTTP transport mode: MCP over HTTP + Vite dev server
+      // Used by the desktop app — both servers start together
+      const { startMcpHttpServer } = await import("../mcp/server.mjs")
+      const { createServer } = await import("vite")
+      const { createViteConfig } = await import("../vite/config.mjs")
+
+      const config = createViteConfig({ cwd, mode: "development", forceHtmlMode: true })
+      const viteServer = await createServer({
+        ...config,
+        server: { ...config.server, port, strictPort: false }
+      })
+
+      await viteServer.listen()
+
+      // Register the already-running dev server so MCP tools reuse it
+      const { registerExternalDevServer } = await import("../mcp/dev-server.mjs")
+      registerExternalDevServer(viteServer.config.server.port)
+
+      const mcpHttpServer = await startMcpHttpServer({ deckRoot: cwd, mcpPort })
+
+      console.log()
+      console.log(`  ${bold("promptslide")} ${dim("studio")} ${dim("(app mode)")}`)
+      console.log()
+      console.log(`  ${dim("→")} Dev server:  ${bold(`http://localhost:${viteServer.config.server.port}`)}`)
+      console.log(`  ${dim("→")} MCP server:  ${bold(`http://localhost:${mcpPort}/mcp`)}`)
+      console.log()
+
+      // Write connection info to stdout as JSON for the Tauri app to parse
+      if (args.includes("--json")) {
+        const info = {
+          devServer: `http://localhost:${viteServer.config.server.port}`,
+          mcpServer: `http://localhost:${mcpPort}/mcp`
+        }
+        // Write to fd 3 if available (Tauri sidecar pipe), otherwise stderr
+        try {
+          process.stderr.write(`__PROMPTSLIDE_READY__${JSON.stringify(info)}\n`)
+        } catch {
+          // ignore
+        }
+      }
+    } else {
+      // Stdio transport mode (default): for CLI integration
+      const { startMcpServer } = await import("../mcp/server.mjs")
+      await startMcpServer({ deckRoot: cwd })
+    }
   } else {
     // Normal studio: start Vite dev server directly
     const { createServer } = await import("vite")

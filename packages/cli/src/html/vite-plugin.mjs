@@ -142,6 +142,22 @@ export function htmlSlidesPlugin({ root: initialRoot } = {}) {
     return { slug, filename }
   }
 
+  /**
+   * Strip imports/exports from compiled slide source to make it evaluable
+   * via new Function() on the client. Also resolves asset:// URLs.
+   */
+  function makePortableSource(compiledSource, slug) {
+    const lines = compiledSource.split("\n")
+    const filtered = lines
+      .filter(l => !l.trimStart().startsWith("import "))
+      .join("\n")
+      .replace(/export\s+default\s+function/, "function")
+      .replace(/asset:\/\//g, `/${slug}/assets/`)
+      .trim()
+    const match = filtered.match(/^function\s+(\w+)/)
+    return { source: filtered, componentName: match ? match[1] : "SlideComponent" }
+  }
+
   function generateEntryModule(slug) {
     const manifest = manifests.get(slug)
     if (!manifest) return "export default function App() { return null }"
@@ -202,32 +218,61 @@ export function htmlSlidesPlugin({ root: initialRoot } = {}) {
     return `
 import { StrictMode, createElement } from "react"
 import { createRoot } from "react-dom/client"
-import { SlideThemeProvider, SlideDeck } from "promptslide"
+import { SlideThemeProvider, SlideDeck, Animated, AnimatedGroup, Morph } from "promptslide"
 ${globalsImport}
 ${themeImport}
 ${slideImports.join("\n")}
 
-const slides = [
+let slides = [
 ${slideConfigs.join(",\n")}
 ]
 
 const theme = ${JSON.stringify(themeConfig)}
 
-function App() {
-  return createElement(
-    SlideThemeProvider,
-    { theme },
-    createElement(SlideDeck, {
-      slides,
-      transition: "${transition}",
-      directionalTransition: ${directional}
-    })
+const __root = (import.meta.hot?.data?.root) || createRoot(document.getElementById("root"))
+
+function __render() {
+  __root.render(
+    createElement(StrictMode, null,
+      createElement(SlideThemeProvider, { theme },
+        createElement(SlideDeck, {
+          slides,
+          transition: "${transition}",
+          directionalTransition: ${directional}
+        })
+      )
+    )
   )
 }
 
-createRoot(document.getElementById("root")).render(
-  createElement(StrictMode, null, createElement(App))
-)
+__render()
+
+if (import.meta.hot) {
+  import.meta.hot.data.root = __root
+
+  // Live slide updates — receives compiled component source from the server,
+  // evaluates it with new Function() and re-renders React in place.
+  // No page reload, no Vite HMR module system involved.
+  import.meta.hot.on('promptslide:slide-update', (data) => {
+    const idx = slides.findIndex(s => s.id === data.slideId)
+    if (idx < 0) return
+    console.log('[hmr] slide-update received:', data.slideId, 'steps:', data.steps, 'old steps:', slides[idx]?.steps)
+    try {
+      const factory = new Function(
+        'createElement', 'Animated', 'AnimatedGroup', 'Morph',
+        data.source + '\\nreturn ' + data.componentName + ';'
+      )
+      const NewComponent = factory(createElement, Animated, AnimatedGroup, Morph)
+      slides = slides.map((s, i) =>
+        i === idx ? { ...s, component: NewComponent, steps: data.steps ?? s.steps } : s
+      )
+      __render()
+    } catch (e) {
+      console.warn('[promptslide] slide update failed, reloading', e)
+      location.reload()
+    }
+  })
+}
 `
   }
 
@@ -318,6 +363,16 @@ createRoot(document.getElementById("root")).render(
         const deckSlides = compiledSlidesMap.get(parsed.slug)
         if (!deckSlides) return "export default function() { return null }"
         return deckSlides.get(parsed.filename) || "export default function() { return null }"
+      }
+    },
+
+    // Suppress Vite's default full-reload for slide/layout/theme HTML files
+    // inside the deck root — we handle HMR ourselves via the watcher.
+    handleHotUpdate({ file }) {
+      if (file.startsWith(root + "/") && (
+        file.includes("/slides/") || file.includes("/layouts/") || file.includes("/themes/")
+      ) && file.endsWith(".html")) {
+        return []  // empty array = no default HMR behavior
       }
     },
 
@@ -441,61 +496,48 @@ createRoot(document.getElementById("root")).render(
           if (!compiledSlidesMap.has(slug)) compiledSlidesMap.set(slug, new Map())
           compiledSlidesMap.get(slug).set(filename, compiled)
 
-          // Track step count changes
-          const oldSteps = slideStepsMap.get(slug)?.get(filename)
+          // Update step count
           const newSteps = parsed.steps
           if (!slideStepsMap.has(slug)) slideStepsMap.set(slug, new Map())
           slideStepsMap.get(slug).set(filename, newSteps)
+          console.log(`[hmr] slide changed: ${slug}/${filename} steps=${newSteps}`)
 
-          // Invalidate the specific slide module — Vite HMR handles the rest
-          // React Fast Refresh will hot-swap the component without losing state
+          // Invalidate the slide module (for future full page loads)
           const slideModId = RESOLVED_SLIDE_PREFIX + slug + "/" + filename + VIRTUAL_SLIDE_SUFFIX
           const slideMod = server.moduleGraph.getModuleById(slideModId)
-          if (slideMod) {
-            server.moduleGraph.invalidateModule(slideMod)
-            // Send HMR update for just this module
-            server.ws.send({
-              type: "update",
-              updates: [{
-                type: "js-update",
-                path: slideMod.url,
-                acceptedPath: slideMod.url,
-                timestamp: Date.now()
-              }]
-            })
-          }
+          if (slideMod) server.moduleGraph.invalidateModule(slideMod)
 
-          // If steps changed, entry module needs update too (step counts are in the entry)
-          if (oldSteps !== undefined && oldSteps !== newSteps) {
-            const entryModId = RESOLVED_HTML_ENTRY + "--" + slug
-            const entryMod = server.moduleGraph.getModuleById(entryModId)
-            if (entryMod) server.moduleGraph.invalidateModule(entryMod)
-            server.ws.send({ type: "full-reload" })
-          }
+          // Send compiled source directly — client evaluates with new Function()
+          const slideId = filename.replace(/\.html$/, "")
+          const portable = makePortableSource(compiled, slug)
+          server.ws.send({
+            type: "custom",
+            event: "promptslide:slide-update",
+            data: {
+              slideId,
+              source: portable.source,
+              componentName: portable.componentName,
+              steps: newSteps
+            }
+          })
 
           return
         }
 
         if (relToDeck.startsWith("layouts/") && relToDeck.endsWith(".html")) {
           compileAllSlides(slug)
+          // Layout changes affect all slides — full reload is simplest
           const deckSlides = compiledSlidesMap.get(slug)
           if (deckSlides) {
             for (const [filename] of deckSlides) {
               const mod = server.moduleGraph.getModuleById(RESOLVED_SLIDE_PREFIX + slug + "/" + filename + VIRTUAL_SLIDE_SUFFIX)
-              if (mod) {
-                server.moduleGraph.invalidateModule(mod)
-                server.ws.send({
-                  type: "update",
-                  updates: [{
-                    type: "js-update",
-                    path: mod.url,
-                    acceptedPath: mod.url,
-                    timestamp: Date.now()
-                  }]
-                })
-              }
+              if (mod) server.moduleGraph.invalidateModule(mod)
             }
           }
+          const entryModId = RESOLVED_HTML_ENTRY + "--" + slug
+          const entryMod = server.moduleGraph.getModuleById(entryModId)
+          if (entryMod) server.moduleGraph.invalidateModule(entryMod)
+          server.ws.send({ type: "full-reload" })
           return
         }
 
