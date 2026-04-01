@@ -7,9 +7,9 @@
  */
 
 import { existsSync, mkdirSync } from "node:fs"
-import { join, basename } from "node:path"
+import { join, basename, dirname } from "node:path"
 import { homedir } from "node:os"
-import { parseDeckManifest } from "../html/parser.mjs"
+import { parseDeckManifest } from "../utils/deck-manifest.mjs"
 import { readFileSync } from "node:fs"
 
 /** Default export directory */
@@ -53,6 +53,7 @@ export async function exportPdf({ deckRoot, deckSlug, devServerPort, outputPath 
   if (manifest.slides.length === 0) {
     throw new Error("Deck has no slides")
   }
+  const effectiveDeckSlug = deckSlug || manifest.slug || basename(deckRoot)
 
   const browser = await getBrowser()
 
@@ -63,7 +64,7 @@ export async function exportPdf({ deckRoot, deckSlug, devServerPort, outputPath 
 
     try {
       // Navigate to deck
-      await page.goto(`http://localhost:${devServerPort}/${deckSlug}`, {
+      await page.goto(`http://localhost:${devServerPort}/${effectiveDeckSlug}`, {
         waitUntil: "networkidle",
         timeout: 15000
       })
@@ -91,7 +92,12 @@ export async function exportPdf({ deckRoot, deckSlug, devServerPort, outputPath 
         if (!existsSync(EXPORTS_DIR)) {
           mkdirSync(EXPORTS_DIR, { recursive: true })
         }
-        outputPath = join(EXPORTS_DIR, `${deckSlug}.pdf`)
+        outputPath = join(EXPORTS_DIR, `${effectiveDeckSlug}.pdf`)
+      }
+
+      const outputDir = dirname(outputPath)
+      if (!existsSync(outputDir)) {
+        mkdirSync(outputDir, { recursive: true })
       }
 
       // Write PDF

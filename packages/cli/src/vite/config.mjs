@@ -6,7 +6,6 @@ import tailwindcss from "@tailwindcss/postcss"
 import react from "@vitejs/plugin-react"
 
 import { promptslidePlugin } from "./plugin.mjs"
-import { htmlSlidesPlugin, isHtmlDeck, tailwindSourcePlugin } from "../html/vite-plugin.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -25,16 +24,7 @@ const reactJsxRuntime = require.resolve("react/jsx-runtime")
 const reactJsxDevRuntime = require.resolve("react/jsx-dev-runtime")
 const reactDomClient = require.resolve("react-dom/client")
 
-export function createViteConfig({ cwd, mode = "development", forceHtmlMode = false }) {
-  const htmlMode = forceHtmlMode || isHtmlDeck(cwd)
-
-  const plugins = [react()]
-  if (htmlMode) {
-    plugins.push(tailwindSourcePlugin({ deckRoot: cwd }), htmlSlidesPlugin({ root: cwd }))
-  } else {
-    plugins.push(promptslidePlugin({ root: cwd }))
-  }
-
+export function createViteConfig({ cwd, mode = "development" }) {
   // CLI's node_modules for optimizeDeps to find react etc.
   const cliRoot = resolve(__dirname, "../..")
 
@@ -42,12 +32,10 @@ export function createViteConfig({ cwd, mode = "development", forceHtmlMode = fa
     configFile: false,
     root: cwd,
     mode,
-    // Disable Vite's SPA fallback so our plugin handles HTML routing
-    appType: htmlMode ? "custom" : undefined,
-    plugins,
+    appType: "custom",
+    plugins: [react(), promptslidePlugin({ root: cwd })],
     resolve: {
       alias: {
-        "@": resolve(cwd, "src"),
         promptslide: promptslidePath,
         // CSS @import "tailwindcss" → resolved from CLI package
         tailwindcss: tailwindPath,

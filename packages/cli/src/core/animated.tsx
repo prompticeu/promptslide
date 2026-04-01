@@ -47,9 +47,14 @@ const animationVariants: Record<AnimationType, Variants> = {
   }
 }
 
+function normalizeSeconds(value: number) {
+  // Accept legacy millisecond-style values like 200 / 500 from HTML decks.
+  return value > 10 ? value / 1000 : value
+}
+
 interface AnimatedProps {
-  /** Which step reveals this content (1-indexed) */
-  step: number
+  /** Which step reveals this content (1-indexed). Omit for entry animation. */
+  step?: number
   /** Animation type */
   animation?: AnimationType
   /** Animation duration in seconds */
@@ -69,7 +74,7 @@ interface AnimatedProps {
  * needing to register itself.
  */
 export function Animated({
-  step,
+  step = 0,
   animation = "slide-up",
   duration = STEP_ANIMATION_DURATION,
   delay = 0,
@@ -80,6 +85,8 @@ export function Animated({
 
   // Show all animations when navigating backward, otherwise check step
   const isVisible = showAllAnimations || currentStep >= step
+  const normalizedDuration = normalizeSeconds(duration)
+  const normalizedDelay = normalizeSeconds(delay)
 
   return (
     <motion.div
@@ -88,8 +95,8 @@ export function Animated({
       variants={animationVariants[animation]}
       transition={{
         ...SPRING_SNAPPY,
-        duration,
-        delay: isVisible ? delay : 0
+        duration: normalizedDuration,
+        delay: isVisible ? normalizedDelay : 0
       }}
       className={className}
     >
@@ -103,8 +110,8 @@ export function Animated({
  * Each direct child will be animated in sequence.
  */
 interface AnimatedGroupProps {
-  /** Starting step for the first child */
-  startStep: number
+  /** Starting step for the first child. Omit for entry animation. */
+  startStep?: number
   /** Animation type for all children */
   animation?: AnimationType
   /** Delay between each child in seconds */
@@ -114,7 +121,7 @@ interface AnimatedGroupProps {
 }
 
 export function AnimatedGroup({
-  startStep,
+  startStep = 0,
   animation = "slide-up",
   staggerDelay = STAGGER_DELAY,
   className,
@@ -123,6 +130,7 @@ export function AnimatedGroup({
   const { currentStep, showAllAnimations } = useAnimationContext()
 
   const childArray = Array.isArray(children) ? children : [children]
+  const normalizedStaggerDelay = normalizeSeconds(staggerDelay)
 
   // Show all animations when navigating backward, otherwise check step
   const isVisible = showAllAnimations || currentStep >= startStep
@@ -131,7 +139,7 @@ export function AnimatedGroup({
     hidden: {},
     visible: {
       transition: {
-        staggerChildren: staggerDelay
+        staggerChildren: normalizedStaggerDelay
       }
     }
   }

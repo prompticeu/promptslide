@@ -1,0 +1,30 @@
+name: PromptSlide
+options:
+  bundleIdPrefix: com.promptslide
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+
+targets:
+  PromptSlide:
+    type: application
+    platform: macOS
+    sources:
+      - path: PromptSlide
+        excludes:
+          - Resources/Assets.xcassets
+    resources:
+      - path: PromptSlide/Resources/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.promptslide.macos
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: 1
+        INFOPLIST_FILE: PromptSlide/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: PromptSlide/Resources/PromptSlide.entitlements
+        CODE_SIGN_STYLE: Automatic

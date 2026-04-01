@@ -2,20 +2,34 @@
  * Screenshot service for MCP.
  *
  * Uses Playwright to render slides in a headless browser and capture screenshots.
- * Leverages the framework's built-in export mode (?export=true&slide=N) which
+ * Leverages the framework's built-in export mode (?export=true&slidePath=...) which
  * renders a single slide at exact 1280x720 with all animations shown.
  *
  * The browser instance is lazy-initialized and reused across requests.
  *
- * URLs now include the deck slug: /:slug?export=true&slide=N
+ * In the shared host runtime, decks are served via `/:deckSlug`.
+ * Export mode is triggered via ?export=true&slidePath=src/slides/slide-name.tsx
  */
 
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
-import { parseDeckManifest } from "../html/parser.mjs"
+import { parseDeckManifest } from "../utils/deck-manifest.mjs"
 
 let browser = null
 let browserPromise = null
+
+function resolveSlidePath(deckRoot, slideId) {
+  const candidates = [
+    `src/slides/${slideId}.tsx`,
+    `src/slides/${slideId}.jsx`,
+    `src/slides/slide-${slideId}.tsx`,
+    `src/slides/slide-${slideId}.jsx`
+  ]
+  for (const candidate of candidates) {
+    if (existsSync(join(deckRoot, candidate))) return candidate
+  }
+  return `src/slides/slide-${slideId}.tsx`
+}
 
 /**
  * Get or create the shared browser instance.
@@ -50,12 +64,12 @@ async function getBrowser() {
  * @param {Object} options
  * @param {string} options.deckRoot - Deck directory path (specific deck, e.g. ~/.promptslide/decks/my-pitch)
  * @param {string} options.deckSlug - Deck slug for URL routing
- * @param {string} options.slideFile - Slide filename (e.g. "hero.html")
+ * @param {string} options.slideId - Slide id (e.g. "hero" or "slide-hero")
  * @param {number} options.devServerPort - Vite dev server port
  * @param {number} [options.scale=1] - Screenshot scale
  * @returns {Promise<string>} Base64-encoded PNG
  */
-export async function takeScreenshot({ deckRoot, deckSlug, slideFile, devServerPort, scale = 1 }) {
+export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPort, scale = 1 }) {
   const b = await getBrowser()
   const page = await b.newPage({
     viewport: { width: 1280, height: 720 },
@@ -63,17 +77,10 @@ export async function takeScreenshot({ deckRoot, deckSlug, slideFile, devServerP
   })
 
   try {
-    // Determine slide index from manifest
-    const manifestPath = join(deckRoot, "deck.json")
-    let slideIndex = 0
-    if (existsSync(manifestPath)) {
-      const manifest = parseDeckManifest(readFileSync(manifestPath, "utf-8"))
-      const idx = manifest.slides.findIndex(s => s.file === slideFile)
-      if (idx >= 0) slideIndex = idx
-    }
+    const slidePath = resolveSlidePath(deckRoot, slideId)
 
-    // Use export mode with deck slug in URL
-    const url = `http://localhost:${devServerPort}/${deckSlug}?export=true&slide=${slideIndex}`
+    // Use export mode on the shared workspace host.
+    const url = `http://localhost:${devServerPort}/${deckSlug}?export=true&slidePath=${slidePath}`
     await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
 
     // Wait for the export view to signal readiness
@@ -133,11 +140,12 @@ export async function takeDeckOverview({ deckRoot, deckSlug, devServerPort }) {
 
     try {
       // Build an HTML page with all slides as iframes in export mode
-      const iframes = manifest.slides.map((s, i) =>
-        `<iframe src="http://localhost:${devServerPort}/${deckSlug}?export=true&slide=${i}" ` +
-        `style="width:${thumbWidth}px;height:${thumbHeight}px;border:1px solid #333;` +
-        `transform-origin:top left;" frameborder="0"></iframe>`
-      ).join("")
+      const iframes = manifest.slides.map((s) => {
+        const slidePath = resolveSlidePath(deckRoot, s.id)
+        return `<iframe src="http://localhost:${devServerPort}/${deckSlug}?export=true&slidePath=${slidePath}" ` +
+          `style="width:${thumbWidth}px;height:${thumbHeight}px;border:1px solid #333;` +
+          `transform-origin:top left;" frameborder="0"></iframe>`
+      }).join("")
 
       const gridHtml = `<!doctype html><html><head><style>
         body { margin:0; background:#0a0a0a; display:flex; flex-wrap:wrap; }

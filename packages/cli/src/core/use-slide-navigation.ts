@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { NavigationDirection, SlideConfig } from "./types"
 
@@ -87,8 +87,20 @@ export function useSlideNavigation({
   })
 
   const [queuedAction, setQueuedAction] = useState<QueuedAction>(null)
+  const autoAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const totalSteps = slides[currentSlide]?.steps ?? 0
+
+  /** Cancel any pending auto-advance timer */
+  const cancelAutoAdvance = useCallback(() => {
+    if (autoAdvanceTimer.current) {
+      clearTimeout(autoAdvanceTimer.current)
+      autoAdvanceTimer.current = null
+    }
+  }, [])
+
+  // Clean up auto-advance timer on slide change or unmount
+  useEffect(() => cancelAutoAdvance, [currentSlide, cancelAutoAdvance])
 
   // Sync slide index → URL hash
   useEffect(() => {
@@ -101,6 +113,7 @@ export function useSlideNavigation({
       const fromHash = readSlideFromHash(slides)
       if (fromHash !== null && fromHash !== currentSlide) {
         const direction = fromHash > currentSlide ? 1 : -1
+        cancelAutoAdvance()
         setNavState({ status: "transitioning", direction })
         setAnimationStep(0)
         setCurrentSlide(fromHash)
@@ -109,7 +122,7 @@ export function useSlideNavigation({
     }
     window.addEventListener("hashchange", handleHashChange)
     return () => window.removeEventListener("hashchange", handleHashChange)
-  }, [currentSlide, slides, onSlideChange])
+  }, [currentSlide, slides, onSlideChange, cancelAutoAdvance])
 
   const onTransitionComplete = useCallback(() => {
     setNavState(prev => {
@@ -120,30 +133,63 @@ export function useSlideNavigation({
     })
   }, [])
 
+  // Use refs for values needed by the auto-advance timer
+  // so the timeout closure always reads fresh values
+  const currentSlideRef = useRef(currentSlide)
+  currentSlideRef.current = currentSlide
+  const slidesRef = useRef(slides)
+  slidesRef.current = slides
+  const onSlideChangeRef = useRef(onSlideChange)
+  onSlideChangeRef.current = onSlideChange
+  const navStatusRef = useRef(navState.status)
+  navStatusRef.current = navState.status
+
+  /** Advance to the next slide. Used both directly and by auto-advance timer. */
+  const doAdvanceSlide = useCallback(() => {
+    // Guard: if a transition started while the timer was pending, bail out
+    if (navStatusRef.current === "transitioning") return
+
+    const cs = currentSlideRef.current
+    const sl = slidesRef.current
+    const nextSlide = (cs + 1) % sl.length
+    setNavState({ status: "transitioning", direction: 1 })
+    setAnimationStep(0)
+    setCurrentSlide(nextSlide)
+    onSlideChangeRef.current?.(nextSlide)
+  }, [])
+
   const advance = useCallback(() => {
     if (navState.status === "transitioning") {
       setQueuedAction("advance")
       return
     }
 
+    cancelAutoAdvance()
+
     const currentTotalSteps = slides[currentSlide]?.steps ?? 0
 
     if (animationStep >= currentTotalSteps) {
-      const nextSlide = (currentSlide + 1) % slides.length
-      setNavState({ status: "transitioning", direction: 1 })
-      setAnimationStep(0)
-      setCurrentSlide(nextSlide)
-      onSlideChange?.(nextSlide)
+      // All steps already visible — advance immediately
+      doAdvanceSlide()
     } else {
-      setAnimationStep(prev => prev + 1)
+      // Reveal next step
+      const nextStep = animationStep + 1
+      setAnimationStep(nextStep)
+
+      // If that was the last step, auto-advance after the animation plays
+      if (nextStep >= currentTotalSteps) {
+        autoAdvanceTimer.current = setTimeout(doAdvanceSlide, 450)
+      }
     }
-  }, [navState.status, animationStep, currentSlide, slides, onSlideChange])
+  }, [navState.status, animationStep, currentSlide, slides, cancelAutoAdvance, doAdvanceSlide])
 
   const goBack = useCallback(() => {
     if (navState.status === "transitioning") {
       setQueuedAction("goBack")
       return
     }
+
+    cancelAutoAdvance()
 
     if (animationStep <= 0) {
       const prevSlide = (currentSlide - 1 + slides.length) % slides.length
@@ -155,7 +201,7 @@ export function useSlideNavigation({
     } else {
       setAnimationStep(prev => prev - 1)
     }
-  }, [navState.status, animationStep, currentSlide, slides, onSlideChange])
+  }, [navState.status, animationStep, currentSlide, slides, onSlideChange, cancelAutoAdvance])
 
   const goToSlide = useCallback(
     (index: number) => {
@@ -163,13 +209,15 @@ export function useSlideNavigation({
         return
       }
 
+      cancelAutoAdvance()
+
       const direction = index > currentSlide ? 1 : -1
       setNavState({ status: "transitioning", direction })
       setAnimationStep(0)
       setCurrentSlide(index)
       onSlideChange?.(index)
     },
-    [currentSlide, slides.length, onSlideChange]
+    [currentSlide, slides.length, onSlideChange, cancelAutoAdvance]
   )
 
   useEffect(() => {

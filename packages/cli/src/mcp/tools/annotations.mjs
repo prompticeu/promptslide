@@ -51,11 +51,10 @@ export function registerAnnotationTools(server, context) {
       let annotations = readAnnotations(deckPath)
 
       if (slide) {
-        const filename = slide.endsWith(".html") ? slide : `${slide}.html`
         annotations = annotations.filter(a =>
-          // Match by slideTitle (display name) or slideIndex
-          a.slideTitle === filename || a.slideTitle === slide ||
-          a.slide === filename || a.slide === slide
+          // Match by slideTitle (display name), slide id, or slideIndex
+          a.slideTitle === slide || a.slide === slide ||
+          a.slideTitle?.replace(/\.tsx$/, "") === slide
         )
       }
 
@@ -73,7 +72,7 @@ export function registerAnnotationTools(server, context) {
     `Add a feedback annotation to a slide. Creates a new annotation entry in annotations.json.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      slide: z.string().describe("Slide filename (e.g. 'hero.html' or 'hero')"),
+      slide: z.string().describe("Slide id (e.g. 'hero')"),
       text: z.string().describe("Annotation/feedback text"),
       author: z.string().optional().describe("Author name (defaults to 'agent')")
     },
@@ -87,16 +86,14 @@ export function registerAnnotationTools(server, context) {
       }
 
       const annotations = readAnnotations(deckPath)
-      const filename = slide.endsWith(".html") ? slide : `${slide}.html`
-
       // Read deck manifest to find slide index and title
       let slideIndex = 0
-      let slideTitle = filename
+      let slideTitle = slide
       try {
         const manifest = JSON.parse(readFileSync(join(deckPath, "deck.json"), "utf-8"))
-        const idx = manifest.slides.findIndex(s => s.file === filename)
+        const idx = manifest.slides.findIndex(s => s.id === slide)
         if (idx >= 0) slideIndex = idx
-        slideTitle = manifest.slides[idx]?.title || filename
+        slideTitle = manifest.slides[idx]?.title || slide
       } catch {}
 
       const annotation = {

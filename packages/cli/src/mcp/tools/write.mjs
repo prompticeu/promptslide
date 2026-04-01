@@ -1,5 +1,5 @@
 /**
- * MCP Write tools: create_deck, update_deck, write_layout,
+ * MCP Write tools: create_deck, update_deck, write_layout, write_component,
  * create_slide, write_slide, edit_slide,
  * reorder_slides, duplicate_slide
  */
@@ -8,8 +8,31 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync } from
 import { join } from "node:path"
 import { z } from "zod"
 
-import { parseDeckManifest } from "../../html/parser.mjs"
 import { resolveDeckPath } from "../deck-resolver.mjs"
+import { ensureTsConfig } from "../../utils/tsconfig.mjs"
+
+/**
+ * Resolve slide file path for a given slide id.
+ * Checks: src/slides/{id}.tsx, src/slides/slide-{id}.tsx, and .jsx variants.
+ */
+function resolveSlideFile(deckPath, slideId) {
+  const slidesDir = join(deckPath, "src", "slides")
+  const candidates = [
+    `${slideId}.tsx`,
+    `${slideId}.jsx`,
+    `slide-${slideId}.tsx`,
+    `slide-${slideId}.jsx`
+  ]
+  for (const candidate of candidates) {
+    const fullPath = join(slidesDir, candidate)
+    if (existsSync(fullPath)) return { file: candidate, fullPath }
+  }
+  return null
+}
+
+function normalizeSlideId(slideId) {
+  return slideId.replace(/\.(tsx|jsx)$/, "").replace(/^slide-/, "")
+}
 
 export function registerWriteTools(server, context) {
   const { deckRoot } = context
@@ -17,10 +40,9 @@ export function registerWriteTools(server, context) {
   // ─── create_deck ───
   server.tool(
     "create_deck",
-    `Create a new empty deck. Creates the directory structure and deck.json manifest. ` +
-    `After creating a deck, create 2-3 slide master layouts first (write_layout) ` +
-    `for consistent structure across slides. Then create slides that reference ` +
-    `layouts via data-layout="name" and pass data-title, data-section, etc. ` +
+    `Create a new empty deck. Creates the directory structure, deck.json, globals.css, and tsconfig.json. ` +
+    `After creating a deck, create 1-2 slide master layouts first (write_layout) ` +
+    `for consistent structure across slides. Then create slides that import and use layouts. ` +
     `Slide dimensions: 1280x720 (16:9).`,
     {
       name: z.string().describe("Deck display name"),
@@ -33,7 +55,7 @@ export function registerWriteTools(server, context) {
       const deckPath = join(deckRoot, deckSlug)
 
       // Create directory structure
-      const dirs = ["slides", "layouts", "themes", "assets"]
+      const dirs = ["src/slides", "src/layouts", "src/components", "themes", "assets"]
       for (const dir of dirs) {
         mkdirSync(join(deckPath, dir), { recursive: true })
       }
@@ -42,21 +64,22 @@ export function registerWriteTools(server, context) {
       const manifest = {
         name,
         slug: deckSlug,
-        theme: theme || "default",
         transition: "fade",
         directionalTransition: true,
-        logo: null,
         slides: []
       }
+      if (theme) manifest.theme = theme
       writeFileSync(join(deckPath, "deck.json"), JSON.stringify(manifest, null, 2))
 
-      // Create default theme if it doesn't exist
-      const defaultThemePath = join(deckPath, "themes", "default.css")
-      if (!existsSync(defaultThemePath)) {
-        writeFileSync(defaultThemePath, DEFAULT_THEME_CSS)
+      // Create globals.css (Tailwind + theme)
+      const globalsCssPath = join(deckPath, "src", "globals.css")
+      if (!existsSync(globalsCssPath)) {
+        writeFileSync(globalsCssPath, DEFAULT_GLOBALS_CSS)
       }
 
-      return { content: [{ type: "text", text: JSON.stringify({ slug: deckSlug, path: deckPath, message: "Deck created. Add slides with create_slide." }) }] }
+      ensureTsConfig(deckPath)
+
+      return { content: [{ type: "text", text: JSON.stringify({ slug: deckSlug, path: deckPath, message: "Deck created. Create layouts with write_layout, then add slides with create_slide." }) }] }
     }
   )
 
@@ -101,16 +124,14 @@ export function registerWriteTools(server, context) {
   // ─── write_layout ───
   server.tool(
     "write_layout",
-    `Create or update a slide master layout (like PowerPoint slide masters). ` +
+    `Create or update a slide master layout as a TSX component. ` +
     `Layouts define repeating structure (headers, footers, section numbering) shared across slides. ` +
-    `Use <!-- slot:name --> markers for flexible slots. Text slots come from data- attributes ` +
-    `on <section> (e.g. data-title → <!-- slot:title -->). Content slots come from <slot name="..."> ` +
-    `elements in the slide. Use <!-- content --> for remaining slide HTML. ` +
-    `Also available: <!-- slideNumber --> and <!-- totalSlides -->.`,
+    `The layout receives { children, slideNumber, totalSlides } as props. ` +
+    `Slides import and use layouts: import { MasterLayout } from "@/layouts/master"`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
       name: z.string().describe("Layout name (e.g. 'master', 'title', 'split')"),
-      content: z.string().describe("HTML template content. Must include <!-- content --> placeholder.")
+      content: z.string().describe("TSX source code for the layout component")
     },
     { readOnlyHint: false, destructiveHint: false },
     async ({ deck, name, content }) => {
@@ -121,43 +142,36 @@ export function registerWriteTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      if (!content.includes("<!-- content -->")) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: "Layout template must include <!-- content --> placeholder for slide content injection." }) }] }
-      }
-
-      const filename = name.endsWith(".html") ? name : `${name}.html`
-      const layoutsDir = join(deckPath, "layouts")
+      const filename = name.endsWith(".tsx") ? name : `${name}.tsx`
+      const layoutsDir = join(deckPath, "src", "layouts")
       mkdirSync(layoutsDir, { recursive: true })
       const layoutFile = join(layoutsDir, filename)
       const isNew = !existsSync(layoutFile)
       writeFileSync(layoutFile, content)
+
+      const layoutName = name.replace(/\.tsx$/, "")
       return { content: [{ type: "text", text: JSON.stringify({
         success: true,
-        layout: name.replace(".html", ""),
-        message: `Layout ${isNew ? "created" : "updated"}. Use data-layout="${name.replace(".html", "")}" on slides to apply it.`
+        layout: layoutName,
+        file: `src/layouts/${filename}`,
+        message: `Layout ${isNew ? "created" : "updated"}. Import in slides: import { ${titleCase(layoutName)} } from "@/layouts/${layoutName}"`
       }) }] }
     }
   )
 
-  // ─── create_slide ───
+  // ─── write_component ───
   server.tool(
-    "create_slide",
-    `Add a new HTML slide to the deck. Creates a .html file and adds it to the deck manifest. ` +
-    `Slides use Tailwind CSS classes and semantic colors (text-foreground, bg-primary, ` +
-    `text-muted-foreground, bg-background, bg-card, border-border). ` +
-    `Use data-step="N" and data-animate="type" attributes for click-to-reveal animations ` +
-    `(types: fade, slide-up, slide-down, slide-left, slide-right, scale). ` +
-    `Use data-layout="name" to wrap in a slide master layout from layouts/. ` +
-    `Dimensions: 1280x720 (16:9).`,
+    "write_component",
+    `Create or update a reusable component as a TSX file. ` +
+    `Components are shared building blocks (cards, stat blocks, etc.) used across slides. ` +
+    `Slides import components: import { Card } from "@/components/card"`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      name: z.string().describe("Slide filename without extension (e.g. 'hero', 'problem')"),
-      content: z.string().describe("HTML content of the slide (wrap in <section>)"),
-      position: z.number().optional().describe("Position in deck (0-indexed, defaults to end)"),
-      section: z.string().optional().describe("Section/chapter name for grouping")
+      name: z.string().describe("Component name (e.g. 'card', 'stat-block')"),
+      content: z.string().describe("TSX source code for the component")
     },
     { readOnlyHint: false, destructiveHint: false },
-    async ({ deck, name, content, position, section }) => {
+    async ({ deck, name, content }) => {
       let deckPath
       try {
         deckPath = resolveDeckPath(deckRoot, deck)
@@ -165,19 +179,64 @@ export function registerWriteTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const filename = name.endsWith(".html") ? name : `${name}.html`
-      const slidePath = join(deckPath, "slides", filename)
+      const filename = name.endsWith(".tsx") ? name : `${name}.tsx`
+      const componentsDir = join(deckPath, "src", "components")
+      mkdirSync(componentsDir, { recursive: true })
+      const componentFile = join(componentsDir, filename)
+      const isNew = !existsSync(componentFile)
+      writeFileSync(componentFile, content)
+
+      const componentName = name.replace(/\.tsx$/, "")
+      return { content: [{ type: "text", text: JSON.stringify({
+        success: true,
+        component: componentName,
+        file: `src/components/${filename}`,
+        message: `Component ${isNew ? "created" : "updated"}. Import in slides: import { ... } from "@/components/${componentName}"`
+      }) }] }
+    }
+  )
+
+  // ─── create_slide ───
+  server.tool(
+    "create_slide",
+    `Add a new TSX slide to the deck. Creates a .tsx file under src/slides/ and adds it to deck.json. ` +
+    `Slides are React components that receive { slideNumber, totalSlides } props. ` +
+    `Use Animated, AnimatedGroup, Morph from "promptslide" for animations. ` +
+    `Import layouts from "@/layouts/..." and components from "@/components/...". ` +
+    `Use Tailwind CSS classes and semantic colors (text-foreground, bg-primary, etc.). ` +
+    `Export const meta = { steps: N } for animation step count. ` +
+    `Dimensions: 1280x720 (16:9).`,
+    {
+      deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
+      id: z.string().describe("Slide id (e.g. 'hero', 'problem') — becomes the filename"),
+      content: z.string().describe("TSX source code for the slide component"),
+      position: z.number().optional().describe("Position in deck (0-indexed, defaults to end)"),
+      section: z.string().optional().describe("Section/chapter name for grouping"),
+      title: z.string().optional().describe("Display title for the slide")
+    },
+    { readOnlyHint: false, destructiveHint: false },
+    async ({ deck, id, content, position, section, title }) => {
+      let deckPath
+      try {
+        deckPath = resolveDeckPath(deckRoot, deck)
+      } catch (err) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
+      }
+
+      const filename = `slide-${id}.tsx`
+      const slidePath = join(deckPath, "src", "slides", filename)
 
       // Write the slide file
-      mkdirSync(join(deckPath, "slides"), { recursive: true })
+      mkdirSync(join(deckPath, "src", "slides"), { recursive: true })
       writeFileSync(slidePath, content)
 
       // Update deck.json
       const manifestPath = join(deckPath, "deck.json")
       if (existsSync(manifestPath)) {
         const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"))
-        const entry = { file: filename }
+        const entry = { id }
         if (section) entry.section = section
+        if (title) entry.title = title
 
         if (position !== undefined && position >= 0 && position <= manifest.slides.length) {
           manifest.slides.splice(position, 0, entry)
@@ -187,19 +246,19 @@ export function registerWriteTools(server, context) {
         writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
       }
 
-      return { content: [{ type: "text", text: JSON.stringify({ file: filename, message: "Slide created and added to deck. Use get_screenshot to verify the visual result." }) }] }
+      return { content: [{ type: "text", text: JSON.stringify({ id, file: `src/slides/${filename}`, message: "Slide created and added to deck. Use get_screenshot to verify the visual result." }) }] }
     }
   )
 
   // ─── write_slide ───
   server.tool(
     "write_slide",
-    `Full rewrite of a slide's HTML content. Replaces the entire .html file. ` +
+    `Full rewrite of a slide's TSX source. Replaces the entire file. ` +
     `Use for major changes or starting over. For small changes, prefer edit_slide.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      slide: z.string().describe("Slide filename (e.g. 'hero.html' or 'hero')"),
-      content: z.string().describe("New HTML content for the slide")
+      slide: z.string().describe("Slide id (e.g. 'hero' or 'slide-hero')"),
+      content: z.string().describe("New TSX source code for the slide")
     },
     { readOnlyHint: false, destructiveHint: false },
     async ({ deck, slide, content }) => {
@@ -210,28 +269,26 @@ export function registerWriteTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const filename = slide.endsWith(".html") ? slide : `${slide}.html`
-      const slidePath = join(deckPath, "slides", filename)
-
-      if (!existsSync(slidePath)) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: `Slide not found: ${filename}` }) }] }
+      const resolved = resolveSlideFile(deckPath, slide)
+      if (!resolved) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Slide not found: ${slide}` }) }] }
       }
 
-      writeFileSync(slidePath, content)
-      return { content: [{ type: "text", text: JSON.stringify({ success: true, file: filename, message: "Slide updated. Use get_screenshot to verify the visual result." }) }] }
+      writeFileSync(resolved.fullPath, content)
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, file: `src/slides/${resolved.file}`, message: "Slide updated. Use get_screenshot to verify the visual result." }) }] }
     }
   )
 
   // ─── edit_slide ───
   server.tool(
     "edit_slide",
-    `Surgical find-and-replace within a slide's HTML. Use for text changes, ` +
-    `class tweaks, adding/removing attributes — anything. old_string must match exactly. ` +
+    `Surgical find-and-replace within a slide's TSX source. Use for text changes, ` +
+    `class tweaks, prop changes — anything. old_string must match exactly. ` +
     `Prefer this over write_slide for small changes.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      slide: z.string().describe("Slide filename (e.g. 'hero.html' or 'hero')"),
-      old_string: z.string().describe("Exact string to find in the slide HTML"),
+      slide: z.string().describe("Slide id (e.g. 'hero' or 'slide-hero')"),
+      old_string: z.string().describe("Exact string to find in the slide source"),
       new_string: z.string().describe("Replacement string")
     },
     { readOnlyHint: false, destructiveHint: false },
@@ -243,14 +300,12 @@ export function registerWriteTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const filename = slide.endsWith(".html") ? slide : `${slide}.html`
-      const slidePath = join(deckPath, "slides", filename)
-
-      if (!existsSync(slidePath)) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: `Slide not found: ${filename}` }) }] }
+      const resolved = resolveSlideFile(deckPath, slide)
+      if (!resolved) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Slide not found: ${slide}` }) }] }
       }
 
-      const content = readFileSync(slidePath, "utf-8")
+      const content = readFileSync(resolved.fullPath, "utf-8")
 
       if (!content.includes(old_string)) {
         return { content: [{ type: "text", text: JSON.stringify({ error: "old_string not found in slide. Make sure it matches exactly." }) }] }
@@ -263,19 +318,19 @@ export function registerWriteTools(server, context) {
       }
 
       const updated = content.replace(old_string, new_string)
-      writeFileSync(slidePath, updated)
+      writeFileSync(resolved.fullPath, updated)
 
-      return { content: [{ type: "text", text: JSON.stringify({ success: true, file: filename, message: "Slide edited. Use get_screenshot to verify the visual result." }) }] }
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, file: `src/slides/${resolved.file}`, message: "Slide edited. Use get_screenshot to verify the visual result." }) }] }
     }
   )
 
   // ─── reorder_slides ───
   server.tool(
     "reorder_slides",
-    `Change the order of slides in the deck. Provide the slide filenames in the desired order.`,
+    `Change the order of slides in the deck. Provide slide ids in the desired order.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      order: z.array(z.string()).describe('Slide filenames in desired order (e.g. ["hero.html", "problem.html", "solution.html"])')
+      order: z.array(z.string()).describe('Slide ids in desired order (e.g. ["hero", "problem", "solution"])')
     },
     { readOnlyHint: false, destructiveHint: false },
     async ({ deck, order }) => {
@@ -292,34 +347,41 @@ export function registerWriteTools(server, context) {
       }
 
       const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"))
+      const normalizedOrder = order.map(normalizeSlideId)
+      const existingIds = manifest.slides.map(s => s.id)
+      const missingIds = existingIds.filter(id => !normalizedOrder.includes(id))
+      const unknownIds = normalizedOrder.filter(id => !existingIds.includes(id))
 
-      // Normalize filenames
-      const normalizedOrder = order.map(f => f.endsWith(".html") ? f : `${f}.html`)
+      if (missingIds.length || unknownIds.length) {
+        const problems = []
+        if (missingIds.length) problems.push(`missing ids: ${missingIds.join(", ")}`)
+        if (unknownIds.length) problems.push(`unknown ids: ${unknownIds.join(", ")}`)
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Invalid slide order: ${problems.join("; ")}` }) }] }
+      }
 
-      // Build new slides array preserving metadata (section, transition)
-      const slideMap = new Map(manifest.slides.map(s => [s.file, s]))
+      // Build new slides array preserving metadata (section, transition, title)
+      const slideMap = new Map(manifest.slides.map(s => [s.id, s]))
       const newSlides = normalizedOrder
-        .map(f => slideMap.get(f) || { file: f })
-        .filter(s => existsSync(join(deckPath, "slides", s.file)))
+        .map(id => slideMap.get(id) || { id })
 
       manifest.slides = newSlides
       writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
 
-      return { content: [{ type: "text", text: JSON.stringify({ success: true, order: newSlides.map(s => s.file) }) }] }
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, order: newSlides.map(s => s.id) }) }] }
     }
   )
 
   // ─── duplicate_slide ───
   server.tool(
     "duplicate_slide",
-    `Copy a slide to create a new one. Creates a copy with a new name and adds it after the original in the manifest.`,
+    `Copy a slide to create a new one. Creates a copy with a new id and adds it after the original in the manifest.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      slide: z.string().describe("Source slide filename"),
-      new_name: z.string().describe("New slide filename (without .html extension)")
+      slide: z.string().describe("Source slide id"),
+      new_id: z.string().describe("New slide id")
     },
     { readOnlyHint: false, destructiveHint: false },
-    async ({ deck, slide, new_name }) => {
+    async ({ deck, slide, new_id }) => {
       let deckPath
       try {
         deckPath = resolveDeckPath(deckRoot, deck)
@@ -327,27 +389,28 @@ export function registerWriteTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const sourceFile = slide.endsWith(".html") ? slide : `${slide}.html`
-      const targetFile = new_name.endsWith(".html") ? new_name : `${new_name}.html`
-      const sourcePath = join(deckPath, "slides", sourceFile)
-      const targetPath = join(deckPath, "slides", targetFile)
-
-      if (!existsSync(sourcePath)) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: `Source slide not found: ${sourceFile}` }) }] }
+      const sourceId = normalizeSlideId(slide)
+      const targetId = normalizeSlideId(new_id)
+      const resolved = resolveSlideFile(deckPath, sourceId)
+      if (!resolved) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Source slide not found: ${slide}` }) }] }
       }
+
+      const targetFile = `slide-${targetId}.tsx`
+      const targetPath = join(deckPath, "src", "slides", targetFile)
 
       if (existsSync(targetPath)) {
         return { content: [{ type: "text", text: JSON.stringify({ error: `Target slide already exists: ${targetFile}` }) }] }
       }
 
-      copyFileSync(sourcePath, targetPath)
+      copyFileSync(resolved.fullPath, targetPath)
 
       // Update deck.json — insert after the original
       const manifestPath = join(deckPath, "deck.json")
       if (existsSync(manifestPath)) {
         const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"))
-        const originalIndex = manifest.slides.findIndex(s => s.file === sourceFile)
-        const newEntry = { file: targetFile }
+        const originalIndex = manifest.slides.findIndex(s => s.id === sourceId)
+        const newEntry = { id: targetId }
         if (originalIndex >= 0) {
           manifest.slides.splice(originalIndex + 1, 0, newEntry)
         } else {
@@ -356,12 +419,16 @@ export function registerWriteTools(server, context) {
         writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
       }
 
-      return { content: [{ type: "text", text: JSON.stringify({ file: targetFile, message: "Slide duplicated." }) }] }
+      return { content: [{ type: "text", text: JSON.stringify({ id: targetId, file: `src/slides/${targetFile}`, message: "Slide duplicated." }) }] }
     }
   )
 }
 
-const DEFAULT_THEME_CSS = `@import "tailwindcss";
+function titleCase(str) {
+  return str.replace(/(^|[-_])(\w)/g, (_, _sep, c) => c.toUpperCase())
+}
+
+const DEFAULT_GLOBALS_CSS = `@import "tailwindcss";
 
 /* PromptSlide Default Theme */
 

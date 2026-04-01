@@ -1,15 +1,57 @@
 /**
  * MCP Read tools: list_decks, get_deck_info, list_layouts, get_layout,
- * list_themes, list_assets, get_slide, get_screenshot, get_deck_overview, get_guide
+ * list_components, get_component, get_slide, get_screenshot, get_deck_overview, get_guide
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { z } from "zod"
 
-import { parseSlide, parseDeckManifest } from "../../html/parser.mjs"
+import { parseDeckManifest } from "../../utils/deck-manifest.mjs"
 import { getGuideContent } from "../guides/index.mjs"
 import { resolveDeckPath, listDeckSlugs } from "../deck-resolver.mjs"
+
+/** Detect max step from TSX source: step={N} */
+function detectSteps(content) {
+  const matches = content.matchAll(/step=\{(\d+)\}/g)
+  let max = 0
+  for (const m of matches) {
+    const n = parseInt(m[1], 10)
+    if (n > max) max = n
+  }
+  return max
+}
+
+/** List .tsx/.jsx files in a directory, returning name (without extension) and full path */
+function listTsxFiles(dir) {
+  if (!existsSync(dir)) return []
+  return readdirSync(dir)
+    .filter(f => f.endsWith(".tsx") || f.endsWith(".jsx"))
+    .map(f => ({
+      name: f.replace(/\.(tsx|jsx)$/, ""),
+      file: f,
+      fullPath: join(dir, f)
+    }))
+}
+
+/**
+ * Resolve slide file path for a given slide id.
+ * Checks: src/slides/{id}.tsx, src/slides/slide-{id}.tsx, and .jsx variants.
+ */
+function resolveSlideFile(deckPath, slideId) {
+  const slidesDir = join(deckPath, "src", "slides")
+  const candidates = [
+    `${slideId}.tsx`,
+    `${slideId}.jsx`,
+    `slide-${slideId}.tsx`,
+    `slide-${slideId}.jsx`
+  ]
+  for (const candidate of candidates) {
+    const fullPath = join(slidesDir, candidate)
+    if (existsSync(fullPath)) return { file: candidate, fullPath }
+  }
+  return null
+}
 
 export function registerReadTools(server, context) {
   const { deckRoot } = context
@@ -52,7 +94,7 @@ export function registerReadTools(server, context) {
     "get_deck_info",
     `Get an overview of a deck. Returns deck name, slug, theme, transition, ` +
     `slide list with filenames, sections, and auto-detected step counts, ` +
-    `available layouts, themes, and assets. Call this first to understand the deck state.`,
+    `available layouts, components, and assets. Call this first to understand the deck state.`,
     { deck: z.string().optional().describe("Deck slug (optional if only one deck exists)") },
     { readOnlyHint: true, destructiveHint: false },
     async ({ deck }) => {
@@ -70,28 +112,26 @@ export function registerReadTools(server, context) {
 
       const manifest = parseDeckManifest(readFileSync(manifestPath, "utf-8"))
 
-      // Enrich slides with auto-detected steps
+      // Enrich slides with auto-detected steps from TSX source
       const slides = manifest.slides.map(s => {
-        const slidePath = join(deckPath, "slides", s.file)
+        const resolved = resolveSlideFile(deckPath, s.id)
         let steps = 0
-        if (existsSync(slidePath)) {
-          const html = readFileSync(slidePath, "utf-8")
-          steps = parseSlide(html).steps
+        let file = null
+        if (resolved) {
+          file = resolved.file
+          const source = readFileSync(resolved.fullPath, "utf-8")
+          steps = detectSteps(source)
         }
-        return { ...s, steps }
+        return { id: s.id, file, section: s.section, transition: s.transition, title: s.title, steps }
       })
 
       // List layouts
-      const layoutsDir = join(deckPath, "layouts")
-      const layouts = existsSync(layoutsDir)
-        ? readdirSync(layoutsDir).filter(f => f.endsWith(".html")).map(f => f.replace(".html", ""))
-        : []
+      const layouts = listTsxFiles(join(deckPath, "src", "layouts"))
+        .map(f => ({ name: f.name, file: f.file }))
 
-      // List themes
-      const themesDir = join(deckPath, "themes")
-      const themes = existsSync(themesDir)
-        ? readdirSync(themesDir).filter(f => f.endsWith(".css")).map(f => f.replace(".css", ""))
-        : []
+      // List components
+      const components = listTsxFiles(join(deckPath, "src", "components"))
+        .map(f => ({ name: f.name, file: f.file }))
 
       // List assets
       const assetsDir = join(deckPath, "assets")
@@ -106,7 +146,7 @@ export function registerReadTools(server, context) {
         ...manifest,
         slides,
         layouts,
-        themes,
+        components,
         assets,
         deckPath
       }
@@ -118,7 +158,7 @@ export function registerReadTools(server, context) {
   // ─── list_layouts ───
   server.tool(
     "list_layouts",
-    `List all available slide master layouts for a deck. Returns layout names and a preview of each template.`,
+    `List all available slide master layouts for a deck. Returns layout names and a source preview.`,
     { deck: z.string().optional().describe("Deck slug (optional if only one deck exists)") },
     { readOnlyHint: true, destructiveHint: false },
     async ({ deck }) => {
@@ -129,21 +169,15 @@ export function registerReadTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const layoutsDir = join(deckPath, "layouts")
+      const layoutsDir = join(deckPath, "src", "layouts")
       if (!existsSync(layoutsDir)) {
         return { content: [{ type: "text", text: JSON.stringify({ layouts: [], message: "No layouts directory. Create a layout with write_layout." }) }] }
       }
 
-      const layouts = readdirSync(layoutsDir)
-        .filter(f => f.endsWith(".html"))
-        .map(f => {
-          const name = f.replace(".html", "")
-          const content = readFileSync(join(layoutsDir, f), "utf-8")
-          const hasContent = content.includes("<!-- content -->")
-          const hasSlideNumber = content.includes("<!-- slideNumber -->")
-          const hasTotalSlides = content.includes("<!-- totalSlides -->")
-          return { name, hasContent, hasSlideNumber, hasTotalSlides, preview: content.substring(0, 200) }
-        })
+      const layouts = listTsxFiles(layoutsDir).map(f => {
+        const content = readFileSync(f.fullPath, "utf-8")
+        return { name: f.name, file: f.file, preview: content.substring(0, 300) }
+      })
 
       return { content: [{ type: "text", text: JSON.stringify({ layouts }, null, 2) }] }
     }
@@ -152,7 +186,7 @@ export function registerReadTools(server, context) {
   // ─── get_layout ───
   server.tool(
     "get_layout",
-    `Read a slide master layout's HTML template. Returns the raw HTML source.`,
+    `Read a slide master layout's TSX source. Returns the raw source code.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
       layout: z.string().describe("Layout name (e.g. 'master')")
@@ -166,11 +200,15 @@ export function registerReadTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const filename = layout.endsWith(".html") ? layout : `${layout}.html`
-      const layoutPath = join(deckPath, "layouts", filename)
+      const layoutsDir = join(deckPath, "src", "layouts")
+      const candidates = [
+        join(layoutsDir, `${layout}.tsx`),
+        join(layoutsDir, `${layout}.jsx`)
+      ]
+      const layoutPath = candidates.find(p => existsSync(p))
 
-      if (!existsSync(layoutPath)) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: `Layout not found: ${filename}` }) }] }
+      if (!layoutPath) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Layout not found: ${layout}` }) }] }
       }
 
       const content = readFileSync(layoutPath, "utf-8")
@@ -178,10 +216,10 @@ export function registerReadTools(server, context) {
     }
   )
 
-  // ─── list_themes ───
+  // ─── list_components ───
   server.tool(
-    "list_themes",
-    `List all available themes for a deck. Returns theme names and a preview of each CSS file (first 200 characters).`,
+    "list_components",
+    `List all reusable components for a deck. Returns component names and a source preview.`,
     { deck: z.string().optional().describe("Deck slug (optional if only one deck exists)") },
     { readOnlyHint: true, destructiveHint: false },
     async ({ deck }) => {
@@ -192,30 +230,30 @@ export function registerReadTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const themesDir = join(deckPath, "themes")
-      if (!existsSync(themesDir)) {
-        return { content: [{ type: "text", text: JSON.stringify({ themes: [], message: "No themes directory. Create a theme with write_theme." }) }] }
+      const componentsDir = join(deckPath, "src", "components")
+      if (!existsSync(componentsDir)) {
+        return { content: [{ type: "text", text: JSON.stringify({ components: [], message: "No components directory." }) }] }
       }
 
-      const themes = readdirSync(themesDir)
-        .filter(f => f.endsWith(".css"))
-        .map(f => {
-          const name = f.replace(".css", "")
-          const content = readFileSync(join(themesDir, f), "utf-8")
-          return { name, preview: content.substring(0, 200) }
-        })
+      const components = listTsxFiles(componentsDir).map(f => {
+        const content = readFileSync(f.fullPath, "utf-8")
+        return { name: f.name, file: f.file, preview: content.substring(0, 300) }
+      })
 
-      return { content: [{ type: "text", text: JSON.stringify({ themes }, null, 2) }] }
+      return { content: [{ type: "text", text: JSON.stringify({ components }, null, 2) }] }
     }
   )
 
-  // ─── list_assets ───
+  // ─── get_component ───
   server.tool(
-    "list_assets",
-    `List all assets in a deck's assets/ directory. Returns filename, size in bytes, and the asset:// URL for referencing in slides.`,
-    { deck: z.string().optional().describe("Deck slug (optional if only one deck exists)") },
+    "get_component",
+    `Read a reusable component's TSX source.`,
+    {
+      deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
+      component: z.string().describe("Component name (e.g. 'card')")
+    },
     { readOnlyHint: true, destructiveHint: false },
-    async ({ deck }) => {
+    async ({ deck, component }) => {
       let deckPath
       try {
         deckPath = resolveDeckPath(deckRoot, deck)
@@ -223,27 +261,29 @@ export function registerReadTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const assetsDir = join(deckPath, "assets")
-      if (!existsSync(assetsDir)) {
-        return { content: [{ type: "text", text: JSON.stringify({ assets: [], message: "No assets directory." }) }] }
+      const componentsDir = join(deckPath, "src", "components")
+      const candidates = [
+        join(componentsDir, `${component}.tsx`),
+        join(componentsDir, `${component}.jsx`)
+      ]
+      const componentPath = candidates.find(p => existsSync(p))
+
+      if (!componentPath) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Component not found: ${component}` }) }] }
       }
 
-      const assets = readdirSync(assetsDir).map(f => {
-        const stat = statSync(join(assetsDir, f))
-        return { name: f, size: stat.size, url: `asset://${f}` }
-      })
-
-      return { content: [{ type: "text", text: JSON.stringify({ assets }, null, 2) }] }
+      const content = readFileSync(componentPath, "utf-8")
+      return { content: [{ type: "text", text: content }] }
     }
   )
 
   // ─── get_slide ───
   server.tool(
     "get_slide",
-    `Read one slide's HTML content. Returns the raw HTML source of the slide file.`,
+    `Read one slide's TSX source code. Returns the raw source of the slide file.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      slide: z.string().describe("Slide filename (e.g. 'hero.html' or 'hero')")
+      slide: z.string().describe("Slide id (e.g. 'hero' or 'slide-hero')")
     },
     { readOnlyHint: true, destructiveHint: false },
     async ({ deck, slide }) => {
@@ -254,14 +294,12 @@ export function registerReadTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const filename = slide.endsWith(".html") ? slide : `${slide}.html`
-      const slidePath = join(deckPath, "slides", filename)
-
-      if (!existsSync(slidePath)) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: `Slide not found: ${filename}` }) }] }
+      const resolved = resolveSlideFile(deckPath, slide)
+      if (!resolved) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Slide not found: ${slide}` }) }] }
       }
 
-      const content = readFileSync(slidePath, "utf-8")
+      const content = readFileSync(resolved.fullPath, "utf-8")
       return { content: [{ type: "text", text: content }] }
     }
   )
@@ -274,7 +312,7 @@ export function registerReadTools(server, context) {
     `Use after creating or editing slides to verify the result looks correct.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      slide: z.string().describe("Slide filename (e.g. 'hero.html' or 'hero')"),
+      slide: z.string().describe("Slide id (e.g. 'hero')"),
       scale: z.number().optional().default(1).describe("Screenshot scale (1 or 2)")
     },
     { readOnlyHint: true, destructiveHint: false },
@@ -286,17 +324,21 @@ export function registerReadTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
+      // Resolve slide file for the screenshot service
+      const resolved = resolveSlideFile(deckPath, slide)
+      if (!resolved) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Slide not found: ${slide}` }) }] }
+      }
+
       try {
         const { ensureDevServer } = await import("../dev-server.mjs")
-        const port = await ensureDevServer({ deckRoot })
+        const port = await ensureDevServer({ root: deckRoot })
 
         const { takeScreenshot } = await import("../screenshot.mjs")
-        const filename = slide.endsWith(".html") ? slide : `${slide}.html`
-        const deckSlug = deckPath.split("/").pop()
         const base64 = await takeScreenshot({
           deckRoot: deckPath,
-          deckSlug,
-          slideFile: filename,
+          deckSlug: deckPath.split("/").pop(),
+          slideId: slide,
           devServerPort: port,
           scale: scale || 1
         })
@@ -324,11 +366,10 @@ export function registerReadTools(server, context) {
 
       try {
         const { ensureDevServer } = await import("../dev-server.mjs")
-        const port = await ensureDevServer({ deckRoot })
+        const port = await ensureDevServer({ root: deckRoot })
 
         const { takeDeckOverview } = await import("../screenshot.mjs")
-        const deckSlug = deckPath.split("/").pop()
-        const base64 = await takeDeckOverview({ deckRoot: deckPath, deckSlug, devServerPort: port })
+        const base64 = await takeDeckOverview({ deckRoot: deckPath, deckSlug: deckPath.split("/").pop(), devServerPort: port })
         return { content: [{ type: "image", data: base64, mimeType: "image/png" }] }
       } catch (err) {
         return { content: [{ type: "text", text: JSON.stringify({ error: `Overview failed: ${err.message}` }) }] }

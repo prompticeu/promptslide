@@ -1,0 +1,5 @@
+PromptSlide.xcodeproj
+build/
+DerivedData/
+*.xcuserdata
+*.xcworkspace

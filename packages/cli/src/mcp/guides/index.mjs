@@ -11,28 +11,41 @@
 const guides = {
   framework: `# PromptSlide Framework Reference
 
-Slides are HTML files with Tailwind CSS. The framework handles animations,
-transitions, theming, keyboard navigation, and presentation mode.
+Slides are React/TSX components with Tailwind CSS. The framework provides
+Animated, AnimatedGroup, Morph for animations, layout components for structure,
+SlideDeck for navigation, and SlideThemeProvider for theming.
 
 ## Slide Format
 
-Each slide is a \`.html\` file in \`slides/\` containing a \`<section>\` element:
+Each slide is a \`.tsx\` file in \`src/slides/\` exporting a default React component:
 
-\`\`\`html
-<section class="relative flex items-center justify-center overflow-hidden bg-background">
-  <div class="text-center px-16">
-    <h1 class="text-7xl font-bold text-foreground">Title</h1>
-    <p class="mt-4 text-xl text-muted-foreground"
-       data-step="1" data-animate="fade">
-      Subtitle appears on click
-    </p>
-  </div>
-</section>
+\`\`\`tsx
+import { Animated } from "promptslide"
+import { MasterLayout } from "@/layouts/master"
+
+export const meta = { steps: 2 }
+
+export default function Hero({ slideNumber, totalSlides }) {
+  return (
+    <MasterLayout slideNumber={slideNumber} totalSlides={totalSlides}>
+      <h1 className="text-7xl font-bold text-foreground">Title</h1>
+      <Animated step={1} animation="fade">
+        <p className="mt-4 text-xl text-muted-foreground">Subtitle appears on click</p>
+      </Animated>
+      <Animated step={2} animation="slide-up">
+        <p className="mt-2 text-lg text-muted-foreground">More content</p>
+      </Animated>
+    </MasterLayout>
+  )
+}
 \`\`\`
 
-The framework auto-adds \`h-full\` to the root \`<section>\`.
-Use \`flex items-center justify-center\` for vertical centering.
-Use \`data-layout="name"\` to wrap in a slide master layout.
+**Key rules:**
+- Default export is the slide component
+- \`export const meta = { steps: N }\` declares animation step count
+- Props: \`{ slideNumber, totalSlides }\`
+- Import layouts from \`@/layouts/...\`, components from \`@/components/...\`
+- Import Animated, AnimatedGroup, Morph from \`"promptslide"\`
 
 Slide dimensions: **1280×720** (16:9). Content scales automatically.
 
@@ -40,12 +53,15 @@ Slide dimensions: **1280×720** (16:9). Content scales automatically.
 
 \`\`\`
 my-deck/
-├── deck.json           # Manifest (slide order, theme, transitions)
-├── slides/             # Slide HTML files
-├── layouts/            # Slide master templates
-├── themes/             # CSS theme files
-├── assets/             # Images, logos, etc.
-└── annotations.json    # Feedback/comments (optional)
+├── deck.json              # Manifest (slide order, transitions)
+├── src/
+│   ├── slides/            # Slide TSX components
+│   ├── layouts/           # Layout components (shared structure)
+│   ├── components/        # Reusable components (cards, etc.)
+│   ├── globals.css        # Tailwind CSS + theme variables
+│   └── theme.ts           # Theme config (optional)
+├── assets/                # Images, logos, etc.
+└── annotations.json       # Feedback/comments (optional)
 \`\`\`
 
 ## Deck Manifest (deck.json)
@@ -53,41 +69,32 @@ my-deck/
 \`\`\`json
 {
   "name": "My Deck",
-  "slug": "my-deck",
-  "theme": "default",
   "transition": "fade",
   "directionalTransition": true,
   "slides": [
-    { "file": "hero.html" },
-    { "file": "problem.html", "section": "Introduction" }
+    { "id": "hero", "section": "Introduction" },
+    { "id": "problem", "section": "Introduction" },
+    { "id": "solution" }
   ]
 }
 \`\`\`
 
-Steps are auto-detected from HTML (highest data-step value). No manual counts.
-
-## Data Attributes
-
-**On <section>:**
-- \`data-layout="name"\` — wrap in a slide master layout from layouts/
-- \`data-transition="type"\` — per-slide transition override
-
-**On any element:**
-- \`data-step="N"\` — reveal on Nth click (1-indexed)
-- \`data-animate="type"\` — animation type (fade, slide-up, slide-down, slide-left, slide-right, scale)
-- \`data-delay="ms"\` — delay in milliseconds
-- \`data-duration="ms"\` — animation duration in milliseconds
-- \`data-stagger="ms"\` — stagger children by ms (on parent element)
-- \`data-morph="id"\` — shared element transition between slides
+The \`id\` maps to \`src/slides/slide-{id}.tsx\`. Steps are read from \`export const meta\`.
 
 ## Animations
 
-### Click-to-Reveal
+### Click-to-Reveal (Animated)
 
-\`\`\`html
+\`\`\`tsx
+import { Animated } from "promptslide"
+
 <h1>Always visible</h1>
-<p data-step="1" data-animate="fade">Appears on 1st click</p>
-<p data-step="2" data-animate="slide-up">Appears on 2nd click</p>
+<Animated step={1} animation="fade">
+  <p>Appears on 1st click</p>
+</Animated>
+<Animated step={2} animation="slide-up" delay={0.2}>
+  <p>Appears on 2nd click with delay</p>
+</Animated>
 \`\`\`
 
 Steps are 1-indexed. Multiple elements can share the same step.
@@ -103,127 +110,129 @@ Steps are 1-indexed. Multiple elements can share the same step.
 | \`slide-right\` | Slide from left + fade |
 | \`scale\` | Scale up from 0.8 + fade |
 
-### Stagger
+### Stagger (AnimatedGroup)
 
-Add \`data-stagger="100"\` to a parent to stagger children:
+\`\`\`tsx
+import { AnimatedGroup } from "promptslide"
 
-\`\`\`html
-<div data-step="1" data-animate="slide-up" data-stagger="100">
+<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1}>
   <div>First</div>
   <div>Second</div>
   <div>Third</div>
-</div>
-\`\`\`
-
-### Entrance Animation (No Step)
-
-Elements with \`data-animate\` but no \`data-step\` animate on slide entry:
-
-\`\`\`html
-<h1 data-animate="scale">Always animates in</h1>
+</AnimatedGroup>
 \`\`\`
 
 ### Cross-Slide Morph
 
-\`\`\`html
-<!-- Slide 1 --><h1 data-morph="title" class="text-7xl">Title</h1>
-<!-- Slide 2 --><h1 data-morph="title" class="text-3xl">Title</h1>
+\`\`\`tsx
+import { Morph } from "promptslide"
+
+// Slide 1
+<Morph layoutId="hero-title"><h1 className="text-7xl">Title</h1></Morph>
+
+// Slide 2 (same layoutId = morphs between them)
+<Morph layoutId="hero-title"><h1 className="text-3xl">Title</h1></Morph>
 \`\`\`
 
 ### Slide Transitions
 
-Set in deck.json or per-slide via \`data-transition\`:
+Set in deck.json or per-slide via \`export const meta = { transition: "zoom" }\`:
 \`fade\` (default), \`slide-left\`, \`slide-right\`, \`slide-up\`, \`slide-down\`,
 \`zoom\`, \`zoom-fade\`, \`morph\`, \`none\`
 
 ## Slide Master Layouts
 
-Layouts define repeating structure (headers, footers, numbering) shared across
-slides. Create 2-3 layouts early for visual consistency.
+Layouts are React components that wrap slide content for consistent structure.
 
-### Template Slots
+\`\`\`tsx
+// src/layouts/master.tsx
+import { SlideFooter } from "promptslide"
 
-Layouts use \`<!-- slot:name -->\` markers.
-
-**Text slots** — from \`data-*\` attributes on \`<section>\`:
-\`\`\`html
-<section data-layout="content" data-title="Memory" data-section="04">
-\`\`\`
-Layout uses: \`<!-- slot:title -->\` → "Memory", \`<!-- slot:section -->\` → "04"
-
-**Content slots** — from \`<slot>\` elements:
-\`\`\`html
-<section data-layout="split">
-  <slot name="left"><h1>Problem</h1><p>Details...</p></slot>
-  <slot name="right"><img src="asset://chart.png" /></slot>
-</section>
-\`\`\`
-
-**Built-in markers:** \`<!-- content -->\`, \`<!-- slideNumber -->\`, \`<!-- totalSlides -->\`
-
-### Content Wrapping
-
-The compiler may wrap injected content in a plain \`<div>\` when there are
-multiple siblings. This breaks direct flex/grid child relationships. Handle it
-by wrapping the slot marker in a flex container:
-
-\`\`\`html
-<!-- Vertically centered -->
-<div class="flex-1 flex items-center justify-center px-20 py-10 overflow-hidden">
-  <!-- content -->
-</div>
+export function MasterLayout({ children, slideNumber, totalSlides }) {
+  return (
+    <div className="flex h-full w-full flex-col bg-background">
+      <div className="flex-1 px-20 py-12 overflow-hidden">
+        {children}
+      </div>
+      <div className="flex items-center justify-between px-20 py-4 border-t border-border">
+        <img src="/assets/logo.svg" className="h-6" />
+        <span className="text-xs text-muted-foreground">
+          {slideNumber} / {totalSlides}
+        </span>
+      </div>
+    </div>
+  )
+}
 \`\`\`
 
-### Example: Content Layout
+Used in slides:
+\`\`\`tsx
+import { MasterLayout } from "@/layouts/master"
 
-\`\`\`html
-<!-- layouts/content.html -->
-<div class="flex h-full w-full flex-col bg-background">
-  <div class="flex items-baseline gap-6 px-20 pt-12 pb-8 border-b border-border">
-    <span class="text-xs text-muted-foreground uppercase tracking-[0.3em]"><!-- slot:section --></span>
-    <h2 class="text-4xl font-bold tracking-tight text-foreground"><!-- slot:title --></h2>
-  </div>
-  <div class="flex-1 px-20 py-10 overflow-hidden">
-    <!-- content -->
-  </div>
-  <div class="flex items-center justify-between px-20 py-4 border-t border-border">
-    <img src="asset://logo.svg" class="h-6" />
-    <span class="text-xs text-muted-foreground"><!-- slideNumber --> / <!-- totalSlides --></span>
-  </div>
-</div>
+export default function Problem({ slideNumber, totalSlides }) {
+  return (
+    <MasterLayout slideNumber={slideNumber} totalSlides={totalSlides}>
+      <h2 className="text-4xl font-bold">The Problem</h2>
+      <p className="mt-4 text-xl text-muted-foreground">Description...</p>
+    </MasterLayout>
+  )
+}
 \`\`\`
 
 ### Example: Split Layout
 
-\`\`\`html
-<!-- layouts/split.html -->
-<div class="flex h-full w-full bg-background">
-  <div class="w-2/5 flex flex-col justify-center px-16 border-r border-border">
-    <!-- slot:sidebar -->
-  </div>
-  <div class="w-3/5 flex flex-col justify-center px-16">
-    <!-- slot:main -->
-  </div>
+\`\`\`tsx
+// src/layouts/split.tsx
+export function SplitLayout({ left, right, slideNumber, totalSlides }) {
+  return (
+    <div className="flex h-full w-full bg-background">
+      <div className="w-2/5 flex flex-col justify-center px-16 border-r border-border">
+        {left}
+      </div>
+      <div className="w-3/5 flex flex-col justify-center px-16">
+        {right}
+      </div>
+    </div>
+  )
+}
+\`\`\`
+
+Slides without layouts are freeform (full 1280×720 container).
+
+## Reusable Components
+
+Create shared building blocks in \`src/components/\`:
+
+\`\`\`tsx
+// src/components/card.tsx
+export function Card({ title, icon, children }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur-md">
+      {icon && <span className="text-2xl">{icon}</span>}
+      <h3 className="mt-3 text-lg font-semibold text-foreground">{title}</h3>
+      <div className="mt-2 text-sm text-muted-foreground">{children}</div>
+    </div>
+  )
+}
+\`\`\`
+
+Use in slides:
+\`\`\`tsx
+import { Card } from "@/components/card"
+
+<div className="grid grid-cols-3 gap-6">
+  {features.map((f, i) => (
+    <Animated key={f.title} step={1} animation="scale" delay={i * 0.1}>
+      <Card title={f.title} icon={f.icon}>{f.desc}</Card>
+    </Animated>
+  ))}
 </div>
 \`\`\`
 
-Slides without \`data-layout\` are freeform (full 1280×720 container).
-
 ## Theming
 
-Themes are CSS files in \`themes/\`. A \`default.css\` is auto-created with the
-Tailwind import and color mappings — do NOT add \`@import "tailwindcss"\` in
-custom themes (it's already in default.css and duplicating it breaks colors).
-
-Custom themes should only contain:
-- \`@import url(...)\` for external fonts (optional)
-- \`@theme inline { ... }\` for font overrides (use \`inline\` to extend, not replace)
-- \`:root\` and \`.dark\` blocks with CSS variable overrides
-
-Define variables in both \`:root\` (light) and \`.dark\` selectors.
-Dark mode is the default.
-
-### Brand Color
+Theme variables are in \`src/globals.css\`. The default theme includes Tailwind
+import and color mappings. Customize by editing CSS variables:
 
 \`\`\`css
 :root { --primary: oklch(0.55 0.2 250); }
@@ -246,206 +255,169 @@ OKLCH: \`oklch(lightness chroma hue)\` — lightness 0-1, chroma 0-0.4, hue 0-36
 - \`bg-background\` / \`bg-card\` / \`bg-primary\` / \`bg-primary/10\`
 - \`border-border\`
 
-### Asset Protocol
-
-Use \`asset://filename\` for images:
-\`\`\`html
-<img src="asset://logo.svg" class="h-8" />
-\`\`\`
-
-Upload assets with the upload_asset tool.
-
 ## Visual Verification
 
 **Always verify slides visually after creating or editing them.**
 
-- **get_screenshot(slide)** — capture a single slide as PNG. Use after every
-  create_slide, write_slide, or edit_slide call.
-- **get_deck_overview** — thumbnail grid of all slides. Check visual consistency.
+- **get_screenshot(slide)** — capture a single slide as PNG
+- **get_deck_overview** — thumbnail grid of all slides
 
 Common issues only visible in rendered output: broken alignment, wrong colors,
 text overflow, content clipped by overflow-hidden.
 
 ## Workflow
 
-1. create_deck → directory structure
-2. write_layout × 2-3 → slide master layouts
-3. write_theme (optional) → brand colors
-4. create_slide × N → slides referencing layouts
+1. create_deck → directory structure + deck.json + globals.css
+2. write_layout × 1-2 → slide master layouts
+3. write_component (optional) → reusable cards, stat blocks, etc.
+4. create_slide × N → slides importing layouts and components
 5. get_screenshot / get_deck_overview → verify visuals
 6. edit_slide / write_slide → iterate
-7. open_preview → present in browser
-8. export_pdf → export for sharing`,
+7. export_pdf (optional) → generate a shareable deck artifact`,
 
   "design-recipes": `# Design Recipes
 
-Ready-to-use code snippets for visually diverse slides.
+Ready-to-use TSX snippets for visually diverse slides.
 Do not repeat the same pattern on consecutive slides.
 
 ## Background Treatments
 
 ### Gradient Mesh
-\`\`\`html
-<div class="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background"></div>
-<div class="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl"></div>
-<div class="absolute bottom-1/4 right-10 h-64 w-64 rounded-full bg-primary/5 blur-2xl"></div>
-<div class="relative z-10">Content here</div>
+\`\`\`tsx
+<div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
+<div className="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
+<div className="absolute bottom-1/4 right-10 h-64 w-64 rounded-full bg-primary/5 blur-2xl" />
+<div className="relative z-10">Content here</div>
 \`\`\`
 
 ### Split Background
-\`\`\`html
-<div class="absolute inset-y-0 left-0 w-2/5 bg-primary"></div>
-<div class="relative flex h-full">
-  <div class="w-2/5 flex flex-col justify-center px-12">
-    <h2 class="text-5xl font-bold text-primary-foreground">Statement</h2>
+\`\`\`tsx
+<div className="absolute inset-y-0 left-0 w-2/5 bg-primary" />
+<div className="relative flex h-full">
+  <div className="w-2/5 flex flex-col justify-center px-12">
+    <h2 className="text-5xl font-bold text-primary-foreground">Statement</h2>
   </div>
-  <div class="w-3/5 flex flex-col justify-center px-12">Content</div>
+  <div className="w-3/5 flex flex-col justify-center px-12">Content</div>
 </div>
 \`\`\`
 
 ### Radial Spotlight
-\`\`\`html
-<div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--primary)_0%,_transparent_70%)] opacity-10"></div>
+\`\`\`tsx
+<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--primary)_0%,_transparent_70%)] opacity-10" />
 \`\`\`
 
 ## Card Styles
 
 ### Glass
-\`\`\`html
-<div class="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-lg shadow-primary/5 backdrop-blur-md">
+\`\`\`tsx
+<div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-lg shadow-primary/5 backdrop-blur-md">
 \`\`\`
 
 ### Gradient
-\`\`\`html
-<div class="rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/15 to-transparent p-8">
+\`\`\`tsx
+<div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/15 to-transparent p-8">
 \`\`\`
 
 ### Elevated
-\`\`\`html
-<div class="rounded-2xl bg-card p-8 shadow-xl shadow-primary/10">
+\`\`\`tsx
+<div className="rounded-2xl bg-card p-8 shadow-xl shadow-primary/10">
 \`\`\`
 
 ### Accent Border
-\`\`\`html
-<div class="rounded-2xl border border-border border-l-4 border-l-primary bg-card p-8">
+\`\`\`tsx
+<div className="rounded-2xl border border-border border-l-4 border-l-primary bg-card p-8">
 \`\`\`
 
 ## Layout Patterns
 
 ### Bento Grid
-\`\`\`html
-<div class="grid h-full grid-cols-3 grid-rows-2 gap-4">
-  <div class="col-span-2 rounded-2xl bg-gradient-to-br from-primary/15 to-transparent p-8"
-       data-step="1" data-animate="scale">Wide tile</div>
-  <div class="row-span-2 rounded-2xl border border-border bg-card p-6"
-       data-step="1" data-animate="scale" data-delay="100">Tall tile</div>
-  <div class="rounded-2xl bg-muted/30 p-6"
-       data-step="1" data-animate="scale" data-delay="200">Small</div>
-  <div class="rounded-2xl bg-primary p-6"
-       data-step="1" data-animate="scale" data-delay="300">
-    <span class="text-primary-foreground">Highlight</span></div>
+\`\`\`tsx
+<div className="grid h-full grid-cols-3 grid-rows-2 gap-4">
+  <Animated step={1} animation="scale">
+    <div className="col-span-2 rounded-2xl bg-gradient-to-br from-primary/15 to-transparent p-8">Wide tile</div>
+  </Animated>
+  <Animated step={1} animation="scale" delay={0.1}>
+    <div className="row-span-2 rounded-2xl border border-border bg-card p-6">Tall tile</div>
+  </Animated>
+  <Animated step={1} animation="scale" delay={0.2}>
+    <div className="rounded-2xl bg-muted/30 p-6">Small</div>
+  </Animated>
 </div>
 \`\`\`
 
 ### Vertical Timeline
-\`\`\`html
-<div class="relative flex h-full items-center justify-center">
-  <div class="absolute left-1/2 top-4 bottom-4 w-px -translate-x-1/2 bg-border"></div>
-  <div class="relative w-full max-w-4xl space-y-8">
-    <div class="relative flex items-center" data-step="1" data-animate="fade">
-      <div class="absolute left-1/2 h-4 w-4 -translate-x-1/2 rounded-full bg-primary ring-4 ring-background"></div>
-      <div class="w-1/2 pr-12 text-right">
-        <div class="text-xs font-mono text-primary/60 mb-1">01</div>
-        <h3 class="text-lg font-semibold text-foreground">Step One</h3>
-        <p class="text-sm text-muted-foreground">Description</p>
+\`\`\`tsx
+<div className="relative flex h-full items-center justify-center">
+  <div className="absolute left-1/2 top-4 bottom-4 w-px -translate-x-1/2 bg-border" />
+  <div className="relative w-full max-w-4xl space-y-8">
+    <Animated step={1} animation="fade">
+      <div className="relative flex items-center">
+        <div className="absolute left-1/2 h-4 w-4 -translate-x-1/2 rounded-full bg-primary ring-4 ring-background" />
+        <div className="w-1/2 pr-12 text-right">
+          <div className="text-xs font-mono text-primary/60 mb-1">01</div>
+          <h3 className="text-lg font-semibold text-foreground">Step One</h3>
+        </div>
       </div>
-      <div class="w-1/2"></div>
-    </div>
+    </Animated>
   </div>
 </div>
 \`\`\`
 
 ### Comparison / Before-After
-\`\`\`html
-<div class="relative flex h-full items-center">
-  <div class="grid w-full grid-cols-2 gap-8">
-    <div data-step="1" data-animate="slide-right"
-         class="rounded-2xl border border-border bg-muted/30 p-8">
-      <h3 class="mb-6 text-lg font-semibold text-muted-foreground">The Old Way</h3>
-    </div>
-    <div data-step="2" data-animate="slide-left"
-         class="rounded-2xl border border-primary/20 bg-primary/5 p-8 shadow-lg shadow-primary/10">
-      <h3 class="mb-6 text-lg font-semibold text-primary">The New Way</h3>
-    </div>
+\`\`\`tsx
+<div className="relative flex h-full items-center">
+  <div className="grid w-full grid-cols-2 gap-8">
+    <Animated step={1} animation="slide-right">
+      <div className="rounded-2xl border border-border bg-muted/30 p-8">
+        <h3 className="mb-6 text-lg font-semibold text-muted-foreground">The Old Way</h3>
+      </div>
+    </Animated>
+    <Animated step={2} animation="slide-left">
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8 shadow-lg shadow-primary/10">
+        <h3 className="mb-6 text-lg font-semibold text-primary">The New Way</h3>
+      </div>
+    </Animated>
   </div>
-  <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-border bg-background px-3 py-1 text-xs font-bold text-muted-foreground">VS</div>
-</div>
-\`\`\`
-
-### Asymmetric Two-Column
-\`\`\`html
-<div class="grid h-full grid-cols-5 gap-12 items-center">
-  <div class="col-span-3">Larger content</div>
-  <div class="col-span-2">Supporting content</div>
 </div>
 \`\`\`
 
 ## Data Visualization
 
 ### Big Numbers + Progress Bars
-\`\`\`html
-<div class="grid grid-cols-3 gap-10" data-step="1" data-animate="slide-up" data-stagger="100">
+\`\`\`tsx
+<AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1} className="grid grid-cols-3 gap-10">
   <div>
-    <div class="text-6xl font-bold tracking-tight text-primary">$10M</div>
-    <div class="mt-4 h-1 w-4/5 rounded-full bg-gradient-to-r from-primary to-primary/30"></div>
-    <div class="mt-3 text-lg font-semibold text-foreground">Revenue</div>
-    <div class="text-sm text-muted-foreground">Annual recurring</div>
+    <div className="text-6xl font-bold tracking-tight text-primary">$10M</div>
+    <div className="mt-4 h-1 w-4/5 rounded-full bg-gradient-to-r from-primary to-primary/30" />
+    <div className="mt-3 text-lg font-semibold text-foreground">Revenue</div>
+    <div className="text-sm text-muted-foreground">Annual recurring</div>
   </div>
-</div>
+</AnimatedGroup>
 \`\`\`
 
 ### CSS Bar Chart
-\`\`\`html
-<div class="flex h-48 items-end gap-4">
-  <div class="flex w-16 flex-col items-center gap-2">
-    <div class="w-full rounded-t-lg bg-primary/80" style="height: 80%"></div>
-    <span class="text-xs text-muted-foreground">Q1</span>
+\`\`\`tsx
+<div className="flex h-48 items-end gap-4">
+  <div className="flex w-16 flex-col items-center gap-2">
+    <div className="w-full rounded-t-lg bg-primary/80" style={{ height: "80%" }} />
+    <span className="text-xs text-muted-foreground">Q1</span>
   </div>
 </div>
-\`\`\`
-
-### SVG Donut Ring
-\`\`\`html
-<svg class="h-32 w-32 -rotate-90" viewBox="0 0 120 120">
-  <circle cx="60" cy="60" r="50" fill="none" stroke-width="10" class="stroke-border" />
-  <circle cx="60" cy="60" r="50" fill="none" stroke-width="10"
-    stroke-dasharray="314" stroke-dashoffset="78" stroke-linecap="round"
-    class="stroke-primary" />
-</svg>
-<div class="text-3xl font-bold text-primary">75%</div>
 \`\`\`
 
 ## Typography
 
 ### Large Quote
-\`\`\`html
-<div class="flex h-full flex-col items-center justify-center text-center">
-  <span class="block font-serif text-[120px] leading-none text-primary/20">&ldquo;</span>
-  <p class="-mt-10 max-w-4xl text-3xl font-light leading-relaxed italic text-foreground"
-     data-step="1" data-animate="fade">Quote text here.</p>
-  <div class="mx-auto mt-8 mb-6 h-px w-16 bg-primary/40"></div>
-  <div class="text-lg font-semibold text-foreground">Speaker Name</div>
-  <div class="text-sm text-muted-foreground">Title, Company</div>
-</div>
-\`\`\`
-
-### Headline-Only
-\`\`\`html
-<div class="flex h-full flex-col items-center justify-center text-center">
-  <h1 class="max-w-5xl text-6xl font-bold leading-tight text-foreground">
-    We don't just build products.<br />
-    We build <span class="text-primary">movements</span>.
-  </h1>
+\`\`\`tsx
+<div className="flex h-full flex-col items-center justify-center text-center">
+  <span className="block font-serif text-[120px] leading-none text-primary/20">&ldquo;</span>
+  <Animated step={1} animation="fade">
+    <p className="-mt-10 max-w-4xl text-3xl font-light leading-relaxed italic text-foreground">
+      Quote text here.
+    </p>
+  </Animated>
+  <div className="mx-auto mt-8 mb-6 h-px w-16 bg-primary/40" />
+  <div className="text-lg font-semibold text-foreground">Speaker Name</div>
 </div>
 \`\`\`
 
@@ -463,7 +435,7 @@ Do not repeat the same pattern on consecutive slides.
 |--------|----------|-----|
 | Hero/Title | \`scale\` or \`fade\` | Dramatic, non-directional |
 | Split Screen | \`slide-right\` + \`slide-left\` | Panels from edges |
-| Card Grid | \`data-stagger\` + \`scale\` | Uniform pop-in |
+| Card Grid | \`AnimatedGroup\` + \`scale\` | Uniform pop-in |
 | Timeline | \`fade\` | Clean, no movement |
 | Comparison | \`slide-right\` + \`slide-left\` | Opposing directions |
 | Metrics | \`slide-up\` | Vertical reveal |
@@ -474,20 +446,7 @@ Do not repeat the same pattern on consecutive slides.
 - Same card style on every slide
 - \`slide-up\` on everything
 - All equal-width columns
-- Two consecutive slides with same layout pattern
-
-## Pitch Deck Order
-
-1. Title — hero gradient, large typography
-2. Problem — comparison (old vs new)
-3. Solution — split screen, bold statement
-4. How It Works — timeline or process
-5. Features — bento grid
-6. Market — big numbers
-7. Traction — data viz
-8. Team — glass cards on gradient
-9. Business Model — accent-border or split
-10. CTA — quote or headline-only`
+- Two consecutive slides with same layout pattern`
 }
 
 /**

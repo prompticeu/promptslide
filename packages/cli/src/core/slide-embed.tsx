@@ -18,22 +18,47 @@ interface SlideEmbedProps {
 }
 
 // =============================================================================
+// NATIVE BRIDGE HELPERS
+// =============================================================================
+
+/** Detect if running inside a WKWebView (native macOS app) */
+function isNativeWebView(): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return !!(window as any).webkit?.messageHandlers?.promptslide
+}
+
+/** Send a message to the native app or the parent iframe */
+function postToHost(type: string, data?: Record<string, unknown>) {
+  if (isNativeWebView()) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).webkit.messageHandlers.promptslide.postMessage({ type, ...data })
+  } else {
+    window.parent.postMessage({ type, data }, "*")
+  }
+}
+
+// =============================================================================
 // COMPONENT
 // =============================================================================
 
 /**
- * Headless slide viewer controlled via window.postMessage.
- * Designed for embedding in an iframe (e.g. the registry editor preview).
+ * Headless slide viewer controlled via window.postMessage or WKWebView bridge.
+ * Designed for embedding in an iframe (e.g. the registry editor preview)
+ * or in a native macOS WKWebView.
  *
- * Inbound messages (parent → embed):
+ * Inbound messages (parent/native → embed):
  *   { type: "navigate", data: { slide: number } }
  *   { type: "advance" }
  *   { type: "goBack" }
  *
- * Outbound messages (embed → parent):
+ * Outbound messages (embed → parent/native):
  *   { type: "slideReady" }
- *   { type: "slideState", data: { currentSlide, totalSlides, animationStep, totalSteps, titles } }
+ *   { type: "slideState", data: { currentSlide, totalSlides, animationStep, totalSteps, titles, sections } }
+ *   { type: "transitionComplete", currentSlide }
  *   { type: "hmrUpdate" }
+ *
+ * Native bridge (window.__promptslide):
+ *   goToSlide(index), advance(), goBack(), getState() → JSON
  */
 export function SlideEmbed({ slides, transition, directionalTransition }: SlideEmbedProps) {
   const [scale, setScale] = useState(1)
@@ -47,25 +72,63 @@ export function SlideEmbed({ slides, transition, directionalTransition }: SlideE
     advance,
     goBack,
     goToSlide,
-    onTransitionComplete
+    onTransitionComplete: baseOnTransitionComplete
   } = useSlideNavigation({ slides })
 
-  // Post slide state to parent whenever it changes
+  // Wrap transition complete to also notify native
+  const onTransitionComplete = useCallback(() => {
+    baseOnTransitionComplete()
+    postToHost("transitionComplete", { currentSlide })
+  }, [baseOnTransitionComplete, currentSlide])
+
+  // Post slide state to host whenever it changes
   useEffect(() => {
-    const state = {
+    postToHost("slideState", {
       currentSlide,
       totalSlides: slides.length,
       animationStep,
       totalSteps,
-      titles: slides.map(s => s.title || "")
-    }
-    window.parent.postMessage({ type: "slideState", data: state }, "*")
+      titles: slides.map(s => s.title || ""),
+      sections: slides.map(s => s.section || ""),
+      notes: slides.map(s => s.notes || "")
+    })
   }, [currentSlide, animationStep, totalSteps, slides])
 
-  // Signal readiness on mount
+  // Signal readiness on mount with full deck metadata
   useEffect(() => {
-    window.parent.postMessage({ type: "slideReady" }, "*")
-  }, [])
+    postToHost("deckReady", {
+      totalSlides: slides.length,
+      slides: slides.map((s, i) => ({
+        index: i,
+        id: s.id,
+        title: s.title || "",
+        steps: s.steps,
+        section: s.section || "",
+        notes: s.notes || ""
+      }))
+    })
+  }, [slides])
+
+  // Expose window.__promptslide API for native Swift bridge
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).__promptslide = {
+      goToSlide: (index: number) => goToSlide(index),
+      advance: () => advance(),
+      goBack: () => goBack(),
+      getState: () =>
+        JSON.stringify({
+          currentSlide,
+          totalSlides: slides.length,
+          animationStep,
+          totalSteps
+        })
+    }
+    return () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).__promptslide
+    }
+  }, [goToSlide, advance, goBack, currentSlide, slides.length, animationStep, totalSteps])
 
   // Listen for Vite HMR updates
   useEffect(() => {
@@ -73,12 +136,12 @@ export function SlideEmbed({ slides, transition, directionalTransition }: SlideE
     const hot = (import.meta as any).hot as { on: (event: string, cb: () => void) => void } | undefined
     if (hot) {
       hot.on("vite:afterUpdate", () => {
-        window.parent.postMessage({ type: "hmrUpdate" }, "*")
+        postToHost("hmrUpdate")
       })
     }
   }, [])
 
-  // Listen for inbound messages from parent
+  // Listen for inbound messages from parent (iframe mode)
   const handleMessage = useCallback(
     (event: MessageEvent) => {
       const { type, data } = event.data || {}

@@ -19,14 +19,16 @@ import { registerAssetTools } from "./tools/assets.mjs"
 import { registerThemeTools } from "./tools/themes.mjs"
 import { registerAnnotationTools } from "./tools/annotations.mjs"
 import { registerUtilityTools } from "./tools/utility.mjs"
+import { registerPreviewTools } from "./tools/preview.mjs"
 
 function createMcpServer() {
   return new McpServer({
     name: "Promptslide",
     version: "1.0.0",
     description: `PromptSlide — Create slide deck presentations.
-Slides are HTML files with Tailwind CSS. The framework handles
-animations, transitions, theming, and presentation mode.
+Slides are React/TSX components with Tailwind CSS. The framework provides
+Animated, AnimatedGroup, Morph components for animations, layout components
+for consistent structure, and SlideDeck for presentation mode.
 
 Use get_deck_info to see current state.
 Use get_guide("framework") for a comprehensive reference.
@@ -42,6 +44,7 @@ function registerTools(server, context) {
   registerThemeTools(server, context)
   registerAnnotationTools(server, context)
   registerUtilityTools(server, context)
+  registerPreviewTools(server, context)
 }
 
 /**

@@ -1,0 +1,14 @@
+{
+  "name": "promptslide-macos",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "generate": "xcodegen generate",
+    "open": "xcodegen generate && open PromptSlide.xcodeproj",
+    "dev": "xcodegen generate && xcodebuild -project PromptSlide.xcodeproj -scheme PromptSlide -configuration Debug build && open build/Debug/PromptSlide.app",
+    "build": "xcodegen generate && xcodebuild -project PromptSlide.xcodeproj -scheme PromptSlide -configuration Release build"
+  },
+  "dependencies": {
+    "promptslide": "*"
+  }
+}

@@ -4,7 +4,6 @@ import { homedir } from "node:os"
 
 import { bold, dim } from "../utils/ansi.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
-import { isHtmlDeck } from "../html/vite-plugin.mjs"
 
 /** Default directory for MCP-managed decks */
 const DEFAULT_DECK_ROOT = join(homedir(), ".promptslide", "decks")
@@ -14,7 +13,6 @@ export async function studio(args) {
   const port = portArg ? parseInt(portArg.split("=")[1], 10) : 5173
   const isMcp = args.includes("--mcp")
   const deckRootArg = args.find(a => a.startsWith("--deck-root="))
-  const forceHtml = args.includes("--html")
   const transportArg = args.find(a => a.startsWith("--transport="))
   const transport = transportArg ? transportArg.split("=")[1] : "stdio"
   const mcpPortArg = args.find(a => a.startsWith("--mcp-port="))
@@ -37,10 +35,8 @@ export async function studio(args) {
     mkdirSync(cwd, { recursive: true })
   }
 
-  const htmlMode = isMcp || forceHtml || isHtmlDeck(cwd)
-
-  // Only require tsconfig for React/TSX mode
-  if (!htmlMode && !isMcp) {
+  // Only require tsconfig for non-MCP mode (MCP creates decks dynamically)
+  if (!isMcp) {
     ensureTsConfig(cwd)
   }
 
@@ -52,7 +48,7 @@ export async function studio(args) {
       const { createServer } = await import("vite")
       const { createViteConfig } = await import("../vite/config.mjs")
 
-      const config = createViteConfig({ cwd, mode: "development", forceHtmlMode: true })
+      const config = createViteConfig({ cwd, mode: "development" })
       const viteServer = await createServer({
         ...config,
         server: { ...config.server, port, strictPort: false }
@@ -65,7 +61,7 @@ export async function studio(args) {
 
       // Register the already-running dev server so MCP tools reuse it
       const { registerExternalDevServer } = await import("../mcp/dev-server.mjs")
-      registerExternalDevServer(actualPort)
+      registerExternalDevServer(actualPort, cwd)
 
       const mcpHttpServer = await startMcpHttpServer({ deckRoot: cwd, mcpPort })
 
@@ -76,13 +72,12 @@ export async function studio(args) {
       console.log(`  ${dim("→")} MCP server:  ${bold(`http://localhost:${mcpPort}/mcp`)}`)
       console.log()
 
-      // Write connection info to stdout as JSON for the Tauri app to parse
+      // Write connection info for the Tauri app to parse
       if (args.includes("--json")) {
         const info = {
           devServer: `http://localhost:${actualPort}`,
           mcpServer: `http://localhost:${mcpPort}/mcp`
         }
-        // Write to fd 3 if available (Tauri sidecar pipe), otherwise stderr
         try {
           process.stderr.write(`__PROMPTSLIDE_READY__${JSON.stringify(info)}\n`)
         } catch {
@@ -100,10 +95,10 @@ export async function studio(args) {
     const { createViteConfig } = await import("../vite/config.mjs")
 
     console.log()
-    console.log(`  ${bold("promptslide")} ${dim("studio")} ${htmlMode ? dim("(HTML mode)") : ""}`)
+    console.log(`  ${bold("promptslide")} ${dim("studio")}`)
     console.log()
 
-    const config = createViteConfig({ cwd, mode: "development", forceHtmlMode: htmlMode })
+    const config = createViteConfig({ cwd, mode: "development" })
     const server = await createServer({
       ...config,
       server: { ...config.server, port, strictPort: false, ...(host && { host, allowedHosts: true }) }

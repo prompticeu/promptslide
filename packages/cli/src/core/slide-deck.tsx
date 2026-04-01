@@ -1,6 +1,6 @@
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion"
 import { ChevronLeft, ChevronRight, Download, Grid3X3, Home, List, Loader2, Maximize, MessageCircle, Monitor } from "lucide-react"
-import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Fragment, type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type { SlideTransitionType } from "./transitions"
 import type { SlideConfig } from "./types"
@@ -74,16 +74,27 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
 // GRID THUMBNAIL (renders slide at fixed 1280×720 and scales to fit card)
 // =============================================================================
 
-function GridSlideContainer({ children }: { children: ReactNode }) {
+/**
+ * Renders children at fixed SLIDE_DIMENSIONS and scales to fit the outer container.
+ * Used for grid thumbnails and the main slide view.
+ */
+function ScaledSlideContainer({ children, className, innerRef }: { children: ReactNode; className?: string; innerRef?: React.Ref<HTMLDivElement> }) {
   const outerRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(0.25)
+  const [containerScale, setContainerScale] = useState(1)
 
   useEffect(() => {
     const el = outerRef.current
     if (!el) return
     const update = () => {
       const w = el.clientWidth
-      if (w > 0) setScale(w / SLIDE_DIMENSIONS.width)
+      const h = el.clientHeight
+      if (w > 0 && h > 0) {
+        const scaleX = w / SLIDE_DIMENSIONS.width
+        const scaleY = h / SLIDE_DIMENSIONS.height
+        setContainerScale(Math.min(scaleX, scaleY))
+      } else if (w > 0) {
+        setContainerScale(w / SLIDE_DIMENSIONS.width)
+      }
     }
     update()
     const observer = new ResizeObserver(update)
@@ -91,14 +102,21 @@ function GridSlideContainer({ children }: { children: ReactNode }) {
     return () => observer.disconnect()
   }, [])
 
+  const scaledWidth = SLIDE_DIMENSIONS.width * containerScale
+  const scaledHeight = SLIDE_DIMENSIONS.height * containerScale
+
   return (
-    <div ref={outerRef} className="absolute inset-0">
+    <div ref={outerRef} className={className} style={{ position: "relative", overflow: "hidden" }}>
       <div
-        className="origin-top-left overflow-hidden"
+        ref={innerRef}
         style={{
           width: SLIDE_DIMENSIONS.width,
           height: SLIDE_DIMENSIONS.height,
-          transform: `scale(${scale})`
+          transform: `scale(${containerScale})`,
+          transformOrigin: "top left",
+          position: "absolute",
+          top: `calc(50% - ${scaledHeight / 2}px)`,
+          left: `calc(50% - ${scaledWidth / 2}px)`
         }}
       >
         {children}
@@ -107,9 +125,69 @@ function GridSlideContainer({ children }: { children: ReactNode }) {
   )
 }
 
+function GridSlideContainer({ children }: { children: ReactNode }) {
+  return (
+    <ScaledSlideContainer className="absolute inset-0">
+      {children}
+    </ScaledSlideContainer>
+  )
+}
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
+
+const toolbarStyle: CSSProperties = {
+  position: "fixed",
+  top: 16,
+  zIndex: 50,
+  display: "flex",
+  gap: 4,
+  padding: 4,
+  borderRadius: 12,
+  border: "1px solid rgb(38 38 38)",
+  background: "rgb(10 10 10 / 0.9)",
+  backdropFilter: "blur(8px)"
+}
+
+const toolbarButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 8,
+  border: "none",
+  borderRadius: 8,
+  background: "transparent",
+  color: "rgb(163 163 163)",
+  cursor: "pointer",
+  textDecoration: "none"
+}
+
+const toolbarSeparatorStyle: CSSProperties = {
+  width: 1,
+  marginInline: 4,
+  background: "rgb(38 38 38)"
+}
+
+const navButtonStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 8,
+  borderRadius: 9999,
+  border: "1px solid rgb(38 38 38)",
+  background: "rgb(0 0 0 / 0.5)",
+  color: "rgb(163 163 163)",
+  cursor: "pointer",
+  backdropFilter: "blur(8px)"
+}
+
+const navLabelStyle: CSSProperties = {
+  display: "flex",
+  minWidth: 64,
+  flexDirection: "column",
+  alignItems: "center"
+}
 
 export function SlideDeck({ slides, transition, directionalTransition, annotations, onAnnotationAdd, onAnnotationDelete }: SlideDeckProps) {
   // Check for export mode via URL params
@@ -290,54 +368,55 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
 
       {/* Toolbar */}
       <div
-        className={cn(
-          "fixed top-4 z-50 flex gap-1 rounded-lg border border-neutral-800 bg-neutral-950/90 p-1 backdrop-blur-sm transition-[right] print:hidden",
-          isPresentationMode && "hidden",
-          isAnnotationMode && showAnnotationPanel ? "right-[19.5rem]" : "right-4"
-        )}
+        className={cn("print:hidden", isPresentationMode && "hidden")}
+        style={{
+          ...toolbarStyle,
+          right: isAnnotationMode && showAnnotationPanel ? 312 : 16,
+          display: isPresentationMode ? "none" : "flex"
+        }}
       >
         <a
           href="/"
-          className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
+          style={toolbarButtonStyle}
           title="All Decks"
         >
           <Home className="h-4 w-4" />
         </a>
 
-        <div className="mx-1 w-px bg-neutral-800" />
+        <div style={toolbarSeparatorStyle} />
 
         <button
           onClick={() => setViewMode("slide")}
-          className={cn(
-            "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-            viewMode === "slide" && "bg-neutral-800 text-white"
-          )}
+          style={{
+            ...toolbarButtonStyle,
+            ...(viewMode === "slide" ? { background: "rgb(38 38 38)", color: "white" } : null)
+          }}
           title="Presentation View"
         >
           <Monitor className="h-4 w-4" />
         </button>
         <button
           onClick={() => setViewMode("list")}
-          className={cn(
-            "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-            viewMode === "list" && "bg-neutral-800 text-white"
-          )}
+          style={{
+            ...toolbarButtonStyle,
+            ...(viewMode === "list" ? { background: "rgb(38 38 38)", color: "white" } : null)
+          }}
           title="List View"
         >
           <List className="h-4 w-4" />
         </button>
         <button
           onClick={() => setViewMode("grid")}
-          className={cn(
-            "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-            viewMode === "grid" && "bg-neutral-800 text-white"
-          )}
+          style={{
+            ...toolbarButtonStyle,
+            ...(viewMode === "grid" ? { background: "rgb(38 38 38)", color: "white" } : null)
+          }}
           title="Grid View"
         >
           <Grid3X3 className="h-4 w-4" />
         </button>
 
-        <div className="mx-1 w-px bg-neutral-800" />
+        <div style={toolbarSeparatorStyle} />
 
         <button
           onClick={() => {
@@ -348,10 +427,11 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
               return next
             })
           }}
-          className={cn(
-            "relative rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-            isAnnotationMode && "bg-[#FF6B35] text-white hover:bg-[#FF7A4A]"
-          )}
+          style={{
+            ...toolbarButtonStyle,
+            position: "relative",
+            ...(isAnnotationMode ? { background: "#FF6B35", color: "white" } : null)
+          }}
           title="Annotate slides"
         >
           <MessageCircle className="h-4 w-4" />
@@ -362,17 +442,16 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
           )}
         </button>
 
-        <div className="mx-1 w-px bg-neutral-800" />
+        <div style={toolbarSeparatorStyle} />
 
         <button
           onClick={handleExportPdf}
           disabled={isExporting}
-          className={cn(
-            "rounded-md p-2 transition-colors",
-            isExporting
-              ? "cursor-wait text-primary"
-              : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
-          )}
+          style={{
+            ...toolbarButtonStyle,
+            cursor: isExporting ? "wait" : "pointer",
+            color: isExporting ? "var(--primary)" : toolbarButtonStyle.color
+          }}
           title={isExporting ? "Exporting PDF..." : "Download PDF"}
         >
           {isExporting ? (
@@ -383,7 +462,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
         </button>
         <button
           onClick={togglePresentationMode}
-          className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
+          style={toolbarButtonStyle}
           title="Present (F)"
         >
           <Maximize className="h-4 w-4" />
@@ -439,7 +518,10 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
                   />
                 </div>
               ) : (
-                <div ref={slideContainerRef} className="relative aspect-video w-full max-w-7xl overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-2xl">
+                <ScaledSlideContainer
+                  innerRef={slideContainerRef}
+                  className="aspect-video w-full max-w-7xl rounded-xl border border-neutral-800 bg-black shadow-2xl"
+                >
                   <SlideRenderer
                     slides={slides}
                     currentSlide={currentSlide}
@@ -464,7 +546,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
 
                     />
                   )}
-                </div>
+                </ScaledSlideContainer>
               )}
             </LayoutGroup>
 
@@ -473,11 +555,11 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
               <div className="mt-6 flex items-center gap-4">
                 <button
                   onClick={goBack}
-                  className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
+                  style={navButtonStyle}
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
-                <div className="flex min-w-[4rem] flex-col items-center">
+                <div style={navLabelStyle}>
                   <span className="font-mono text-sm text-neutral-500">
                     {currentSlide + 1} / {slides.length}
                   </span>
@@ -489,7 +571,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
                 </div>
                 <button
                   onClick={advance}
-                  className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
+                  style={navButtonStyle}
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>

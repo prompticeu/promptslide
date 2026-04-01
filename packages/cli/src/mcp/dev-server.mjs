@@ -1,8 +1,8 @@
 /**
  * Dev server manager for MCP mode.
  *
- * Spawns a SINGLE Vite process for the entire deckRoot (~/.promptslide/decks/).
- * All decks are served via URL-based routing: /:deckSlug
+ * Spawns a Vite process for the requested workspace root.
+ * In multi-deck mode, the TSX runtime serves decks via `/:deckSlug`.
  * Cleans up the child process when MCP exits.
  */
 
@@ -14,7 +14,7 @@ import { dirname, resolve } from "node:path"
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const CLI_ENTRY = resolve(__dirname, "../index.mjs")
 
-/** @type {{ child: import("node:child_process").ChildProcess | null, port: number } | null} */
+/** @type {{ child: import("node:child_process").ChildProcess | null, port: number, root: string } | null} */
 let serverInstance = null
 
 let cleanupRegistered = false
@@ -24,9 +24,10 @@ let cleanupRegistered = false
  * When set, ensureDevServer() will reuse this port instead of spawning a child process.
  *
  * @param {number} port - The port the dev server is already running on
+ * @param {string} root - The deck root the dev server was started for
  */
-export function registerExternalDevServer(port) {
-  serverInstance = { child: null, port }
+export function registerExternalDevServer(port, root) {
+  serverInstance = { child: null, port, root }
 }
 
 /**
@@ -34,7 +35,7 @@ export function registerExternalDevServer(port) {
  */
 function isPortInUse(port) {
   return new Promise((resolve) => {
-    const conn = createConnection({ port, host: "127.0.0.1" })
+    const conn = createConnection({ port, host: "localhost" })
     conn.on("connect", () => {
       conn.destroy()
       resolve(true)
@@ -46,23 +47,26 @@ function isPortInUse(port) {
 }
 
 /**
- * Ensure the single dev server is running. Returns the port.
- *
- * The server serves ALL decks from deckRoot via URL routing (/:deckSlug).
+ * Ensure a dev server is running for the requested workspace root. Returns the port.
  *
  * @param {Object} options
- * @param {string} options.deckRoot - Parent decks directory (e.g. ~/.promptslide/decks/)
+ * @param {string} options.root - Deck directory to serve
  * @param {number} [options.port] - Preferred port (default 5173)
  * @returns {Promise<number>} Actual port
  */
-export async function ensureDevServer({ deckRoot, port }) {
-  // Already running — reuse
+export async function ensureDevServer({ root, port }) {
+  // Already running for the same root — reuse
   if (serverInstance) {
-    // External server (no child process) — always trust it
-    if (!serverInstance.child) return serverInstance.port
-    const alive = await isPortInUse(serverInstance.port)
-    if (alive) return serverInstance.port
-    // Child died, clean up
+    if (serverInstance.root === root) {
+      // External server (no child process) — always trust it
+      if (!serverInstance.child) return serverInstance.port
+      const alive = await isPortInUse(serverInstance.port)
+      if (alive) return serverInstance.port
+    }
+
+    if (serverInstance.child && !serverInstance.child.killed) {
+      serverInstance.child.kill("SIGTERM")
+    }
     serverInstance = null
   }
 
@@ -75,15 +79,15 @@ export async function ensureDevServer({ deckRoot, port }) {
   // Spawn Vite as a child process
   const child = spawn(
     process.execPath,
-    [CLI_ENTRY, "studio", "--html", `--port=${targetPort}`, `--deck-root=${deckRoot}`],
+    [CLI_ENTRY, "studio", `--port=${targetPort}`],
     {
-      cwd: deckRoot,
+      cwd: root,
       stdio: ["ignore", "pipe", "pipe"],
       // Don't detach — let it die with the MCP process
     }
   )
 
-  serverInstance = { child, port: targetPort }
+  serverInstance = { child, port: targetPort, root }
 
   // Wait for the dev server to be ready (poll port)
   await new Promise((resolve, reject) => {
@@ -145,14 +149,4 @@ export async function ensureDevServer({ deckRoot, port }) {
  */
 export function getDevServerPort() {
   return serverInstance?.port || null
-}
-
-/**
- * Check if the dev server is externally managed (e.g. by the Tauri app).
- * When true, open_preview should NOT open a browser — the app window is already showing it.
- *
- * @returns {boolean}
- */
-export function isExternalDevServer() {
-  return serverInstance !== null && serverInstance.child === null
 }

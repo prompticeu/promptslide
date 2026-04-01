@@ -40,7 +40,6 @@ const child = spawn(
     "studio",
     "--mcp",
     "--transport=http",
-    "--html",
     "--json",
     `--port=${port}`,
     `--mcp-port=${mcpPort}`,
