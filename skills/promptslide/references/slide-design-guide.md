@@ -90,6 +90,7 @@ Fonts are projected large and seen at a distance — they carry real visual weig
 You can't use gradients, blur, or box-shadow — but you can create depth and atmosphere:
 
 - **Solid color blocks** as design elements — a bold colored panel, a dark sidebar, a full-bleed background change
+- **Glow overlays** — the project includes `glow-white.png` (`/public/images/`) which can add subtle radial depth on dark slides. Position it `absolute inset-0` with `object-cover` and `opacity-30` to `opacity-50`. One option among many — not every deck needs it.
 - **Opacity layers** — `bg-white/5`, `bg-primary/10` on dark backgrounds create subtle depth
 - **Borders as structure** — colored top borders (`border-t-[3px] border-primary`) on cards create accent without shadows
 - **Image overlays at low opacity** — brand patterns or textures at 5–10% opacity add atmosphere without competing with content

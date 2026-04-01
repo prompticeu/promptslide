@@ -130,6 +130,45 @@ Everything is optional except `name`. Omitted values fall back to `globals.css` 
 
 ---
 
+## Background Glow (Optional)
+
+Projects include `/public/images/glow-white.png` — a neutral radial glow PNG that can add subtle depth on dark slides. It's one design option, not a default — use it when it fits the deck's aesthetic.
+
+Usage: add as the first child inside a slide's root `<div>`:
+
+```tsx
+<img
+  src="/images/glow-white.png"
+  alt=""
+  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-40"
+/>
+```
+
+Adjust `opacity-40` to control intensity. The glow is a PNG (not a CSS gradient) for PDF export compatibility. To create a brand-colored variant, regenerate the PNG using the project's primary color RGB values (derived from the OKLCH `--primary` variable).
+
+Generation script (replace the white RGB values with your brand color):
+
+```python
+import numpy as np
+from PIL import Image
+
+w, h = 890, 570
+cx, cy = w / 2, h * 0.42
+img = np.zeros((h, w, 4), dtype=np.uint8)
+y, x = np.mgrid[0:h, 0:w]
+dx = (x - cx) / (w * 0.45)
+dy = (y - cy) / (h * 0.45)
+dist = np.sqrt(dx**2 + dy**2)
+alpha = np.clip(np.exp(-dist**2 * 2.0) * 80, 0, 255).astype(np.uint8)
+img[:, :, 0] = 255  # R — replace with brand color
+img[:, :, 1] = 255  # G — replace with brand color
+img[:, :, 2] = 255  # B — replace with brand color
+img[:, :, 3] = alpha
+Image.fromarray(img, 'RGBA').save('public/images/glow-white.png')
+```
+
+---
+
 ## Font Pairings
 
 Load fonts via `<link>` in `index.html` (Google Fonts or Fontshare), then set them in `src/theme.ts`.
