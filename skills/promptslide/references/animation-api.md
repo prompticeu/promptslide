@@ -21,6 +21,24 @@ import { Animated } from "@/framework/animated"
 | `delay`     | `number`        | `0`          | Delay after trigger in seconds                       |
 | `className` | `string`        | —            | Additional CSS classes (use for layout preservation) |
 
+> **Layout warning:** `<Animated>` renders a wrapper `<div>`. When used as a direct child of a **grid** or **flex** container, you MUST pass layout classes (`h-full`, `w-full`, `col-span-*`, `row-span-*`, etc.) via `className` on the `<Animated>` — not only on the inner child. Without this, the wrapper collapses and breaks the layout.
+>
+> ```tsx
+> // BROKEN — wrapper div collapses, card won't fill the grid cell
+> <div className="grid h-full grid-cols-2 gap-4">
+>   <Animated step={1} animation="slide-up">
+>     <div className="h-full rounded-2xl bg-card p-6">...</div>
+>   </Animated>
+> </div>
+>
+> // CORRECT — layout classes on the Animated wrapper
+> <div className="grid h-full grid-cols-2 gap-4">
+>   <Animated step={1} animation="slide-up" className="h-full">
+>     <div className="h-full rounded-2xl bg-card p-6">...</div>
+>   </Animated>
+> </div>
+> ```
+
 ### AnimationType Values
 
 | Type          | Effect                      |
@@ -61,15 +79,15 @@ import { AnimatedGroup } from "@/framework/animated"
 | `staggerDelay` | `number`        | `0.1`        | Delay between each child in seconds       |
 | `className`    | `string`        | —            | Additional CSS classes                    |
 
-> **Grid span warning:** `AnimatedGroup` wraps each child in a motion `<div>`. CSS grid span classes (`col-span-*`, `row-span-*`) on the inner children will NOT affect grid placement — they must be on the direct grid children. For bento/spanning grids, use individual `<Animated>` components with `className` for spans instead:
+> **Grid span warning:** `AnimatedGroup` wraps each child in a motion `<div>` that has **no className**. CSS grid span classes (`col-span-*`, `row-span-*`) and sizing classes (`h-full`, `w-full`) on the inner children will NOT affect grid placement — they must be on the direct grid children. For bento/spanning grids or any grid where children need to fill their cells, use individual `<Animated>` components with `className` instead:
 >
 > ```tsx
-> <div className="grid grid-cols-3 grid-rows-2 gap-4">
->   <Animated step={1} animation="slide-down" className="col-span-2">
->     <Card>Wide card</Card>
+> <div className="grid h-full grid-cols-3 grid-rows-2 gap-4">
+>   <Animated step={1} animation="slide-down" className="col-span-2 h-full">
+>     <div className="h-full rounded-2xl bg-card p-6">Wide card</div>
 >   </Animated>
->   <Animated step={1} animation="slide-down" className="row-span-2">
->     <Card>Tall card</Card>
+>   <Animated step={1} animation="slide-down" className="row-span-2 h-full">
+>     <div className="h-full rounded-2xl bg-card p-6">Tall card</div>
 >   </Animated>
 > </div>
 > ```
@@ -102,7 +120,7 @@ import { AnimatedGroup } from "@/framework/animated"
 // deck-config: steps: 3
 ```
 
-**Grouped by row** — top row on step 1, bottom row on step 2:
+**Grouped by row** — top row on step 1, bottom row on step 2 (note `className="h-full"` for grid cells):
 
 ```tsx
 {
@@ -112,6 +130,7 @@ import { AnimatedGroup } from "@/framework/animated"
       step={index < 3 ? 1 : 2}
       animation="slide-up"
       delay={(index % 3) * 0.05}
+      className="h-full"
     >
       <Card>{item.title}</Card>
     </Animated>
