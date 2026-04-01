@@ -187,7 +187,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
         return
       }
 
-      if (viewMode !== "slide" || isAnnotationMode) return
+      if (viewMode !== "slide" || (isAnnotationMode && !isPresentationMode)) return
 
       if (e.key === "ArrowRight" || e.key === " ") {
         e.preventDefault()
@@ -200,7 +200,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [advance, goBack, viewMode, togglePresentationMode, isAnnotationMode])
+  }, [advance, goBack, viewMode, togglePresentationMode, isAnnotationMode, isPresentationMode])
 
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-foreground">
