@@ -1,6 +1,6 @@
 # Style Presets
 
-Curated visual directions for slide decks. Use these as mood inspiration, not as a spec to follow row by row. Each preset describes a color palette, card treatment, and animation feel — but the actual design of each slide should come from thinking about what the content needs (see the Design Thinking step and [slide-design-guide.md](slide-design-guide.md)). Choose fonts separately based on the deck's personality (see [theming.md](theming.md)).
+Curated visual directions for slide decks. Use these as mood inspiration, not as a spec to follow row by row. Each preset describes a color palette, card treatment, and animation feel — but the actual design of each slide should come from thinking about what the content needs (see the Design Thinking step and [slide-design-guide.md](slide-design-guide.md)). Choose fonts separately based on the deck's personality (see [theming-and-branding.md](theming-and-branding.md)).
 
 ---
 
@@ -130,9 +130,10 @@ Rich dark theme with deep blue-to-purple color palette. Polished and modern.
 
 ## Using a Preset
 
-1. Set the `--primary` color in your theme CSS file (`:root` and `.dark` blocks)
-2. Load fonts via `@import url(...)` in the theme CSS, and set them with `@theme inline { --font-heading: ...; --font-body: ...; }`
-3. Follow the card style and animation recommendations when building slides
-4. Use the "signature" element on at least 1–2 slides for visual identity
+1. Set the `--primary` color in `src/globals.css` (in the `:root` block)
+2. Load fonts via `<link>` in `index.html` (Google Fonts or Fontshare)
+3. Set `fonts.heading` and `fonts.body` in `src/theme.ts`
+4. Follow the card style and animation recommendations when building slides
+5. Use the "signature" element on at least 1–2 slides for visual identity
 
 Presets are starting points. Mix elements across presets if the brand calls for it.
