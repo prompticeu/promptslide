@@ -181,7 +181,7 @@ For the full animation API, see [references/animation-api.md](references/animati
 These rules ensure slides look identical on screen and in PDF export:
 
 - **No blur**: `filter: blur()` and `backdrop-filter: blur()` are silently dropped by Chromium's PDF pipeline
-- **No gradients**: `bg-gradient-to-*` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., `bg-primary/5`, `bg-muted/20`)
+- **No gradients**: `bg-gradient-to-*` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., `bg-primary/5`, `bg-muted/20`). If you want a soft radial glow effect, the project includes `/public/images/glow-white.png` which can be placed as an absolutely-positioned image — see the [theming reference](references/theming-and-branding.md) for details.
 - **No shadows**: `box-shadow` (including `shadow-sm`, `shadow-lg`, `shadow-2xl`) does not export correctly to PDF — use borders or background tints instead (e.g., `border border-border`, `bg-white/5`)
 
 For content density rules, design principles, and visual anti-patterns, see [references/slide-design-guide.md](references/slide-design-guide.md).
