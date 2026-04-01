@@ -172,7 +172,9 @@ The scaffolded project includes `SlideLayoutCentered` as a starter. Create new o
 
 Use `<Animated>` for click-to-reveal steps and `<AnimatedGroup>` for staggered reveals. Available animations: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`.
 
-**Critical rule**: The `steps` value in `deck-config.ts` MUST equal the highest `step` number used in that slide. `steps: 0` means no animations.
+**Critical rules**:
+- The `steps` value in `deck-config.ts` MUST equal the highest `step` number used in that slide. `steps: 0` means no animations.
+- `<Animated>` renders a wrapper `<div>`. When inside a **grid or flex container**, you MUST pass layout classes (`h-full`, `w-full`, `col-span-*`) via `className` on the `<Animated>`, not only on the inner child — otherwise the wrapper collapses and breaks the layout.
 
 For the full animation API, see [references/animation-api.md](references/animation-api.md).
 
