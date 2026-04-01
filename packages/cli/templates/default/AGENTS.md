@@ -8,7 +8,7 @@ Slide deck framework: Vite + React 19 + Tailwind v4 + Framer Motion. Each slide 
 
 Do not jump straight to writing slides. First confirm the visual direction with the user — theme colors, fonts, and overall style. Then, for each slide, think about what design approach fits the content before coding. Not everything needs cards or grids — let the content shape the layout.
 
-If the PromptSlide skill is installed, follow its workflow and **always consult the skill before writing slide code** — it documents framework-specific behavior and constraints that aren't obvious from the component APIs alone.
+If the `promptslide` skill is installed, follow its workflow and **always consult the skill before writing slide code** — it documents framework-specific behavior and constraints that aren't obvious from the component APIs alone.
 
 ---
 
