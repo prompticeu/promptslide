@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, rmSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { bold, dim } from "../utils/ansi.mjs"
+import { readDeckManifest } from "../utils/deck-manifest.mjs"
 
 const VIRTUAL_ENTRY_ID = "virtual:promptslide-entry"
 const RESOLVED_VIRTUAL_ENTRY_ID = "\0" + VIRTUAL_ENTRY_ID
@@ -96,15 +97,10 @@ function getGlobalsCssImport(root) {
   return globalsPath
 }
 
-/**
- * Read and parse deck.json if it exists.
- * Returns null if not found.
- */
+/** Read and normalize deck.json via the shared manifest parser. */
 function readDeckJson(root) {
-  const deckJsonPath = join(root, "deck.json")
-  if (!existsSync(deckJsonPath)) return null
   try {
-    return JSON.parse(readFileSync(deckJsonPath, "utf-8"))
+    return readDeckManifest(root)
   } catch {
     return null
   }
@@ -246,10 +242,6 @@ function getThemeCssImport(root, deckJson) {
   return themeCssPath ? `import "${themeCssPath}"` : ""
 }
 
-function isLegacyHtmlDeck(deckJson) {
-  return Boolean(deckJson?.slides?.some(entry => typeof entry.file === "string" && entry.file.endsWith(".html")))
-}
-
 function hasLegacyApp(root) {
   const appCandidates = [
     "src/App.tsx",
@@ -274,12 +266,31 @@ function getDeckIndexEntryModule(root) {
   }))
 
   return `
-import { StrictMode, createElement } from "react"
+import { StrictMode, createElement, useState } from "react"
 import { createRoot } from "react-dom/client"
 
-const decks = ${JSON.stringify(cards)}
+var initialDecks = ${JSON.stringify(cards)}
 
 function DeckIndex() {
+  var _s = useState(initialDecks)
+  var deckList = _s[0]
+  var setDeckList = _s[1]
+
+  function handleDelete(e, slug, name) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm("Delete \\"" + name + "\\"? This cannot be undone.")) return
+    fetch("/__promptslide_deck", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: slug })
+    }).then(function(res) {
+      if (res.ok) {
+        setDeckList(function(prev) { return prev.filter(function(d) { return d.slug !== slug }) })
+      }
+    }).catch(function() {})
+  }
+
   return createElement("main", {
     style: {
       minHeight: "100vh",
@@ -290,6 +301,7 @@ function DeckIndex() {
       padding: "40px"
     }
   },
+    createElement("style", null, ".deck-card:hover .deck-delete{opacity:1!important}.deck-delete:hover{color:#ef4444!important;border-color:rgba(239,68,68,0.3)!important}"),
     createElement("div", { style: { maxWidth: "1120px", margin: "0 auto" } },
       createElement("div", {
         style: {
@@ -318,7 +330,7 @@ function DeckIndex() {
             fontSize: "14px",
             paddingBottom: "6px"
           }
-        }, decks.length === 1 ? "1 deck" : decks.length + " decks")
+        }, deckList.length === 1 ? "1 deck" : deckList.length + " decks")
       ),
       createElement("div", {
         style: {
@@ -327,48 +339,78 @@ function DeckIndex() {
           gap: "18px"
         }
       },
-        ...decks.map(deck => createElement("a", {
+        ...deckList.map(function(deck) { return createElement("div", {
           key: deck.slug,
-          href: deck.href,
-          style: {
-            textDecoration: "none",
-            color: "inherit",
-            border: "1px solid rgba(255,255,255,0.08)",
-            background: "#17191d",
-            borderRadius: "18px",
-            padding: "20px",
-            minHeight: "180px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.18)"
-          }
+          className: "deck-card",
+          style: { position: "relative" }
         },
-          createElement("div", null,
+          createElement("a", {
+            href: deck.href,
+            style: {
+              textDecoration: "none",
+              color: "inherit",
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "#17191d",
+              borderRadius: "18px",
+              padding: "20px",
+              minHeight: "180px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.18)"
+            }
+          },
+            createElement("div", null,
+              createElement("div", {
+                style: {
+                  color: "#8a8f98",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.14em",
+                  fontSize: "11px",
+                  marginBottom: "12px"
+                }
+              }, deck.slug),
+              createElement("h2", { style: { margin: 0, fontSize: "24px", lineHeight: 1.15 } }, deck.name),
+              createElement("p", { style: { margin: "10px 0 0", color: "#b5bcc7", fontSize: "14px", lineHeight: 1.45 } },
+                deck.slides + " slides",
+                deck.theme ? " \\u00b7 theme " + deck.theme : "",
+                deck.transition ? " \\u00b7 " + deck.transition : ""
+              )
+            ),
             createElement("div", {
               style: {
-                color: "#8a8f98",
-                textTransform: "uppercase",
-                letterSpacing: "0.14em",
-                fontSize: "11px",
-                marginBottom: "12px"
+                color: "#d4d4d8",
+                fontSize: "13px",
+                marginTop: "20px"
               }
-            }, deck.slug),
-            createElement("h2", { style: { margin: 0, fontSize: "24px", lineHeight: 1.15 } }, deck.name),
-            createElement("p", { style: { margin: "10px 0 0", color: "#b5bcc7", fontSize: "14px", lineHeight: 1.45 } },
-              deck.slides + " slides",
-              deck.theme ? " · theme " + deck.theme : "",
-              deck.transition ? " · " + deck.transition : ""
-            )
+            }, "Open deck \\u2192")
           ),
-          createElement("div", {
+          createElement("button", {
+            className: "deck-delete",
+            onClick: function(e) { handleDelete(e, deck.slug, deck.name) },
+            title: "Delete deck",
             style: {
-              color: "#d4d4d8",
-              fontSize: "13px",
-              marginTop: "20px"
+              position: "absolute",
+              top: "12px",
+              right: "12px",
+              width: "28px",
+              height: "28px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "8px",
+              background: "rgba(0,0,0,0.5)",
+              color: "#9ca3af",
+              cursor: "pointer",
+              fontSize: "16px",
+              lineHeight: 1,
+              backdropFilter: "blur(4px)",
+              opacity: 0,
+              transition: "opacity 0.15s, color 0.15s, border-color 0.15s"
             }
-          }, "Open deck →")
-        ))
+          }, "\\u00d7")
+        )})
       )
     )
   )
@@ -457,53 +499,6 @@ function NotFound() {
 
 createRoot(document.getElementById("root")).render(
   createElement(StrictMode, null, createElement(NotFound))
-)
-`
-}
-
-function getLegacyDeckEntryModule(deckSlug) {
-  return `
-import { StrictMode, createElement } from "react"
-import { createRoot } from "react-dom/client"
-
-function LegacyDeckNotice() {
-  return createElement("main", {
-    style: {
-      minHeight: "100vh",
-      display: "grid",
-      placeItems: "center",
-      background: "#111315",
-      color: "#f5f5f5",
-      fontFamily: "ui-sans-serif, system-ui, sans-serif",
-      padding: "32px"
-    }
-  }, createElement("div", {
-    style: {
-      width: "min(760px, 100%)",
-      border: "1px solid rgba(255,255,255,0.08)",
-      background: "#17191d",
-      borderRadius: "18px",
-      padding: "28px 30px"
-    }
-  },
-    createElement("div", {
-      style: {
-        color: "#8a8f98",
-        textTransform: "uppercase",
-        letterSpacing: "0.16em",
-        fontSize: "12px",
-        marginBottom: "10px"
-      }
-    }, "Migration needed"),
-    createElement("h1", { style: { margin: 0, fontSize: "32px", lineHeight: 1.1 } }, ${JSON.stringify(deckSlug)}),
-    createElement("p", { style: { margin: "12px 0 0", color: "#b5bcc7", fontSize: "15px", lineHeight: 1.5 } },
-      "This deck still uses the legacy HTML format. It needs to be migrated to the TSX deck runtime before it can render in the shared app host."
-    )
-  ))
-}
-
-createRoot(document.getElementById("root")).render(
-  createElement(StrictMode, null, createElement(LegacyDeckNotice))
 )
 `
 }
@@ -793,9 +788,6 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         if (deckRoot) {
           const deckJson = readDeckJson(deckRoot)
           if (deckJson && deckJson.slides?.length) {
-            if (isLegacyHtmlDeck(deckJson)) {
-              return getLegacyDeckEntryModule(deckSlug || deckJson.slug || "deck")
-            }
             return getDeckJsonEntryModule(deckRoot, deckJson)
           }
           if (hasLegacyApp(deckRoot)) {
@@ -809,9 +801,6 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
 
         const deckJson = readDeckJson(root)
         if (deckJson && deckJson.slides?.length) {
-          if (isLegacyHtmlDeck(deckJson)) {
-            return getLegacyDeckEntryModule(deckJson.slug || "deck")
-          }
           return getDeckJsonEntryModule(root, deckJson)
         }
         if (hasLegacyApp(root)) {
@@ -892,6 +881,48 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
             writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8")
             res.statusCode = 204
             res.end()
+          } catch {
+            res.statusCode = 400
+            res.end()
+          }
+        })
+      })
+
+      // Pre-middleware: delete deck
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "DELETE" || req.url !== "/__promptslide_deck") return next()
+
+        let body = ""
+        req.on("data", chunk => { body += chunk })
+        req.on("end", () => {
+          try {
+            const { slug } = JSON.parse(body)
+            if (!slug || typeof slug !== "string") {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: "Missing slug" }))
+              return
+            }
+
+            const deckPath = join(root, slug)
+
+            // Safety: refuse to delete root or paths outside it
+            if (deckPath === root || !deckPath.startsWith(root + "/")) {
+              res.statusCode = 403
+              res.end(JSON.stringify({ error: "Refusing to delete." }))
+              return
+            }
+
+            if (!existsSync(deckPath)) {
+              res.statusCode = 404
+              res.end(JSON.stringify({ error: "Deck not found." }))
+              return
+            }
+
+            rmSync(deckPath, { recursive: true, force: true })
+
+            res.setHeader("Content-Type", "application/json")
+            res.statusCode = 200
+            res.end(JSON.stringify({ success: true }))
           } catch {
             res.statusCode = 400
             res.end()
