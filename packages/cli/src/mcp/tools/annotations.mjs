@@ -76,10 +76,11 @@ export function registerAnnotationTools(server, context) {
       text: z.string().describe("Annotation/feedback text"),
       xPercent: z.number().optional().describe("X position as percentage of slide width (0-100, defaults to 50)"),
       yPercent: z.number().optional().describe("Y position as percentage of slide height (0-100, defaults to 50)"),
+      contentNearPin: z.string().optional().describe("Text content of the HTML element near the annotation pin"),
       author: z.string().optional().describe("Author name (defaults to 'agent')")
     },
     { readOnlyHint: false, destructiveHint: false },
-    async ({ deck, slide, text, xPercent, yPercent, author }) => {
+    async ({ deck, slide, text, xPercent, yPercent, contentNearPin, author }) => {
       let deckPath
       try {
         deckPath = resolveDeckPath(deckRoot, deck)
@@ -102,7 +103,7 @@ export function registerAnnotationTools(server, context) {
         id: crypto.randomUUID(),
         slideIndex,
         slideTitle,
-        target: { contentNearPin: text.slice(0, 100), position: { xPercent: xPercent ?? 50, yPercent: yPercent ?? 50 } },
+        target: { contentNearPin: contentNearPin || "", position: { xPercent: xPercent ?? 50, yPercent: yPercent ?? 50 } },
         body: text,
         createdAt: new Date().toISOString(),
         status: "open"

@@ -154,23 +154,36 @@ function AnnotationPanel({ annotations, currentIndex, selectedId, onSelect, onRe
 
 // ─── Scaled iframe for 1280x720 slide content ───
 
-function SlideFrame({ html, title, annotating, onAnnotate }: {
+function SlideFrame({ html, title, annotating, onAnnotate, fitHeight = true }: {
   html: string; title: string
   annotating?: boolean
   onAnnotate?: (xPercent: number, yPercent: number, contentNearPin: string) => void
+  fitHeight?: boolean
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const [scale, setScale] = useState(1)
+  const [wrapSize, setWrapSize] = useState({ w: 640, h: 360 })
   const highlightRef = useRef<HTMLDivElement>(null)
 
+  // Observe the slide-area container to compute the best fit for 16:9
   useEffect(() => {
-    const el = wrapRef.current
-    if (!el) return
-    const update = () => setScale(el.clientWidth / 1280)
+    const container = containerRef.current
+    if (!container) return
+    const update = () => {
+      const availW = container.clientWidth
+      const availH = container.clientHeight
+      // Fit 16:9 into available space
+      const scaleW = availW / 1280
+      const scaleH = availH / 720
+      const s = fitHeight ? Math.min(scaleW, scaleH) : scaleW
+      setScale(s)
+      setWrapSize({ w: Math.floor(1280 * s), h: Math.floor(720 * s) })
+    }
     update()
     const ro = new ResizeObserver(update)
-    ro.observe(el)
+    ro.observe(container)
     return () => ro.disconnect()
   }, [])
 
@@ -229,28 +242,31 @@ function SlideFrame({ html, title, annotating, onAnnotate }: {
   }, [annotating, onAnnotate, getElementAt])
 
   return (
-    <div
-      className={`slide-frame-wrap${annotating ? " annotating" : ""}`}
-      ref={wrapRef}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      onClick={handleClick}
-    >
-      <iframe
-        ref={iframeRef}
-        className="slide-frame"
-        srcDoc={html}
-        sandbox="allow-same-origin"
-        title={title}
-        style={{ transform: `scale(${scale})` }}
-      />
-      {/* Annotation mode overlays */}
-      {annotating && (
-        <>
-          <div className="annotation-overlay" />
-          <div ref={highlightRef} className="element-highlight" />
-        </>
-      )}
+    <div ref={containerRef} className="slide-frame-container">
+      <div
+        className={`slide-frame-wrap${annotating ? " annotating" : ""}`}
+        ref={wrapRef}
+        style={{ width: wrapSize.w, height: wrapSize.h }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        onClick={handleClick}
+      >
+        <iframe
+          ref={iframeRef}
+          className="slide-frame"
+          srcDoc={html}
+          sandbox="allow-same-origin"
+          title={title}
+          style={{ transform: `scale(${scale})` }}
+        />
+        {/* Annotation mode overlays */}
+        {annotating && (
+          <>
+            <div className="annotation-overlay" />
+            <div ref={highlightRef} className="element-highlight" />
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -279,7 +295,7 @@ function ViewerCore({ app }: { app: App }) {
   const [annotateMode, setAnnotateMode] = useState(false)
   const [showPanel, setShowPanel] = useState(false)
   const [selectedPin, setSelectedPin] = useState<string | null>(null)
-  const [pendingPin, setPendingPin] = useState<{ x: number; y: number } | null>(null)
+  const [pendingPin, setPendingPin] = useState<{ x: number; y: number; contentNearPin?: string } | null>(null)
 
   // ─── Host context (theme, container dimensions, display mode) ───
   useEffect(() => {
@@ -460,7 +476,12 @@ function ViewerCore({ app }: { app: App }) {
     const newMode = displayMode === "fullscreen" ? "inline" : "fullscreen"
     try {
       const result = await appRef.current.requestDisplayMode({ mode: newMode })
-      setDisplayMode(result.mode as "inline" | "fullscreen")
+      const mode = result.mode as "inline" | "fullscreen"
+      setDisplayMode(mode)
+      if (mode === "inline") {
+        setContainerHeight(null)
+        document.documentElement.style.removeProperty("--container-h")
+      }
     } catch {}
   }, [displayMode])
 
@@ -483,7 +504,14 @@ function ViewerCore({ app }: { app: App }) {
     try {
       await app.callServerTool({
         name: "add_annotation",
-        arguments: { deck: deck.slug, slide: deck.slides[idx].id, text, xPercent: Math.round(pendingPin.x * 10) / 10, yPercent: Math.round(pendingPin.y * 10) / 10 }
+        arguments: {
+          deck: deck.slug,
+          slide: deck.slides[idx].id,
+          text,
+          xPercent: Math.round(pendingPin.x * 10) / 10,
+          yPercent: Math.round(pendingPin.y * 10) / 10,
+          contentNearPin: pendingPin.contentNearPin || ""
+        }
       })
       setPendingPin(null); fetchAnnotations(); setShowPanel(true)
     } catch {}
@@ -543,47 +571,91 @@ function ViewerCore({ app }: { app: App }) {
   if (error) return <div className="state"><div className="err"><p>{error}</p></div></div>
   if (!deck || !slide) return null
 
-  return (
-    <div className={`viewer${isFullscreen ? " fullscreen" : ""}`} tabIndex={0}>
-      {/* Slide area */}
-      {/* Slide + annotation panel row */}
-      <div className="main-row">
-        <div
-          className={`slide-area${annotateMode ? " annotating" : ""}`}
-        >
-          {loading && !slideContent ? (
-            <div className="slide-placeholder"><div className="spinner" /></div>
-          ) : slideContent && isImage ? (
-            <img className="slide-img" src={slideContent} alt={slide.title || slide.id} draggable={false} />
-          ) : slideContent ? (
-            <SlideFrame
-              html={slideContent}
-              title={slide.title || slide.id}
-              annotating={annotateMode && isFullscreen}
-              onAnnotate={(xPct, yPct, content) => {
-                setPendingPin({ x: xPct, y: yPct })
-                setSelectedPin(null)
-              }}
-            />
-          ) : (
-            <div className="slide-placeholder"><span>No preview</span></div>
-          )}
+  const slideView = (
+    <div className={`slide-area${annotateMode ? " annotating" : ""}`}>
+      {loading && !slideContent ? (
+        <div className="slide-placeholder"><div className="spinner" /></div>
+      ) : slideContent && isImage ? (
+        <img className="slide-img" src={slideContent} alt={slide.title || slide.id} draggable={false} />
+      ) : slideContent ? (
+        <SlideFrame
+          html={slideContent}
+          title={slide.title || slide.id}
+          annotating={annotateMode && isFullscreen}
+          fitHeight={true}
+          onAnnotate={(xPct, yPct, content) => {
+            setPendingPin({ x: xPct, y: yPct, contentNearPin: content })
+            setSelectedPin(null)
+          }}
+        />
+      ) : (
+        <div className="slide-placeholder"><span>No preview</span></div>
+      )}
 
-          {/* Annotation overlay (fullscreen only) */}
-          {isFullscreen && slideAnns.map((a, i) => (
-            <Pin key={a.id} number={i + 1} status={a.status}
-              xPercent={a.target.position.xPercent} yPercent={a.target.position.yPercent}
-              isSelected={a.id === selectedPin}
-              onClick={() => { setSelectedPin(a.id === selectedPin ? null : a.id); setShowPanel(true); setPendingPin(null) }}
-            />
-          ))}
-          {isFullscreen && pendingPin && (
-            <AnnotationForm xPercent={pendingPin.x} yPercent={pendingPin.y}
-              onSubmit={submitAnnotation} onCancel={() => setPendingPin(null)} />
+      {/* Annotation pins + form (fullscreen only) */}
+      {isFullscreen && slideAnns.map((a, i) => (
+        <Pin key={a.id} number={i + 1} status={a.status}
+          xPercent={a.target.position.xPercent} yPercent={a.target.position.yPercent}
+          isSelected={a.id === selectedPin}
+          onClick={() => { setSelectedPin(a.id === selectedPin ? null : a.id); setShowPanel(true); setPendingPin(null) }}
+        />
+      ))}
+      {isFullscreen && pendingPin && (
+        <AnnotationForm xPercent={pendingPin.x} yPercent={pendingPin.y}
+          onSubmit={submitAnnotation} onCancel={() => setPendingPin(null)} />
+      )}
+    </div>
+  )
+
+  const thumbStrip = deck.slides.length > 1 ? (
+    <div className={`thumbs${isFullscreen ? " thumbs-sidebar" : ""}`}>
+      {deck.slides.map((s, i) => (
+        <div key={s.id} className={`thumb${i === idx ? " active" : ""}`} onClick={() => setIdx(i)}>
+          {thumbCache[s.id] ? (
+            <img src={thumbCache[s.id]} alt={s.id} />
+          ) : (
+            <span>{i + 1}</span>
           )}
         </div>
+      ))}
+    </div>
+  ) : null
 
-        {/* Annotation panel (fullscreen only) */}
+  const editBar = isFullscreen ? (
+    <div className="bar bar-edit">
+      <div className="bar-nav">
+        <button className="bar-btn" disabled={idx === 0} onClick={() => go(-1)}><ChevronLeft size={16} /></button>
+        <div className="bar-info">
+          <span className="bar-title">{slide.title || slide.id}</span>
+          <span className="bar-sub">{idx + 1} / {deck.slides.length}{slide.steps > 0 ? ` · ${slide.steps} steps` : ""}</span>
+        </div>
+        <button className="bar-btn" disabled={idx === deck.slides.length - 1} onClick={() => go(1)}><ChevronRight size={16} /></button>
+      </div>
+      <div className="bar-actions">
+        <button
+          className={`bar-btn${annotateMode ? " active" : ""}${openCount > 0 ? " badge" : ""}`}
+          onClick={() => { setAnnotateMode(!annotateMode); if (!annotateMode) setShowPanel(true) }}
+          title="Annotate" data-count={openCount > 0 ? openCount : undefined}
+        ><MessageSquarePlus size={15} /></button>
+        <button className="bar-btn" onClick={refresh} title="Refresh"><RotateCw size={14} /></button>
+        <button className="bar-btn edit-btn" onClick={toggleFullscreen} title="Collapse">
+          <Minimize2 size={14} /><span>Exit</span>
+        </button>
+        {deck.devServerUrl && (
+          <button className="bar-btn" onClick={() => app.openLink({ url: deck.devServerUrl! })} title="Open in browser"><ExternalLink size={14} /></button>
+        )}
+      </div>
+    </div>
+  ) : null
+
+  return (
+    <div className={`viewer${isFullscreen ? " fullscreen" : ""}`} tabIndex={0}>
+      {/* Top bar (edit mode only) */}
+      {editBar}
+
+      <div className="main-row">
+        {isFullscreen && thumbStrip}
+        {slideView}
         {isFullscreen && showPanel && (
           <AnnotationPanel
             annotations={annotations} currentIndex={idx} selectedId={selectedPin}
@@ -593,61 +665,29 @@ function ViewerCore({ app }: { app: App }) {
         )}
       </div>
 
-      {/* Thumbnail strip */}
-      {deck.slides.length > 1 && (
-        <div className="thumbs">
-          {deck.slides.map((s, i) => (
-            <div key={s.id} className={`thumb${i === idx ? " active" : ""}`} onClick={() => setIdx(i)}>
-              {thumbCache[s.id] ? (
-                <img src={thumbCache[s.id]} alt={s.id} />
-              ) : (
-                <span>{i + 1}</span>
-              )}
-            </div>
-          ))}
+      {/* Bottom section: thumbnails + nav (inline mode only) */}
+      {!isFullscreen && <div className="inline-bottom">
+        {thumbStrip}
+        <div className="bar">
+        <div className="bar-nav">
+          <button className="bar-btn" disabled={idx === 0} onClick={() => go(-1)}><ChevronLeft size={16} /></button>
+          <div className="bar-info">
+            <span className="bar-title">{slide.title || slide.id}</span>
+            <span className="bar-sub">{idx + 1} / {deck.slides.length}{slide.steps > 0 ? ` · ${slide.steps} steps` : ""}</span>
+          </div>
+          <button className="bar-btn" disabled={idx === deck.slides.length - 1} onClick={() => go(1)}><ChevronRight size={16} /></button>
         </div>
-      )}
-
-      {/* Bottom bar */}
-      <div className="bar">
-        <button className="bar-btn" disabled={idx === 0} onClick={() => go(-1)}>
-          <ChevronLeft size={16} />
-        </button>
-
-        <div className="bar-info">
-          <span className="bar-title">{slide.title || slide.id}</span>
-          <span className="bar-sub">{idx + 1} / {deck.slides.length}{slide.steps > 0 ? ` · ${slide.steps} steps` : ""}</span>
-        </div>
-
-        <button className="bar-btn" disabled={idx === deck.slides.length - 1} onClick={() => go(1)}>
-          <ChevronRight size={16} />
-        </button>
-
         <div className="bar-actions">
-          {isFullscreen && (
-            <button
-              className={`bar-btn${annotateMode ? " active" : ""}${openCount > 0 ? " badge" : ""}`}
-              onClick={() => { setAnnotateMode(!annotateMode); if (!annotateMode) setShowPanel(true) }}
-              title="Annotate"
-              data-count={openCount > 0 ? openCount : undefined}
-            >
-              <MessageSquarePlus size={15} />
-            </button>
-          )}
-          <button className="bar-btn" onClick={refresh} title="Refresh">
-            <RotateCw size={14} />
-          </button>
-          <button className="bar-btn edit-btn" onClick={toggleFullscreen} title={isFullscreen ? "Collapse" : "Edit"}>
-            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            <span>{isFullscreen ? "Exit" : "Edit"}</span>
+          <button className="bar-btn" onClick={refresh} title="Refresh"><RotateCw size={14} /></button>
+          <button className="bar-btn edit-btn" onClick={toggleFullscreen} title="Edit">
+            <Maximize2 size={14} /><span>Edit</span>
           </button>
           {deck.devServerUrl && (
-            <button className="bar-btn" onClick={() => app.openLink({ url: deck.devServerUrl! })} title="Open in browser">
-              <ExternalLink size={14} />
-            </button>
+            <button className="bar-btn" onClick={() => app.openLink({ url: deck.devServerUrl! })} title="Open in browser"><ExternalLink size={14} /></button>
           )}
         </div>
       </div>
+      </div>}
     </div>
   )
 }

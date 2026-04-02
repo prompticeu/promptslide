@@ -17,7 +17,11 @@ import { parseDeckManifest } from "../utils/deck-manifest.mjs"
 
 let browser = null
 let browserPromise = null
-let reusablePage = null
+let screenshotPage = null
+let capturePage = null
+// Simple mutex to serialize access to each reusable page
+let screenshotLock = Promise.resolve()
+let captureLock = Promise.resolve()
 
 function resolveSlidePath(deckRoot, slideId) {
   const candidates = [
@@ -75,18 +79,42 @@ export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPor
   const slidePath = resolveSlidePath(deckRoot, slideId)
   const url = `http://localhost:${devServerPort}/${deckSlug}?export=true&slidePath=${slidePath}`
 
-  // Reuse a single page for scale=1 screenshots (the common preview case).
-  // This avoids the ~500ms overhead of creating/closing pages on every call.
-  if (scale === 1) {
-    if (!reusablePage || reusablePage.isClosed()) {
-      reusablePage = await b.newPage({
+  // Non-default scale: create a fresh page (no contention)
+  if (scale !== 1) {
+    const page = await b.newPage({
+      viewport: { width: 1280, height: 720 },
+      deviceScaleFactor: scale
+    })
+    try {
+      await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
+      await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
+      await page.waitForTimeout(200)
+      const exportEl = await page.$("[data-export-ready]")
+      const buffer = exportEl
+        ? await exportEl.screenshot({ type: "png" })
+        : await page.screenshot({ type: "png" })
+      return buffer.toString("base64")
+    } finally {
+      await page.close()
+    }
+  }
+
+  // Scale=1: reuse page with mutex to prevent concurrent navigation
+  let resolve
+  const prev = screenshotLock
+  screenshotLock = new Promise(r => { resolve = r })
+
+  await prev // wait for previous screenshot to finish
+
+  try {
+    if (!screenshotPage || screenshotPage.isClosed()) {
+      screenshotPage = await b.newPage({
         viewport: { width: 1280, height: 720 },
         deviceScaleFactor: 1
       })
     }
-    const page = reusablePage
+    const page = screenshotPage
 
-    // Clear the ready flag before navigating so we don't screenshot stale content
     await page.evaluate(() => {
       const el = document.querySelector("[data-export-ready]")
       if (el) el.setAttribute("data-export-ready", "false")
@@ -102,27 +130,8 @@ export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPor
       : await page.screenshot({ type: "png" })
 
     return buffer.toString("base64")
-  }
-
-  // Non-default scale: create a fresh page
-  const page = await b.newPage({
-    viewport: { width: 1280, height: 720 },
-    deviceScaleFactor: scale
-  })
-
-  try {
-    await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
-    await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
-    await page.waitForTimeout(200)
-
-    const exportEl = await page.$("[data-export-ready]")
-    const buffer = exportEl
-      ? await exportEl.screenshot({ type: "png" })
-      : await page.screenshot({ type: "png" })
-
-    return buffer.toString("base64")
   } finally {
-    await page.close()
+    resolve()
   }
 }
 
@@ -145,15 +154,21 @@ export async function captureSlideHtml({ deckRoot, deckSlug, slideId, devServerP
   const slidePath = resolveSlidePath(deckRoot, slideId)
   const url = `http://localhost:${devServerPort}/${deckSlug}?export=true&slidePath=${slidePath}`
 
-  if (!reusablePage || reusablePage.isClosed()) {
-    reusablePage = await b.newPage({
+  // Mutex: serialize HTML captures to prevent concurrent navigation on same page
+  let resolve
+  const prev = captureLock
+  captureLock = new Promise(r => { resolve = r })
+  await prev
+
+  try {
+  if (!capturePage || capturePage.isClosed()) {
+    capturePage = await b.newPage({
       viewport: { width: 1280, height: 720 },
       deviceScaleFactor: 1
     })
   }
-  const page = reusablePage
+  const page = capturePage
 
-  // Clear ready flag so we wait for the NEW slide, not stale content
   await page.evaluate(() => {
     const el = document.querySelector("[data-export-ready]")
     if (el) el.setAttribute("data-export-ready", "false")
@@ -183,6 +198,9 @@ export async function captureSlideHtml({ deckRoot, deckSlug, slideId, devServerP
 
   if (!html) throw new Error("Export element not found")
   return html
+  } finally {
+    resolve()
+  }
 }
 
 /**
