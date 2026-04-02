@@ -1,0 +1,240 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { min-height: 100%; }
+
+:root {
+  color-scheme: dark;
+  --bg: transparent;
+  --surface: rgba(255,255,255,0.04);
+  --surface-2: rgba(255,255,255,0.07);
+  --border: rgba(255,255,255,0.08);
+  --border-hover: rgba(255,255,255,0.15);
+  --text: #e5e5e5;
+  --text-2: #a0a0a0;
+  --text-3: #666666;
+  --accent: #6366f1;
+  --pin: #f97316;
+  --pin-glow: rgba(249,115,22,0.2);
+  --green: #22c55e;
+  --radius: 8px;
+}
+
+:root.light {
+  color-scheme: light;
+  --bg: transparent;
+  --surface: rgba(0,0,0,0.03);
+  --surface-2: rgba(0,0,0,0.06);
+  --border: rgba(0,0,0,0.1);
+  --border-hover: rgba(0,0,0,0.18);
+  --text: #1a1a1a;
+  --text-2: #666666;
+  --text-3: #a0a0a0;
+}
+
+body { background: transparent; color: var(--text); font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+
+/* ─── States ─── */
+.state { min-height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--text-3); font-size: 13px; }
+.err { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 20px; max-width: 360px; }
+.err p { color: var(--text-2); font-size: 13px; line-height: 1.5; }
+
+.spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--text-3); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg) } }
+
+/* ─── Viewer layout ─── */
+.viewer { display: flex; flex-direction: column; position: relative; }
+.viewer.fullscreen { height: var(--container-h, 100vh); overflow: hidden; }
+
+/* ─── Main row (slide + panel side by side) ─── */
+.main-row { display: flex; flex: 1; min-height: 0; }
+.viewer:not(.fullscreen) .main-row { height: 340px; }
+
+/* ─── Slide area ─── */
+.slide-area {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; position: relative;
+}
+
+.slide-area.annotating { cursor: default; }
+
+/* Slide as image (screenshot fallback) */
+.slide-img {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+  border-radius: 6px; box-shadow: 0 2px 20px rgba(0,0,0,0.5);
+  user-select: none;
+}
+
+/* Slide rendered as iframe srcdoc — scales 1280x720 to fit container */
+.slide-frame-wrap {
+  position: relative;
+  width: 100%; max-height: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 6px;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.5);
+  overflow: hidden;
+  background: #fff;
+}
+.slide-frame {
+  position: absolute; top: 0; left: 0;
+  width: 1280px; height: 720px;
+  border: none;
+  transform-origin: 0 0;
+}
+
+/* Annotation mode on slide frame */
+.slide-frame-wrap.annotating { cursor: crosshair; }
+.slide-frame-wrap.annotating .slide-frame { pointer-events: none; }
+
+/* Transparent overlay blocks iframe from stealing clicks in annotation mode */
+.annotation-overlay {
+  position: absolute; inset: 0; z-index: 10;
+}
+
+/* Element highlight shown on hover in annotation mode */
+.element-highlight {
+  position: absolute; z-index: 9;
+  display: none;
+  border: 2px solid var(--pin);
+  background: rgba(249,115,22,0.08);
+  border-radius: 3px;
+  pointer-events: none;
+  transition: all 0.08s ease-out;
+}
+
+.slide-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-3); font-size: 12px; width: 100%; height: 100%;
+}
+
+/* ─── Pins ─── */
+.pin {
+  position: absolute; z-index: 20; transform: translate(-50%, -50%);
+  width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(0,0,0,0.3);
+  background: var(--pin); color: #fff;
+  font-size: 10px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.4);
+  transition: transform .12s, box-shadow .12s;
+}
+.pin:hover { transform: translate(-50%, -50%) scale(1.15); }
+.pin.selected { box-shadow: 0 0 0 3px var(--pin-glow), 0 1px 6px rgba(0,0,0,0.4); }
+.pin.resolved { background: var(--text-3); opacity: .5; }
+.pin.resolved.selected { opacity: 1; }
+
+/* ─── Annotation form ─── */
+.ann-form {
+  position: absolute; z-index: 30; width: 240px;
+  background: var(--surface-2); border: 1px solid var(--border-hover);
+  border-radius: var(--radius); box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  padding: 8px;
+}
+.ann-form textarea {
+  display: block; width: 100%; padding: 8px 10px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font: inherit; font-size: 12px; resize: none; outline: none;
+}
+.ann-form textarea:focus { border-color: var(--pin); }
+.ann-form textarea::placeholder { color: var(--text-3); }
+.ann-form-actions { display: flex; justify-content: flex-end; gap: 4px; margin-top: 6px; }
+.ann-btn { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.ann-btn:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-hover); }
+.ann-btn.submit { background: var(--pin); color: #fff; border-color: var(--pin); }
+.ann-btn.submit:disabled { opacity: .3; cursor: default; }
+
+/* ─── Annotation panel ─── */
+.ann-panel {
+  width: 260px; flex-shrink: 0;
+  background: var(--surface); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.ann-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .04em;
+}
+.ann-panel-header button { background: none; border: none; color: var(--text-3); cursor: pointer; padding: 2px; border-radius: 4px; }
+.ann-panel-header button:hover { color: var(--text); }
+.ann-panel-list { flex: 1; overflow-y: auto; }
+.ann-empty { padding: 20px 12px; text-align: center; color: var(--text-3); font-size: 12px; }
+
+.ann-item { display: flex; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+.ann-item:hover { background: var(--surface-2); }
+.ann-item.selected { background: rgba(249,115,22,0.06); }
+.ann-item.resolved { opacity: .45; }
+.ann-item-num {
+  flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--pin); color: #fff; font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; margin-top: 1px;
+}
+.ann-item.resolved .ann-item-num { background: var(--text-3); }
+.ann-item-body { flex: 1; min-width: 0; }
+.ann-item-body p { font-size: 12px; line-height: 1.5; color: var(--text); margin-bottom: 4px; }
+.ann-item-meta { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+.ann-status { text-transform: uppercase; letter-spacing: .03em; font-weight: 600; }
+.ann-status.open { color: var(--pin); }
+.ann-status.resolved { color: var(--green); }
+.ann-resolve { display: inline-flex; align-items: center; gap: 3px; background: none; border: 1px solid var(--border); color: var(--text-3); font-size: 10px; padding: 1px 6px; border-radius: 4px; cursor: pointer; margin-left: auto; }
+.ann-resolve:hover { color: var(--green); border-color: var(--green); }
+
+/* ─── Thumbnails ─── */
+.thumbs {
+  display: flex; gap: 4px; padding: 6px 12px;
+  background: var(--surface); border-top: 1px solid var(--border);
+  overflow-x: auto; flex-shrink: 0;
+}
+.thumbs::-webkit-scrollbar { height: 0; }
+
+.thumb {
+  flex-shrink: 0; width: 56px; height: 32px;
+  border-radius: 4px; border: 2px solid transparent;
+  overflow: hidden; cursor: pointer; opacity: .45;
+  background: var(--surface-2); transition: all .12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.thumb:hover { opacity: .7; }
+.thumb.active { border-color: var(--accent); opacity: 1; }
+.thumb img, .thumb iframe {
+  width: 100%; height: 100%; object-fit: cover;
+  border: none; pointer-events: none;
+  /* Scale down the 1280x720 iframe into the tiny thumbnail */
+  transform-origin: 0 0;
+}
+.thumb span { font-size: 9px; color: var(--text-3); }
+
+/* ─── Bottom bar ─── */
+.bar {
+  display: flex; align-items: center; gap: 2px;
+  padding: 6px 10px; background: var(--surface);
+  border-top: 1px solid var(--border); flex-shrink: 0;
+}
+
+.bar-btn {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  background: none; border: 1px solid transparent; color: var(--text-2);
+  border-radius: 6px; padding: 4px 6px; cursor: pointer;
+  transition: all .12s; flex-shrink: 0; font-size: 12px;
+}
+.bar-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+.bar-btn:disabled { opacity: .25; cursor: default; }
+.bar-btn.active { background: var(--pin); color: #fff; border-color: var(--pin); }
+
+/* Badge on annotate button */
+.bar-btn.badge::after {
+  content: attr(data-count); position: absolute;
+  top: -4px; right: -4px; min-width: 14px; height: 14px;
+  background: var(--pin); color: #fff; font-size: 9px; font-weight: 700;
+  border-radius: 7px; display: flex; align-items: center; justify-content: center;
+  padding: 0 3px;
+}
+.bar-btn.badge { position: relative; }
+
+.edit-btn span { font-size: 11px; font-weight: 500; }
+
+.bar-info {
+  flex: 1; text-align: center; min-width: 0; overflow: hidden;
+  display: flex; flex-direction: column; gap: 0;
+}
+.bar-title { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-sub { font-size: 10px; color: var(--text-3); }
+
+.bar-actions { display: flex; gap: 2px; flex-shrink: 0; }

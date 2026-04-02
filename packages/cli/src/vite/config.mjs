@@ -48,6 +48,7 @@ export function createViteConfig({ cwd, mode = "development" }) {
       }
     },
     server: {
+      cors: true,
       fs: {
         // Allow serving files from the CLI package (core, node_modules)
         // so decks outside the monorepo can access framework code

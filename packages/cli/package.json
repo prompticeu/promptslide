@@ -24,7 +24,8 @@
   ],
   "scripts": {
     "build": "tsup",
-    "prepublishOnly": "npm run build"
+    "build:mcp-app": "vite build --config src/mcp/app/vite.config.ts",
+    "prepublishOnly": "npm run build:mcp-app && npm run build"
   },
   "license": "MIT",
   "repository": {
@@ -64,7 +65,8 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite-plugin-singlefile": "^2.3.2"
   },
   "engines": {
     "node": ">=18.0.0"

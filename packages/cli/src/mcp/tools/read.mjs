@@ -349,6 +349,46 @@ export function registerReadTools(server, context) {
     }
   )
 
+  // ─── get_slide_html (internal, used by MCP App widget) ───
+  server.tool(
+    "get_slide_html",
+    `Get a slide's rendered HTML with all CSS inlined. Used by the preview widget for crisp rendering.`,
+    {
+      deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
+      slide: z.string().describe("Slide id (e.g. 'hero')")
+    },
+    { readOnlyHint: true, destructiveHint: false },
+    async ({ deck, slide }) => {
+      let deckPath
+      try {
+        deckPath = resolveDeckPath(deckRoot, deck)
+      } catch (err) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
+      }
+
+      const resolved = resolveSlideFile(deckPath, slide)
+      if (!resolved) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Slide not found: ${slide}` }) }] }
+      }
+
+      try {
+        const { ensureDevServer } = await import("../dev-server.mjs")
+        const port = await ensureDevServer({ root: deckRoot })
+
+        const { captureSlideHtml } = await import("../screenshot.mjs")
+        const html = await captureSlideHtml({
+          deckRoot: deckPath,
+          deckSlug: deckPath.split("/").pop(),
+          slideId: slide,
+          devServerPort: port
+        })
+        return { content: [{ type: "text", text: html }] }
+      } catch (err) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `HTML capture failed: ${err.message}` }) }] }
+      }
+    }
+  )
+
   // ─── get_deck_overview ───
   server.tool(
     "get_deck_overview",

@@ -93,11 +93,10 @@ export function Animated({
       initial="hidden"
       animate={isVisible ? "visible" : "hidden"}
       variants={animationVariants[animation]}
-      transition={{
-        ...SPRING_SNAPPY,
-        duration: normalizedDuration,
-        delay: isVisible ? normalizedDelay : 0
-      }}
+      transition={showAllAnimations
+        ? { duration: 0, delay: 0 }
+        : { ...SPRING_SNAPPY, duration: normalizedDuration, delay: isVisible ? normalizedDelay : 0 }
+      }
       className={className}
     >
       {children}
@@ -138,9 +137,9 @@ export function AnimatedGroup({
   const containerVariants: Variants = {
     hidden: {},
     visible: {
-      transition: {
-        staggerChildren: normalizedStaggerDelay
-      }
+      transition: showAllAnimations
+        ? { staggerChildren: 0 }
+        : { staggerChildren: normalizedStaggerDelay }
     }
   }
 
@@ -152,7 +151,11 @@ export function AnimatedGroup({
       className={className}
     >
       {childArray.map((child, index) => (
-        <motion.div key={index} variants={animationVariants[animation]}>
+        <motion.div
+          key={index}
+          variants={animationVariants[animation]}
+          transition={showAllAnimations ? { duration: 0, delay: 0 } : undefined}
+        >
           {child}
         </motion.div>
       ))}

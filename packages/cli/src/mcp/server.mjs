@@ -83,7 +83,7 @@ export async function startMcpHttpServer({ deckRoot, mcpPort = 29170 }) {
   /** @type {Map<string, { transport: StreamableHTTPServerTransport, server: McpServer }>} */
   const sessions = new Map()
 
-  const httpServer = createHttpServer(async (req, res) => {
+  const httpServer = createHttpServer((req, res) => {
     // CORS headers for local app access
     res.setHeader("Access-Control-Allow-Origin", "*")
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
@@ -103,6 +103,16 @@ export async function startMcpHttpServer({ deckRoot, mcpPort = 29170 }) {
       return
     }
 
+    handleMcpRequest(req, res).catch(err => {
+      console.error("[MCP HTTP] Request error:", err)
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" })
+        res.end(JSON.stringify({ error: "Internal server error" }))
+      }
+    })
+  })
+
+  async function handleMcpRequest(req, res) {
     // Check for existing session
     const sessionId = req.headers["mcp-session-id"]
     if (sessionId && sessions.has(sessionId)) {
@@ -137,10 +147,10 @@ export async function startMcpHttpServer({ deckRoot, mcpPort = 29170 }) {
       return
     }
 
-    // Session not found
+    // Session not found or GET without session
     res.writeHead(400, { "Content-Type": "application/json" })
     res.end(JSON.stringify({ error: "Bad request — no valid session" }))
-  })
+  }
 
   return new Promise((resolve, reject) => {
     httpServer.listen(mcpPort, "127.0.0.1", () => {

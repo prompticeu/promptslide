@@ -17,6 +17,7 @@ import { parseDeckManifest } from "../utils/deck-manifest.mjs"
 
 let browser = null
 let browserPromise = null
+let reusablePage = null
 
 function resolveSlidePath(deckRoot, slideId) {
   const candidates = [
@@ -71,24 +72,49 @@ async function getBrowser() {
  */
 export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPort, scale = 1 }) {
   const b = await getBrowser()
+  const slidePath = resolveSlidePath(deckRoot, slideId)
+  const url = `http://localhost:${devServerPort}/${deckSlug}?export=true&slidePath=${slidePath}`
+
+  // Reuse a single page for scale=1 screenshots (the common preview case).
+  // This avoids the ~500ms overhead of creating/closing pages on every call.
+  if (scale === 1) {
+    if (!reusablePage || reusablePage.isClosed()) {
+      reusablePage = await b.newPage({
+        viewport: { width: 1280, height: 720 },
+        deviceScaleFactor: 1
+      })
+    }
+    const page = reusablePage
+
+    // Clear the ready flag before navigating so we don't screenshot stale content
+    await page.evaluate(() => {
+      const el = document.querySelector("[data-export-ready]")
+      if (el) el.setAttribute("data-export-ready", "false")
+    }).catch(() => {})
+
+    await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
+    await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
+    await page.waitForTimeout(200)
+
+    const exportEl = await page.$("[data-export-ready]")
+    const buffer = exportEl
+      ? await exportEl.screenshot({ type: "png" })
+      : await page.screenshot({ type: "png" })
+
+    return buffer.toString("base64")
+  }
+
+  // Non-default scale: create a fresh page
   const page = await b.newPage({
     viewport: { width: 1280, height: 720 },
     deviceScaleFactor: scale
   })
 
   try {
-    const slidePath = resolveSlidePath(deckRoot, slideId)
-
-    // Use export mode on the shared workspace host.
-    const url = `http://localhost:${devServerPort}/${deckSlug}?export=true&slidePath=${slidePath}`
     await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
-
-    // Wait for the export view to signal readiness
     await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
-    // Small extra wait for fonts/images
-    await page.waitForTimeout(300)
+    await page.waitForTimeout(200)
 
-    // Screenshot the export container (exact 1280x720)
     const exportEl = await page.$("[data-export-ready]")
     const buffer = exportEl
       ? await exportEl.screenshot({ type: "png" })
@@ -98,6 +124,65 @@ export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPor
   } finally {
     await page.close()
   }
+}
+
+/**
+ * Capture a slide's rendered DOM as self-contained HTML.
+ *
+ * Navigates to the export route, waits for render, then extracts the
+ * final DOM with all stylesheets inlined. Scripts are stripped since
+ * the output is rendered as static content inside the MCP App widget.
+ *
+ * @param {Object} options
+ * @param {string} options.deckRoot - Deck directory path
+ * @param {string} options.deckSlug - Deck slug for URL routing
+ * @param {string} options.slideId - Slide id
+ * @param {number} options.devServerPort - Vite dev server port
+ * @returns {Promise<string>} Self-contained HTML string
+ */
+export async function captureSlideHtml({ deckRoot, deckSlug, slideId, devServerPort }) {
+  const b = await getBrowser()
+  const slidePath = resolveSlidePath(deckRoot, slideId)
+  const url = `http://localhost:${devServerPort}/${deckSlug}?export=true&slidePath=${slidePath}`
+
+  if (!reusablePage || reusablePage.isClosed()) {
+    reusablePage = await b.newPage({
+      viewport: { width: 1280, height: 720 },
+      deviceScaleFactor: 1
+    })
+  }
+  const page = reusablePage
+
+  // Clear ready flag so we wait for the NEW slide, not stale content
+  await page.evaluate(() => {
+    const el = document.querySelector("[data-export-ready]")
+    if (el) el.setAttribute("data-export-ready", "false")
+  }).catch(() => {})
+
+  await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
+  await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
+  await page.waitForTimeout(200)
+
+  const html = await page.evaluate(() => {
+    const styles = []
+    for (const sheet of document.styleSheets) {
+      try {
+        const rules = []
+        for (const rule of sheet.cssRules) rules.push(rule.cssText)
+        styles.push(rules.join("\n"))
+      } catch {}
+    }
+    const el = document.querySelector("[data-export-ready]")
+    if (!el) return null
+    return `<!DOCTYPE html>
+<html lang="en" class="${document.documentElement.className}">
+<head><meta charset="UTF-8"><style>${styles.join("\n")}</style>
+<style>html,body{margin:0;padding:0;overflow:hidden;width:1280px;height:720px;background:transparent}</style></head>
+<body>${el.outerHTML}</body></html>`
+  })
+
+  if (!html) throw new Error("Export element not found")
+  return html
 }
 
 /**

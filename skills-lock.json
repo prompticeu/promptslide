@@ -6,6 +6,16 @@
       "sourceType": "github",
       "computedHash": "f974fac2783f80ac2a1a2cb45d576b5cca55123015dc73db8adfd02277002461"
     },
+    "build-mcp-app": {
+      "source": "anthropics/claude-plugins-official",
+      "sourceType": "github",
+      "computedHash": "11566e7e91de842e505c0c7da951759ea806a5deefb1e14a43aa06cfbb484a1c"
+    },
+    "mcp-builder": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "fc68038c900eb801f73ff96130c9f9dba533cc94212ed8435833242f196dedcf"
+    },
     "promptslide": {
       "source": "/Users/danielschroter/conductor/workspaces/promptslide/richmond",
       "sourceType": "local",

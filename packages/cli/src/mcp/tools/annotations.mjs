@@ -74,10 +74,12 @@ export function registerAnnotationTools(server, context) {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
       slide: z.string().describe("Slide id (e.g. 'hero')"),
       text: z.string().describe("Annotation/feedback text"),
+      xPercent: z.number().optional().describe("X position as percentage of slide width (0-100, defaults to 50)"),
+      yPercent: z.number().optional().describe("Y position as percentage of slide height (0-100, defaults to 50)"),
       author: z.string().optional().describe("Author name (defaults to 'agent')")
     },
     { readOnlyHint: false, destructiveHint: false },
-    async ({ deck, slide, text, author }) => {
+    async ({ deck, slide, text, xPercent, yPercent, author }) => {
       let deckPath
       try {
         deckPath = resolveDeckPath(deckRoot, deck)
@@ -100,7 +102,7 @@ export function registerAnnotationTools(server, context) {
         id: crypto.randomUUID(),
         slideIndex,
         slideTitle,
-        target: { contentNearPin: text.slice(0, 100), position: { xPercent: 50, yPercent: 50 } },
+        target: { contentNearPin: text.slice(0, 100), position: { xPercent: xPercent ?? 50, yPercent: yPercent ?? 50 } },
         body: text,
         createdAt: new Date().toISOString(),
         status: "open"
