@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
+import { dirname, join, resolve, sep } from "node:path"
 
 const LOCKFILE = ".promptslide-lock.json"
 
@@ -39,13 +39,130 @@ export function hashContent(content) {
 }
 
 /**
+ * Hash a buffer with SHA-256 and return the hex digest.
+ * @param {Buffer} buffer
+ * @returns {string}
+ */
+export function hashBuffer(buffer) {
+  return createHash("sha256").update(buffer).digest("hex")
+}
+
+/**
  * Hash a file on disk. Returns null if the file doesn't exist.
  * @param {string} filePath - Absolute path
  * @returns {string | null}
  */
 export function hashFile(filePath) {
   if (!existsSync(filePath)) return null
-  return hashContent(readFileSync(filePath, "utf-8"))
+  return hashBuffer(readFileSync(filePath))
+}
+
+/**
+ * Normalize a registry file payload into a relative path under the target root.
+ * Handles both { target: "src/slides/", path: "hero.tsx" } and direct file targets.
+ * @param {{ target?: string, path?: string }} file
+ * @returns {string | null}
+ */
+export function getRegistryFileRelativePath(file) {
+  const target = typeof file?.target === "string" ? file.target : ""
+  const filePath = typeof file?.path === "string" ? file.path : ""
+
+  if (target && filePath) {
+    const normalizedTarget = target.replace(/\\/g, "/")
+    const normalizedPath = filePath.replace(/\\/g, "/")
+    if (/\.[a-z0-9]+$/i.test(normalizedTarget) || normalizedTarget.endsWith(normalizedPath)) {
+      return target
+    }
+    return join(target, filePath)
+  }
+
+  return target || filePath || null
+}
+
+/**
+ * Resolve a registry file into a safe on-disk target path under the given root.
+ * @param {string} root
+ * @param {{ target?: string, path?: string }} file
+ * @returns {{ relativePath: string, targetPath: string }}
+ */
+export function resolveRegistryFileTarget(root, file) {
+  const relativePath = getRegistryFileRelativePath(file)
+  if (!relativePath) {
+    throw new Error("Registry file is missing a target path")
+  }
+  const targetPath = resolve(root, relativePath)
+  if (targetPath !== root && !targetPath.startsWith(root + sep)) {
+    throw new Error(`Invalid file path: ${relativePath}`)
+  }
+  return { relativePath, targetPath }
+}
+
+/**
+ * Fetch and normalize registry file content for writing/comparison.
+ * Supports inline text, inline data URIs, and blob-backed storageUrl assets.
+ * @param {{ path?: string, content?: string, storageUrl?: string }} file
+ * @returns {Promise<{ isBinary: boolean, hash: string, content?: string, buffer?: Buffer }>}
+ */
+export async function readRegistryFileMaterial(file) {
+  if (typeof file?.content === "string" && file.content.length > 0) {
+    if (file.content.startsWith("data:")) {
+      const match = file.content.match(/^data:[^;]+;base64,(.+)$/)
+      if (match) {
+        const buffer = Buffer.from(match[1], "base64")
+        return { isBinary: true, buffer, hash: hashBuffer(buffer) }
+      }
+    }
+    return { isBinary: false, content: file.content, hash: hashContent(file.content) }
+  }
+
+  if (typeof file?.storageUrl === "string" && file.storageUrl.length > 0) {
+    const response = await fetch(file.storageUrl)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch asset: ${file.path || file.storageUrl} (${response.status})`)
+    }
+    const buffer = Buffer.from(await response.arrayBuffer())
+    return { isBinary: true, buffer, hash: hashBuffer(buffer) }
+  }
+
+  throw new Error(`Registry file has no content: ${file?.path || file?.target || "unknown"}`)
+}
+
+/**
+ * Prepare a registry file for comparison and writing.
+ * @param {string} root
+ * @param {{ target?: string, path?: string, content?: string, storageUrl?: string }} file
+ * @returns {Promise<{ relativePath: string, targetPath: string, isBinary: boolean, hash: string, content?: string, buffer?: Buffer }>}
+ */
+export async function prepareRegistryFile(root, file) {
+  const { relativePath, targetPath } = resolveRegistryFileTarget(root, file)
+  const material = await readRegistryFileMaterial(file)
+  return { relativePath, targetPath, ...material }
+}
+
+/**
+ * Compare a prepared registry file against an on-disk file.
+ * @param {{ targetPath: string, isBinary: boolean, hash: string, buffer?: Buffer }} prepared
+ * @returns {boolean}
+ */
+export function registryFileMatchesDisk(prepared) {
+  if (!existsSync(prepared.targetPath)) return false
+  if (prepared.isBinary) {
+    return readFileSync(prepared.targetPath).equals(prepared.buffer)
+  }
+  return hashFile(prepared.targetPath) === prepared.hash
+}
+
+/**
+ * Write a prepared registry file to disk.
+ * @param {{ targetPath: string, isBinary: boolean, content?: string, buffer?: Buffer }} prepared
+ */
+export function writePreparedRegistryFile(prepared) {
+  mkdirSync(dirname(prepared.targetPath), { recursive: true })
+  if (prepared.isBinary) {
+    writeFileSync(prepared.targetPath, prepared.buffer)
+    return
+  }
+  writeFileSync(prepared.targetPath, prepared.content, "utf-8")
 }
 
 /**

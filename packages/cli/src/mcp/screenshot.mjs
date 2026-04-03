@@ -42,6 +42,13 @@ function resolveSlidePath(deckRoot, slideId) {
   return `src/slides/slide-${slideId}.tsx`
 }
 
+function resolveManifestSlidePath(deckRoot, slide) {
+  if (typeof slide?.file === "string" && slide.file && existsSync(join(deckRoot, slide.file))) {
+    return slide.file
+  }
+  return resolveSlidePath(deckRoot, slide?.id)
+}
+
 /**
  * Resolve a slide id to its 0-based index in the deck manifest.
  */

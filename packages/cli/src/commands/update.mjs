@@ -1,9 +1,8 @@
-import { existsSync, writeFileSync, mkdirSync } from "node:fs"
-import { dirname, resolve, sep } from "node:path"
+import { existsSync } from "node:fs"
 
 import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
-import { fetchRegistryItem, readLockfile, updateLockfileItem, removeLockfileItem, isFileDirty, hashContent } from "../utils/registry.mjs"
+import { fetchRegistryItem, readLockfile, updateLockfileItem, removeLockfileItem, isFileDirty, prepareRegistryFile, writePreparedRegistryFile } from "../utils/registry.mjs"
 import { confirm, closePrompts } from "../utils/prompts.mjs"
 
 export async function update(args) {
@@ -167,20 +166,19 @@ export async function update(args) {
     const fileHashes = {}
 
     for (const file of item.files) {
-      const targetPath = resolve(cwd, file.target, file.path)
-      if (!targetPath.startsWith(cwd + sep)) {
-        console.log(`  ${red("Error:")} Invalid file path: ${file.target}${file.path}`)
+      let prepared
+      try {
+        prepared = await prepareRegistryFile(cwd, file)
+      } catch (err) {
+        console.log(`  ${red("Error:")} ${err.message}`)
         continue
       }
-      const targetDir = dirname(targetPath)
-      const relativePath = file.target + file.path
-      const newHash = hashContent(file.content)
+      const { relativePath, hash: newHash } = prepared
 
       // Check for local modifications (only if file exists on disk)
-      if (!existsSync(targetPath)) {
+      if (!existsSync(prepared.targetPath)) {
         // File was deleted locally — restore it without prompting
-        mkdirSync(targetDir, { recursive: true })
-        writeFileSync(targetPath, file.content, "utf-8")
+        writePreparedRegistryFile(prepared)
         fileHashes[relativePath] = newHash
         console.log(`  ${green("✓")} Restored ${cyan(relativePath)}`)
         continue
@@ -202,8 +200,7 @@ export async function update(args) {
         }
       }
 
-      mkdirSync(targetDir, { recursive: true })
-      writeFileSync(targetPath, file.content, "utf-8")
+      writePreparedRegistryFile(prepared)
       fileHashes[relativePath] = newHash
       console.log(`  ${green("✓")} Updated ${cyan(relativePath)}`)
     }

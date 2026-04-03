@@ -1,4 +1,4 @@
-import { existsSync, cpSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
+import { existsSync, cpSync, readFileSync, writeFileSync } from "node:fs"
 import { join, resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -6,7 +6,7 @@ import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { hexToOklch } from "../utils/colors.mjs"
 import { closePrompts } from "../utils/prompts.mjs"
-import { fetchRegistryItem, resolveRegistryDependencies, writeLockfile } from "../utils/registry.mjs"
+import { fetchRegistryItem, resolveRegistryDependencies, writeLockfile, prepareRegistryFile, writePreparedRegistryFile } from "../utils/registry.mjs"
 import { toPascalCase, replaceDeckConfig } from "../utils/deck-config.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 
@@ -142,17 +142,9 @@ export async function clone(args) {
   for (const regItem of resolved.items) {
     if (!regItem.files?.length) continue
     for (const file of regItem.files) {
-      const targetPath = join(targetDir, file.target, file.path)
-      const targetFileDir = dirname(targetPath)
-      mkdirSync(targetFileDir, { recursive: true })
-
-      const dataUriPrefix = file.content.match(/^data:[^;]+;base64,/)
-      if (dataUriPrefix) {
-        writeFileSync(targetPath, Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64"))
-      } else {
-        writeFileSync(targetPath, file.content, "utf-8")
-      }
-      console.log(`  ${green("✓")} Added ${cyan(file.target + file.path)}`)
+      const prepared = await prepareRegistryFile(targetDir, file)
+      writePreparedRegistryFile(prepared)
+      console.log(`  ${green("✓")} Added ${cyan(prepared.relativePath)}`)
     }
   }
 

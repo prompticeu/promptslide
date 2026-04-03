@@ -12,6 +12,24 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
         .manage(ServerProcess(Mutex::new(None)))
+        .append_invoke_initialization_script(
+            r#"
+              window.__promptslideHost = {
+                exportPdf: async function(deckSlug) {
+                  const response = await fetch('/__promptslide_api/export-pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ slug: deckSlug })
+                  });
+                  if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || `PDF export failed (${response.status})`);
+                  }
+                  return true;
+                }
+              };
+            "#,
+        )
         .setup(|app| {
             let handle = app.handle().clone();
 
@@ -56,16 +74,12 @@ fn main() {
                                 for line in reader.lines() {
                                     if let Ok(line) = line {
                                         if line.starts_with("__PROMPTSLIDE_READY__") {
-                                            let json_str =
-                                                &line["__PROMPTSLIDE_READY__".len()..];
+                                            let json_str = &line["__PROMPTSLIDE_READY__".len()..];
                                             if let Ok(info) =
-                                                serde_json::from_str::<serde_json::Value>(
-                                                    json_str,
-                                                )
+                                                serde_json::from_str::<serde_json::Value>(json_str)
                                             {
-                                                if let Some(dev_url) = info
-                                                    .get("devServer")
-                                                    .and_then(|v| v.as_str())
+                                                if let Some(dev_url) =
+                                                    info.get("devServer").and_then(|v| v.as_str())
                                                 {
                                                     // Navigate the main window to the dev server
                                                     if let Some(window) =

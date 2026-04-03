@@ -38,6 +38,10 @@ function printHelp() {
   console.log(`    search ${dim("<query>")} Search the registry`)
   console.log(`    list ${dim("[--type]")}  List registry items`)
   console.log()
+  console.log(`  ${bold("Packaging:")}`)
+  console.log(`    pack ${dim("[dir]")}      Package a deck into a .promptslide file`)
+  console.log(`    unpack ${dim("<file>")}   Extract a .promptslide file to a project`)
+  console.log()
   console.log(`  ${bold("Tools:")}`)
   console.log(`    to-image ${dim("<slide>")} Export a slide as a PNG image`)
   console.log()
@@ -129,6 +133,16 @@ switch (command) {
   case "info": {
     const { info } = await import("./commands/info.mjs")
     await info(args)
+    break
+  }
+  case "pack": {
+    const { pack } = await import("./commands/pack.mjs")
+    await pack(args)
+    break
+  }
+  case "unpack": {
+    const { unpack } = await import("./commands/unpack.mjs")
+    await unpack(args)
     break
   }
   case "to-image": {

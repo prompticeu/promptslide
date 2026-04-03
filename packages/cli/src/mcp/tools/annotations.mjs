@@ -119,13 +119,14 @@ export function registerAnnotationTools(server, context) {
   // ─── resolve_annotation ───
   server.tool(
     "resolve_annotation",
-    `Mark an annotation as resolved. Call this after addressing the feedback.`,
+    `Mark an annotation as resolved. Call this after addressing the feedback. Optionally include a resolution note explaining what was done.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      annotation_id: z.string().describe("Annotation ID to resolve")
+      annotation_id: z.string().describe("Annotation ID to resolve"),
+      resolution: z.string().optional().describe("Resolution note explaining what was done to address the feedback")
     },
     { readOnlyHint: false, destructiveHint: false },
-    async ({ deck, annotation_id }) => {
+    async ({ deck, annotation_id, resolution }) => {
       let deckPath
       try {
         deckPath = resolveDeckPath(deckRoot, deck)
@@ -141,6 +142,9 @@ export function registerAnnotationTools(server, context) {
       }
 
       annotation.status = "resolved"
+      if (resolution) {
+        annotation.resolution = resolution
+      }
       writeAnnotationsFile(deckPath, annotations)
 
       return { content: [{ type: "text", text: JSON.stringify({ success: true, message: "Annotation resolved." }) }] }

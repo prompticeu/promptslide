@@ -65,7 +65,7 @@ export async function exportPdf({ deckRoot, deckSlug, devServerPort, outputPath 
     try {
       // Navigate to deck
       await page.goto(`http://localhost:${devServerPort}/${effectiveDeckSlug}`, {
-        waitUntil: "networkidle",
+        waitUntil: "domcontentloaded",
         timeout: 15000
       })
       await page.waitForTimeout(500)
@@ -76,6 +76,9 @@ export async function exportPdf({ deckRoot, deckSlug, devServerPort, outputPath 
 
       // Wait for all slides to render
       await page.waitForTimeout(1000)
+
+      // Ensure print media rules are applied for PDF-specific UI hiding.
+      await page.emulateMedia({ media: "print" })
 
       // Generate PDF with proper page sizing
       // Each slide is 16:9 aspect ratio
@@ -132,7 +135,7 @@ export async function exportPdfBuffer({ deckSlug, devServerPort }) {
 
     try {
       await page.goto(`http://localhost:${devServerPort}/${deckSlug}`, {
-        waitUntil: "networkidle",
+        waitUntil: "domcontentloaded",
         timeout: 15000
       })
       await page.waitForTimeout(500)
@@ -140,6 +143,9 @@ export async function exportPdfBuffer({ deckSlug, devServerPort }) {
       // Switch to list view
       await page.keyboard.press("l")
       await page.waitForTimeout(1500)
+
+      // Ensure print media rules are applied for PDF-specific UI hiding.
+      await page.emulateMedia({ media: "print" })
 
       const pdfBuffer = await page.pdf({
         width: "1280px",

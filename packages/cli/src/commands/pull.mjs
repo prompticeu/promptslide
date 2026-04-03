@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
+import { existsSync } from "node:fs"
 import { execFileSync } from "node:child_process"
-import { join, dirname, resolve, sep } from "node:path"
+import { join } from "node:path"
 
 import { bold, green, cyan, red, yellow, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
@@ -11,9 +11,10 @@ import {
   getInstallCommand,
   readLockfile,
   updateLockfileItem,
-  hashContent,
-  hashFile,
-  isFileDirty
+  isFileDirty,
+  prepareRegistryFile,
+  registryFileMatchesDisk,
+  writePreparedRegistryFile
 } from "../utils/registry.mjs"
 import {
   toPascalCase,
@@ -94,28 +95,18 @@ export async function pull(args) {
     const fileHashes = {}
 
     for (const file of regItem.files) {
-      const targetPath = resolve(cwd, file.target, file.path)
-      if (!targetPath.startsWith(cwd + sep)) {
-        console.log(`  ${red("Error:")} Invalid file path: ${file.target}${file.path}`)
+      let prepared
+      try {
+        prepared = await prepareRegistryFile(cwd, file)
+      } catch (err) {
+        console.log(`  ${red("Error:")} ${err.message}`)
         continue
       }
-      const targetDir = dirname(targetPath)
-      const relativePath = file.target + file.path
-      const newHash = hashContent(file.content)
+      const { relativePath, hash: newHash } = prepared
 
-      if (existsSync(targetPath)) {
+      if (existsSync(prepared.targetPath)) {
         // Check if content is identical
-        const dataUriMatch = file.content.match(/^data:[^;]+;base64,/)
-        let identical
-        if (dataUriMatch) {
-          const newBuf = Buffer.from(file.content.slice(dataUriMatch[0].length), "base64")
-          const existingBuf = readFileSync(targetPath)
-          identical = newBuf.equals(existingBuf)
-        } else {
-          identical = hashFile(targetPath) === newHash
-        }
-
-        if (identical) {
+        if (registryFileMatchesDisk(prepared)) {
           fileHashes[relativePath] = newHash
           continue
         }
@@ -147,13 +138,7 @@ export async function pull(args) {
       }
 
       // Write the file
-      mkdirSync(targetDir, { recursive: true })
-      const dataUriPrefix = file.content.match(/^data:[^;]+;base64,/)
-      if (dataUriPrefix) {
-        writeFileSync(targetPath, Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64"))
-      } else {
-        writeFileSync(targetPath, file.content, "utf-8")
-      }
+      writePreparedRegistryFile(prepared)
       fileHashes[relativePath] = newHash
       written.push({ item: regItem, file })
       console.log(`  ${green("+")} ${cyan(relativePath)}`)

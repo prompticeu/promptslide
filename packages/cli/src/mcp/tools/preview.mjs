@@ -116,6 +116,14 @@ function resolveSlideFile(deckPath, slideId) {
   return null
 }
 
+function resolveManifestSlideFile(deckPath, slide) {
+  if (typeof slide?.file === "string" && slide.file) {
+    const fullPath = join(deckPath, slide.file)
+    if (existsSync(fullPath)) return slide.file.replace(/^src\/slides\//, "")
+  }
+  return resolveSlideFile(deckPath, slide?.id)
+}
+
 /** Detect max step from TSX source: step={N} */
 function detectSteps(content) {
   const matches = content.matchAll(/step=\{(\d+)\}/g)
@@ -185,8 +193,8 @@ export function registerPreviewTools(server, context) {
 
       // Enrich slides with file info and step counts
       const slides = manifest.slides.map(s => {
-        const file = resolveSlideFile(deckPath, s.id)
-        let steps = 0
+        const file = resolveManifestSlideFile(deckPath, s)
+        let steps = s.steps ?? 0
         if (file) {
           try {
             const source = readFileSync(join(deckPath, "src", "slides", file), "utf-8")
@@ -196,6 +204,7 @@ export function registerPreviewTools(server, context) {
         return {
           id: s.id,
           file,
+          exportName: s.exportName,
           section: s.section,
           title: s.title,
           steps

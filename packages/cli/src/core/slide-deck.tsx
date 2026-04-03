@@ -10,6 +10,7 @@ import { AnimationProvider } from "./animation-context"
 import { AnnotationOverlay, AnnotationPanel, useAnnotations } from "./annotations"
 import type { Annotation, AnnotationTarget } from "./annotations"
 import { SlideErrorBoundary } from "./slide-error-boundary"
+import { getPromptSlideHost } from "./host"
 import { SlideRenderer } from "./slide-renderer"
 import { useSlideNavigation } from "./use-slide-navigation"
 import { cn } from "./utils"
@@ -314,30 +315,36 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
   }, [isPresentationMode])
 
   const handleExportPdf = async () => {
-    // Try API-based export first (no print dialog), fall back to window.print()
     const slug = window.location.pathname.replace(/^\//, "").split("/")[0]
     if (slug) {
       setIsExporting(true)
       try {
-        const response = await fetch(`/api/export/${slug}.pdf`)
+        const host = getPromptSlideHost()
+        if (host?.exportPdf) {
+          const handled = await host.exportPdf(slug)
+          if (handled !== false) return
+        }
+
+        // Try API-based export first (no print dialog), fall back to list-view print
+        const exportUrl = `/api/export/${slug}.pdf`
+        const response = await fetch(exportUrl, { method: "GET" })
         if (!response.ok) throw new Error("Export failed")
-        const blob = await response.blob()
-        const url = URL.createObjectURL(blob)
         const link = document.createElement("a")
-        link.href = url
+        link.href = exportUrl
         link.download = `${slug}.pdf`
+        link.rel = "noopener"
+        document.body.appendChild(link)
         link.click()
-        URL.revokeObjectURL(url)
+        link.remove()
+        return
       } catch {
-        // Fallback to print dialog on error
-        window.print()
+        // API export unavailable — fall through to list-view print below
       } finally {
         setIsExporting(false)
       }
-      return
     }
 
-    // Fallback: window.print()
+    // Fallback: switch to list view (all slides) then print
     const previousMode = viewMode
     setViewMode("list")
 
@@ -409,16 +416,20 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
             -webkit-print-color-adjust: exact;
             background: transparent !important;
           }
+
+          [data-promptslide-print-hidden="true"] {
+            display: none !important;
+          }
         }
       `}</style>
 
       {/* Toolbar */}
       <div
+        data-promptslide-print-hidden="true"
         className={cn("print:hidden", isPresentationMode && "hidden")}
         style={{
           ...toolbarStyle,
-          right: isAnnotationMode && showAnnotationPanel ? 312 : 16,
-          display: isPresentationMode ? "none" : "flex"
+          right: isAnnotationMode && showAnnotationPanel ? 312 : 16
         }}
       >
         <a

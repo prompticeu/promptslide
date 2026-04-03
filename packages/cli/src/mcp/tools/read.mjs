@@ -57,6 +57,16 @@ function resolveSlideFile(deckPath, slideId) {
   return null
 }
 
+function resolveManifestSlideFile(deckPath, slide) {
+  if (typeof slide?.file === "string" && slide.file) {
+    const fullPath = join(deckPath, slide.file)
+    if (existsSync(fullPath)) {
+      return { file: slide.file.replace(/^src\/slides\//, ""), fullPath }
+    }
+  }
+  return resolveSlideFile(deckPath, slide?.id)
+}
+
 export function registerReadTools(server, context) {
   const { deckRoot } = context
 
@@ -118,15 +128,15 @@ export function registerReadTools(server, context) {
 
       // Enrich slides with auto-detected steps from TSX source
       const slides = manifest.slides.map(s => {
-        const resolved = resolveSlideFile(deckPath, s.id)
-        let steps = 0
+        const resolved = resolveManifestSlideFile(deckPath, s)
+        let steps = s.steps ?? 0
         let file = null
         if (resolved) {
           file = resolved.file
           const source = readFileSync(resolved.fullPath, "utf-8")
           steps = detectSteps(source)
         }
-        return { id: s.id, file, section: s.section, transition: s.transition, title: s.title, steps }
+        return { id: s.id, file, exportName: s.exportName, section: s.section, transition: s.transition, title: s.title, steps }
       })
 
       // List layouts

@@ -10,6 +10,7 @@ import { join } from "node:path"
 export function parseDeckManifest(jsonString) {
   const manifest = JSON.parse(jsonString)
   return {
+    formatVersion: manifest.formatVersion || 1,
     name: manifest.name || "Untitled Deck",
     slug: manifest.slug || "untitled",
     theme: manifest.theme || null,
@@ -17,11 +18,15 @@ export function parseDeckManifest(jsonString) {
     directionalTransition: manifest.directionalTransition ?? true,
     logo: manifest.logo || null,
     slides: (manifest.slides || []).map(s => ({
-      id: s.id || s.file?.replace(/\.(tsx|jsx|html)$/, ""),
+      id: s.id || s.file?.replace(/^src\/slides\//, "").replace(/\.(tsx|jsx|html)$/, ""),
       file: s.file || null,
+      exportName: s.exportName || s.componentName || null,
+      componentName: s.componentName || s.exportName || null,
+      steps: typeof s.steps === "number" ? s.steps : null,
       section: s.section || null,
       transition: s.transition || null,
-      title: s.title || null
+      title: s.title || null,
+      notes: s.notes || null
     }))
   }
 }

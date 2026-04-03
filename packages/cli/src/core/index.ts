@@ -79,3 +79,20 @@ export type { Annotation, AnnotationsFile, AnnotationStorageAdapter, AnnotationT
 
 // Utils
 export { cn } from "./utils"
+export { getPromptSlideHost } from "./host"
+export type { PromptSlideHostCapabilities } from "./host"
+
+// App Chrome
+export { AppShell } from "./app/app-shell"
+export { LibraryView } from "./app/library/library-view"
+export { DeckCard } from "./app/library/deck-card"
+export type { DeckInfo } from "./app/library/deck-card"
+export { StudioView, StudioOverlay } from "./app/studio/studio-view"
+export { SettingsView } from "./app/settings/settings-view"
+export { Button } from "./app/ui/button"
+export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./app/ui/card"
+export { Badge } from "./app/ui/badge"
+export { useAuth } from "./app/hooks/use-auth"
+export { useRegistryItems } from "./app/hooks/use-registry-items"
+export { useFileEvents } from "./app/hooks/use-file-events"
+export { useSync } from "./app/hooks/use-sync"
