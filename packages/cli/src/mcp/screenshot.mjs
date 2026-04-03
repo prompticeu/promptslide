@@ -177,12 +177,32 @@ async function waitForSlideOrError(page, timeout = 10000) {
  * of hanging until timeout.
  */
 async function navigateToSlide(page, slideIndex) {
-  // Clear any previous Vite error overlay and reset ready signal
-  await page.evaluate((idx) => {
-    document.querySelector("vite-error-overlay")?.remove()
+  // Check for existing Vite error overlay (from a previous HMR failure)
+  const existingError = await page.evaluate(() => {
+    const overlay = document.querySelector("vite-error-overlay")
+    if (!overlay) return null
+    const root = overlay.shadowRoot
+    return root?.querySelector(".message-body")?.textContent
+      || root?.querySelector(".message")?.textContent
+      || "Unknown Vite error"
+  })
+  if (existingError) {
+    throw new Error(`Slide compile error: ${existingError.trim()}`)
+  }
+
+  // Reset ready signal and navigate — guard against __promptslide being
+  // undefined (React may have unmounted due to an HMR module error)
+  const navError = await page.evaluate((idx) => {
     document.querySelector("[data-slide-ready]")?.setAttribute("data-slide-ready", "false")
+    if (!window.__promptslide?.goToSlide) {
+      return "Slide runtime not available — the slide may have a compile error that broke the module"
+    }
     window.__promptslide.goToSlide(idx)
+    return null
   }, slideIndex)
+  if (navError) {
+    throw new Error(navError)
+  }
 
   // Wait for any in-flight HMR module fetches to complete
   await page.waitForLoadState("networkidle").catch(() => {})
@@ -191,7 +211,7 @@ async function navigateToSlide(page, slideIndex) {
   const result = await waitForSlideOrError(page)
 
   if (result.status === "error") {
-    throw new Error(`Slide render failed: ${result.message}`)
+    throw new Error(`Slide compile error: ${result.message}`)
   }
   if (result.status === "timeout") {
     throw new Error("Slide render timed out — the slide may have an infinite loop or unresolved dependency")
@@ -238,6 +258,11 @@ export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPor
   try {
     await navigateToSlide(page, slideIndex)
     return await cdpScreenshot(page)
+  } catch (err) {
+    // Invalidate cached page so next call gets a fresh one after the agent fixes the error
+    embedPages.delete(key)
+    await page.close().catch(() => {})
+    throw err
   } finally {
     release()
   }
