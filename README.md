@@ -34,6 +34,18 @@ Then open your coding agent and say:
 
 Connect the PromptSlide MCP server to give your AI tools for creating, editing, and previewing slides — including visual screenshots.
 
+### Preferred MCP Workflow
+
+PromptSlide now exposes a smaller general-purpose MCP surface for agentic workflows:
+
+- `inspect` for workspace, deck, file, and runtime summaries
+- `read` and `search` for targeted file access
+- `apply` for structured file and manifest mutations
+- `validate` for static and runtime diagnostics before rendering
+- `render` for slide PNG, slide HTML, deck overview PNG, and deck PDF output
+
+Legacy CRUD-style tools remain available during migration, but new integrations should prefer the workflow above.
+
 ### Claude Code
 
 Add to `.mcp.json` in your project root:

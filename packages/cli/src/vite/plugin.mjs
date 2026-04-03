@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { bold, dim } from "../utils/ansi.mjs"
 import { readDeckManifest } from "../utils/deck-manifest.mjs"
+import { recordRuntimeEvent, setRuntimeStatus } from "../mcp/services/runtime-state.mjs"
 
 const VIRTUAL_ENTRY_ID = "virtual:promptslide-entry"
 const RESOLVED_VIRTUAL_ENTRY_ID = "\0" + VIRTUAL_ENTRY_ID
@@ -55,6 +56,7 @@ function getExportHtmlTemplate(moduleId = VIRTUAL_EXPORT_ID) {
   </head>
   <body>
     <div id="root"></div>
+    ${ERROR_FORWARD_SCRIPT}
     <script type="module" src="/@id/${moduleId}"></script>
   </body>
 </html>`
@@ -71,6 +73,7 @@ function getEmbedHtmlTemplate(moduleId = VIRTUAL_EMBED_ID) {
   </head>
   <body>
     <div id="root"></div>
+    ${ERROR_FORWARD_SCRIPT}
     <script type="module" src="/@id/${moduleId}"></script>
   </body>
 </html>`
@@ -94,7 +97,12 @@ function ensureGlobalsCss(deckRoot) {
 
 function getGlobalsCssImport(root) {
   const globalsPath = ensureGlobalsCss(root)
-  return globalsPath
+  return toViteFsImport(globalsPath)
+}
+
+function toViteFsImport(filePath) {
+  const normalized = filePath.replace(/\\/g, "/")
+  return normalized.startsWith("/") ? `/@fs${normalized}` : `/@fs/${normalized}`
 }
 
 /** Read and normalize deck.json via the shared manifest parser. */
@@ -183,6 +191,17 @@ function buildVirtualId(base, entries) {
   return query ? `${base}?${query}` : base
 }
 
+function resolveExistingSourcePath(basePath) {
+  const candidates = ["", ".tsx", ".jsx", ".ts", ".js", ".mjs", ".css", ".json"]
+  for (const extension of candidates) {
+    const candidate = `${basePath}${extension}`
+    if (existsSync(candidate)) return candidate
+  }
+
+  if (existsSync(basePath)) return basePath
+  return null
+}
+
 /**
  * Resolve the slide file path for a given slide id.
  * Checks src/slides/{id}.tsx, src/slides/{id}.jsx, src/slides/slide-{id}.tsx, src/slides/slide-{id}.jsx
@@ -230,7 +249,7 @@ function getThemeLoadBlock(root) {
 
   return `
 let theme = {}
-const themeMod = await import("${themeModulePath}")
+const themeMod = await import("${toViteFsImport(themeModulePath)}")
   theme = themeMod.theme || themeMod.default || {}
 `
 }
@@ -239,7 +258,7 @@ function getThemeCssImport(root, deckJson) {
   const themeCssPath = deckJson?.theme && existsSync(join(root, "themes", `${deckJson.theme}.css`))
     ? `${root}/themes/${deckJson.theme}.css`
     : null
-  return themeCssPath ? `import "${themeCssPath}"` : ""
+  return themeCssPath ? `import "${toViteFsImport(themeCssPath)}"` : ""
 }
 
 function hasLegacyApp(root) {
@@ -519,7 +538,7 @@ function getDeckJsonEntryModule(root, deckJson) {
     const entry = deckJson.slides[i]
     const filePath = resolveSlideFile(root, entry.id)
     const varName = `_slide${i}`
-    slideImports.push(`import * as ${varName} from "${root}/${filePath}"`)
+    slideImports.push(`import * as ${varName} from "${toViteFsImport(join(root, filePath))}"`)
 
     const configParts = [`component: ${varName}.default`]
     configParts.push(`steps: ${varName}.meta?.steps ?? 0`)
@@ -567,7 +586,7 @@ function getAppEntryModule(root) {
 import { StrictMode, createElement } from "react"
 import { createRoot } from "react-dom/client"
 import "${getGlobalsCssImport(root)}"
-import App from "${root}/src/App"
+import App from "${toViteFsImport(join(root, "src", "App"))}"
 
 createRoot(document.getElementById("root")).render(
   createElement(StrictMode, null, createElement(App))
@@ -625,7 +644,7 @@ import { createRoot } from "react-dom/client"
 import { AnimationProvider, SlideErrorBoundary, SlideThemeProvider } from "promptslide"
 import "${getGlobalsCssImport(root)}"
 ${themeImport}
-import * as slideMod from "${root}/${slidePath}"
+import * as slideMod from "${toViteFsImport(join(root, slidePath))}"
 
 ${themeLoadBlock}
 
@@ -683,7 +702,7 @@ createRoot(document.getElementById("root")).render(
     const entry = deckJson.slides[i]
     const filePath = resolveSlideFile(root, entry.id)
     const varName = `_slide${i}`
-    slideImports.push(`import * as ${varName} from "${root}/${filePath}"`)
+    slideImports.push(`import * as ${varName} from "${toViteFsImport(join(root, filePath))}"`)
 
     const configParts = [
       `id: ${JSON.stringify(entry.id)}`,
@@ -774,7 +793,7 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         const srcIndex = importerPath ? importerPath.lastIndexOf("/src/") : -1
         if (srcIndex !== -1) {
           const deckRoot = importerPath.slice(0, srcIndex)
-          return join(deckRoot, "src", id.slice(2))
+          return resolveExistingSourcePath(join(deckRoot, "src", id.slice(2))) || join(deckRoot, "src", id.slice(2))
         }
       }
     },
@@ -822,6 +841,13 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     },
 
     configureServer(server) {
+      setRuntimeStatus(root, {
+        state: "ready",
+        port: server.config.server.port || null,
+        external: true,
+        childPid: null,
+      })
+
       // Pre-middleware: receive browser errors and log them to the terminal
       server.middlewares.use((req, res, next) => {
         if (req.method !== "POST" || req.url !== "/__promptslide_error") return next()
@@ -833,6 +859,13 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
             const { message, filename } = JSON.parse(body)
             const location = filename ? ` ${dim(`(${filename})`)}` : ""
             server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, { timestamp: true })
+            recordRuntimeEvent(root, {
+              phase: "runtime",
+              severity: "error",
+              source: "browser",
+              path: filename || undefined,
+              message,
+            })
           } catch {}
           res.statusCode = 204
           res.end()
@@ -967,16 +1000,37 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
       })
 
       server.watcher.on("change", (filePath) => {
+        recordRuntimeEvent(root, {
+          phase: "workspace",
+          severity: "info",
+          source: "vite-watcher",
+          path: filePath,
+          message: `File changed: ${filePath}`,
+        })
         if (filePath.startsWith(root) && filePath.endsWith("/deck.json")) {
           server.ws.send({ type: "full-reload" })
         }
       })
       server.watcher.on("add", (filePath) => {
+        recordRuntimeEvent(root, {
+          phase: "workspace",
+          severity: "info",
+          source: "vite-watcher",
+          path: filePath,
+          message: `File added: ${filePath}`,
+        })
         if (filePath.startsWith(root) && filePath.endsWith("/deck.json")) {
           server.ws.send({ type: "full-reload" })
         }
       })
       server.watcher.on("unlink", (filePath) => {
+        recordRuntimeEvent(root, {
+          phase: "workspace",
+          severity: "info",
+          source: "vite-watcher",
+          path: filePath,
+          message: `File removed: ${filePath}`,
+        })
         if (filePath.startsWith(root) && filePath.endsWith("/deck.json")) {
           server.ws.send({ type: "full-reload" })
         }

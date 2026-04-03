@@ -11,8 +11,15 @@ import { createConnection } from "node:net"
 import { fileURLToPath } from "node:url"
 import { dirname, resolve } from "node:path"
 
+import {
+  recordProcessOutput,
+  recordRuntimeEvent,
+  setRuntimeStatus,
+} from "./services/runtime-state.mjs"
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const CLI_ENTRY = resolve(__dirname, "../index.mjs")
+const CLI_ROOT = resolve(__dirname, "../..")
 
 /** @type {{ child: import("node:child_process").ChildProcess | null, port: number, root: string } | null} */
 let serverInstance = null
@@ -28,6 +35,12 @@ let cleanupRegistered = false
  */
 export function registerExternalDevServer(port, root) {
   serverInstance = { child: null, port, root }
+  setRuntimeStatus(root, {
+    state: "ready",
+    port,
+    external: true,
+    childPid: null,
+  })
 }
 
 /**
@@ -59,12 +72,24 @@ export async function ensureDevServer({ root, port }) {
   if (serverInstance) {
     if (serverInstance.root === root) {
       // External server (no child process) — always trust it
-      if (!serverInstance.child) return serverInstance.port
+      if (!serverInstance.child) {
+        setRuntimeStatus(root, { state: "ready", port: serverInstance.port, external: true, childPid: null })
+        return serverInstance.port
+      }
       const alive = await isPortInUse(serverInstance.port)
-      if (alive) return serverInstance.port
+      if (alive) {
+        setRuntimeStatus(root, { state: "ready", port: serverInstance.port, external: false, childPid: serverInstance.child.pid ?? null })
+        return serverInstance.port
+      }
     }
 
     if (serverInstance.child && !serverInstance.child.killed) {
+      recordRuntimeEvent(serverInstance.root, {
+        phase: "runtime",
+        severity: "info",
+        source: "dev-server",
+        message: `Stopping dev server on port ${serverInstance.port}`,
+      })
       serverInstance.child.kill("SIGTERM")
     }
     serverInstance = null
@@ -79,15 +104,27 @@ export async function ensureDevServer({ root, port }) {
   // Spawn Vite as a child process
   const child = spawn(
     process.execPath,
-    [CLI_ENTRY, "studio", `--port=${targetPort}`],
+    [CLI_ENTRY, "studio", `--port=${targetPort}`, `--deck-root=${root}`],
     {
-      cwd: root,
+      cwd: CLI_ROOT,
       stdio: ["ignore", "pipe", "pipe"],
       // Don't detach — let it die with the MCP process
     }
   )
 
   serverInstance = { child, port: targetPort, root }
+  setRuntimeStatus(root, {
+    state: "starting",
+    port: targetPort,
+    external: false,
+    childPid: child.pid ?? null,
+  })
+  recordRuntimeEvent(root, {
+    phase: "runtime",
+    severity: "info",
+    source: "dev-server",
+    message: `Starting dev server on port ${targetPort}`,
+  })
 
   // Wait for the dev server to be ready (poll port)
   await new Promise((resolve, reject) => {
@@ -96,15 +133,36 @@ export async function ensureDevServer({ root, port }) {
 
     // Capture stderr for error reporting
     let stderrOutput = ""
+    child.stdout.on("data", (chunk) => {
+      recordProcessOutput(root, chunk.toString(), { severity: "info", phase: "runtime", source: "vite" })
+    })
     child.stderr.on("data", (chunk) => {
       stderrOutput += chunk.toString()
+      recordProcessOutput(root, chunk.toString(), { severity: "warning", phase: "runtime", source: "vite" })
     })
 
     child.on("error", (err) => {
+      setRuntimeStatus(root, { state: "error", port: targetPort, external: false, childPid: child.pid ?? null })
+      recordRuntimeEvent(root, {
+        phase: "runtime",
+        severity: "error",
+        source: "dev-server",
+        message: `Failed to start dev server: ${err.message}`,
+      })
       reject(new Error(`Failed to start dev server: ${err.message}`))
     })
 
     child.on("exit", (code) => {
+      setRuntimeStatus(root, { state: code === 0 ? "stopped" : "error", port: targetPort, external: false, childPid: null })
+      recordRuntimeEvent(root, {
+        phase: "runtime",
+        severity: code === 0 ? "info" : "error",
+        source: "dev-server",
+        message: code === 0
+          ? `Dev server exited cleanly from port ${targetPort}`
+          : `Dev server exited with code ${code}`,
+        detail: stderrOutput || undefined,
+      })
       if (code !== 0 && attempts < maxAttempts) {
         reject(new Error(`Dev server exited with code ${code}: ${stderrOutput}`))
       }
@@ -113,10 +171,25 @@ export async function ensureDevServer({ root, port }) {
     const check = async () => {
       attempts++
       if (await isPortInUse(targetPort)) {
+        setRuntimeStatus(root, { state: "ready", port: targetPort, external: false, childPid: child.pid ?? null })
+        recordRuntimeEvent(root, {
+          phase: "runtime",
+          severity: "info",
+          source: "dev-server",
+          message: `Dev server ready on port ${targetPort}`,
+        })
         resolve()
         return
       }
       if (attempts >= maxAttempts) {
+        setRuntimeStatus(root, { state: "error", port: targetPort, external: false, childPid: child.pid ?? null })
+        recordRuntimeEvent(root, {
+          phase: "runtime",
+          severity: "error",
+          source: "dev-server",
+          message: "Dev server failed to start within 15 seconds",
+          detail: stderrOutput || undefined,
+        })
         reject(new Error("Dev server failed to start within 15 seconds"))
         return
       }
@@ -131,6 +204,12 @@ export async function ensureDevServer({ root, port }) {
     cleanupRegistered = true
     const cleanup = () => {
       if (serverInstance && serverInstance.child && !serverInstance.child.killed) {
+        recordRuntimeEvent(serverInstance.root, {
+          phase: "runtime",
+          severity: "info",
+          source: "dev-server",
+          message: `Cleaning up dev server on port ${serverInstance.port}`,
+        })
         serverInstance.child.kill("SIGTERM")
       }
     }

@@ -52,11 +52,11 @@ export function resolveDeckPath(deckRoot, slug) {
   }
 
   if (slugs.length === 0) {
-    throw new Error("No decks found. Create one with create_deck.")
+    throw new Error("No decks found. Create one with apply or create_deck.")
   }
 
   throw new Error(
     `Multiple decks found: ${slugs.join(", ")}. ` +
-    `Please specify a deck slug. Use list_decks to see available decks.`
+    `Please specify a deck slug. Use inspect { scope: \"workspace\" } or list_decks to see available decks.`
   )
 }

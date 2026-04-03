@@ -11,9 +11,50 @@
 const guides = {
   framework: `# PromptSlide Framework Reference
 
-Slides are React/TSX components with Tailwind CSS. The framework provides
-Animated, AnimatedGroup, Morph for animations, layout components for structure,
-SlideDeck for navigation, and SlideThemeProvider for theming.
+Slides are React/TSX components with Tailwind CSS. PromptSlide is meant to be
+used with design intent, not by repeating the same safe layout on every slide.
+
+## Before You Start
+
+Before writing any slide code, confirm the visual direction with the user:
+
+1. Theme colors, logo, and fonts
+2. Audience and deck tone
+3. Whether the deck should feel editorial, brutalist, luxury-minimal, bold geometric, warm organic, or another distinct direction
+
+Then think about what each slide's content wants to be. A hero stat, comparison,
+timeline, quote, or dense information slide should not all look the same.
+
+Share the design plan before coding when the deck direction is still open.
+
+Present the design plan explicitly when the direction is still open:
+
+1. overall visual direction and color strategy
+2. layout approach for each slide, not just generic cards or grids
+3. which slides should become hero moments
+4. font choice and why it fits the deck's personality
+
+## Content Density
+
+Slides are projected, not read. Keep each slide focused:
+
+- title slides: 1 heading + 1 subtitle
+- content slides: 1 heading + 4-6 bullet points, or 2 short paragraphs, or 2-4 cards/items
+- data slides: 1 heading + 1 chart/table/diagram
+- quote slides: 1 quote + attribution
+
+If a slide needs a 7th bullet point or a 3rd paragraph, split it into another slide.
+
+## MCP-First Workflow
+
+When the MCP server is available, use this workflow:
+
+1. **inspect** the workspace or deck before editing
+2. **show_tree** when you need the actual file structure
+3. **read** and **search** the current slides, layouts, components, and themes
+4. **apply** targeted file or manifest changes
+5. **validate** the affected slide or deck before visual verification
+6. **render** PNG, HTML, overview, or PDF output only after validation is clean
 
 ## Slide Format
 
@@ -49,6 +90,16 @@ export default function Hero({ slideNumber, totalSlides }) {
 
 Slide dimensions: **1280×720** (16:9). Content scales automatically.
 
+## Import Rules
+
+Use import paths consistently:
+
+- Use \`@/slides/...\`, \`@/layouts/...\`, and \`@/components/...\` for deck-local code under \`src/\`
+- Use \`promptslide\` for framework exports like \`Animated\`, \`AnimatedGroup\`, \`Morph\`, \`SlideDeck\`, and \`SlideThemeProvider\`
+- Use root-relative paths like \`/images/glow-white.png\` only for public/static browser assets
+
+Do not add a custom \`tsconfig\` path alias for \`promptslide\`. It should resolve as a package import, not to a specific file path inside \`node_modules\`.
+
 ## Directory Structure
 
 \`\`\`
@@ -60,6 +111,7 @@ my-deck/
 │   ├── components/        # Reusable components (cards, etc.)
 │   ├── globals.css        # Tailwind CSS + theme variables
 │   └── theme.ts           # Theme config (optional)
+├── themes/                # Optional deck theme CSS files
 ├── assets/                # Images, logos, etc.
 └── annotations.json       # Feedback/comments (optional)
 \`\`\`
@@ -98,6 +150,8 @@ import { Animated } from "promptslide"
 \`\`\`
 
 Steps are 1-indexed. Multiple elements can share the same step.
+
+Important layout rule: \`Animated\` renders a wrapper \`<div>\`. When it lives inside a grid or flex layout, put layout classes such as \`h-full\`, \`w-full\`, or \`col-span-*\` on the \`Animated\` wrapper itself or the layout can collapse.
 
 ### Animation Types
 
@@ -207,7 +261,7 @@ Create shared building blocks in \`src/components/\`:
 // src/components/card.tsx
 export function Card({ title, icon, children }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur-md">
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
       {icon && <span className="text-2xl">{icon}</span>}
       <h3 className="mt-3 text-lg font-semibold text-foreground">{title}</h3>
       <div className="mt-2 text-sm text-muted-foreground">{children}</div>
@@ -255,38 +309,88 @@ OKLCH: \`oklch(lightness chroma hue)\` — lightness 0-1, chroma 0-0.4, hue 0-36
 - \`bg-background\` / \`bg-card\` / \`bg-primary\` / \`bg-primary/10\`
 - \`border-border\`
 
+Choose fonts that fit the deck's personality. Avoid defaulting to the first familiar sans-serif unless the brand requires it. Serif headings plus sans body can feel editorial; sans for both can feel modern and restrained.
+
+## PDF Compatibility Constraints
+
+Use these constraints when designing slides that will be rendered or exported:
+
+- **No blur**: \`filter: blur()\` and \`backdrop-filter\` are dropped by Chromium's PDF pipeline
+- **No gradients**: use solid colors with opacity instead of CSS gradients
+- **No shadows**: use borders and layered background tints instead of \`box-shadow\`
+
+If you want a soft radial glow effect on dark slides, use a PNG overlay instead of CSS blur or gradients:
+
+\`\`\`tsx
+<img
+  src="/images/glow-white.png"
+  alt=""
+  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-40"
+/>
+\`\`\`
+
+Adjust the opacity to control intensity. This keeps the effect PDF-safe.
+
 ## Visual Verification
 
-**Always verify slides visually after creating or editing them.**
+**Always validate before rendering when a slide might be broken.**
 
-- **get_screenshot(slide)** — capture a single slide as PNG
-- **get_deck_overview** — thumbnail grid of all slides
+- **validate { scope: "slide", slide: "hero", include_runtime: true }** — catch import failures, step mismatches, and recent runtime errors
+- **render { format: "png", slide: "hero" }** — capture a single slide as PNG
+- **render { format: "overview" }** — thumbnail grid of all slides in a deck
+- **render { format: "pdf" }** — export the full deck as a PDF
 
 Common issues only visible in rendered output: broken alignment, wrong colors,
-text overflow, content clipped by overflow-hidden.
+text overflow, content clipped by overflow-hidden. When rendering fails, inspect validation diagnostics first instead of retrying screenshots blindly.
+
+## Design Principles
+
+- Let the content shape the layout.
+- Create rhythm across the deck by alternating dense and spacious slides.
+- Use visual variety intentionally, not mechanically.
+- Reserve bold color and oversized typography for a few memorable hero moments.
+
+## Anti-Patterns
+
+- same card style on every slide
+- uniform icon-title-description grids across consecutive slides
+- centering everything
+- every heading using the same size and weight
+- generic default accent choices without regard to brand or mood
 
 ## Workflow
 
-1. create_deck → directory structure + deck.json + globals.css
-2. write_layout × 1-2 → slide master layouts
-3. write_component (optional) → reusable cards, stat blocks, etc.
-4. create_slide × N → slides importing layouts and components
-5. get_screenshot / get_deck_overview → verify visuals
-6. edit_slide / write_slide → iterate
-7. export_pdf (optional) → generate a shareable deck artifact`,
+1. inspect the workspace or deck to understand the current semantics and runtime state
+2. show_tree when you need the actual file structure
+3. read and search the existing slides, layouts, and components before editing
+4. apply file or manifest changes for new slides, layouts, components, or deck metadata
+5. validate the affected deck or slide to catch structural and runtime problems early
+6. render PNG or HTML output to verify visuals and final DOM
+7. render PDF only after deck-level validation is clean
+
+This is the intended clean tool surface for PromptSlide MCP agents.`,
 
   "design-recipes": `# Design Recipes
 
 Ready-to-use TSX snippets for visually diverse slides.
 Do not repeat the same pattern on consecutive slides.
 
+All recipes below are intended to stay compatible with PDF export:
+
+- no CSS gradients
+- no blur or backdrop blur
+- no box shadows
+- prefer borders, opacity layers, and image overlays for depth
+
 ## Background Treatments
 
-### Gradient Mesh
+### Glow Image Overlay
 \`\`\`tsx
-<div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
-<div className="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-<div className="absolute bottom-1/4 right-10 h-64 w-64 rounded-full bg-primary/5 blur-2xl" />
+<img
+  src="/images/glow-white.png"
+  alt=""
+  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-35"
+/>
 <div className="relative z-10">Content here</div>
 \`\`\`
 
@@ -301,26 +405,28 @@ Do not repeat the same pattern on consecutive slides.
 </div>
 \`\`\`
 
-### Radial Spotlight
+### Soft Layered Tint
 \`\`\`tsx
-<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--primary)_0%,_transparent_70%)] opacity-10" />
+<div className="absolute inset-0 bg-background" />
+<div className="absolute inset-x-0 top-0 h-64 bg-primary/8" />
+<div className="absolute inset-y-0 right-0 w-1/3 bg-white/5" />
 \`\`\`
 
 ## Card Styles
 
-### Glass
+### Frosted Without Blur
 \`\`\`tsx
-<div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-lg shadow-primary/5 backdrop-blur-md">
+<div className="rounded-2xl border border-white/10 bg-white/5 p-8">
 \`\`\`
 
-### Gradient
+### Tinted Panel
 \`\`\`tsx
-<div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/15 to-transparent p-8">
+<div className="rounded-2xl border border-primary/20 bg-primary/8 p-8">
 \`\`\`
 
-### Elevated
+### Layered Panel
 \`\`\`tsx
-<div className="rounded-2xl bg-card p-8 shadow-xl shadow-primary/10">
+<div className="rounded-2xl border border-border bg-card p-8">
 \`\`\`
 
 ### Accent Border
@@ -334,7 +440,7 @@ Do not repeat the same pattern on consecutive slides.
 \`\`\`tsx
 <div className="grid h-full grid-cols-3 grid-rows-2 gap-4">
   <Animated step={1} animation="scale">
-    <div className="col-span-2 rounded-2xl bg-gradient-to-br from-primary/15 to-transparent p-8">Wide tile</div>
+    <div className="col-span-2 rounded-2xl border border-primary/20 bg-primary/8 p-8">Wide tile</div>
   </Animated>
   <Animated step={1} animation="scale" delay={0.1}>
     <div className="row-span-2 rounded-2xl border border-border bg-card p-6">Tall tile</div>
@@ -354,7 +460,7 @@ Do not repeat the same pattern on consecutive slides.
       <div className="relative flex items-center">
         <div className="absolute left-1/2 h-4 w-4 -translate-x-1/2 rounded-full bg-primary ring-4 ring-background" />
         <div className="w-1/2 pr-12 text-right">
-          <div className="text-xs font-mono text-primary/60 mb-1">01</div>
+          <div className="mb-1 text-xs font-mono text-primary/60">01</div>
           <h3 className="text-lg font-semibold text-foreground">Step One</h3>
         </div>
       </div>
@@ -373,7 +479,7 @@ Do not repeat the same pattern on consecutive slides.
       </div>
     </Animated>
     <Animated step={2} animation="slide-left">
-      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8 shadow-lg shadow-primary/10">
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
         <h3 className="mb-6 text-lg font-semibold text-primary">The New Way</h3>
       </div>
     </Animated>
@@ -388,7 +494,9 @@ Do not repeat the same pattern on consecutive slides.
 <AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1} className="grid grid-cols-3 gap-10">
   <div>
     <div className="text-6xl font-bold tracking-tight text-primary">$10M</div>
-    <div className="mt-4 h-1 w-4/5 rounded-full bg-gradient-to-r from-primary to-primary/30" />
+    <div className="mt-4 h-1 w-4/5 rounded-full bg-primary/20">
+      <div className="h-full w-4/5 rounded-full bg-primary" />
+    </div>
     <div className="mt-3 text-lg font-semibold text-foreground">Revenue</div>
     <div className="text-sm text-muted-foreground">Annual recurring</div>
   </div>
@@ -416,7 +524,7 @@ Do not repeat the same pattern on consecutive slides.
       Quote text here.
     </p>
   </Animated>
-  <div className="mx-auto mt-8 mb-6 h-px w-16 bg-primary/40" />
+  <div className="mx-auto mb-6 mt-8 h-px w-16 bg-primary/40" />
   <div className="text-lg font-semibold text-foreground">Speaker Name</div>
 </div>
 \`\`\`

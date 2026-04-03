@@ -101,6 +101,18 @@ Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then f
 
 ## Authoring Slides
 
+### MCP-First Workflow
+
+When the PromptSlide MCP server is available, prefer the general-purpose workflow:
+
+1. `inspect` the workspace or deck before editing
+2. `read` and `search` the current slides, layouts, components, and themes
+3. `apply` targeted file or manifest changes
+4. `validate` the affected slide or deck before visual verification
+5. `render` PNG, HTML, overview, or PDF output only after validation is clean
+
+Legacy CRUD-style tools still work during migration, but they now act as compatibility wrappers around the workflow above.
+
 ### Before Writing Slides
 
 Whether this is a new deck or an existing one, confirm the visual direction with the user before creating slide files. The user's primary color may already be configured from scaffolding — don't overwrite it without asking.
@@ -116,13 +128,16 @@ For each slide, think about what the content wants to be. See [references/slide-
 ### Architecture
 
 ```
+deck.json              # Manifest — slide order, theme, transitions
 src/
 ├── layouts/           # Slide layouts — your "master themes", create freely
 ├── slides/            # Your slides go here
-├── theme.ts           # Brand name, logo, fonts
-├── deck-config.ts     # Slide order + step counts
-├── App.tsx            # Theme provider
+├── components/        # Reusable shared components
+├── theme.ts           # Optional brand name, logo, fonts
 └── globals.css        # Theme colors (CSS custom properties)
+
+themes/                # Optional deck theme CSS files
+assets/                # Images, logos, and uploaded assets
 ```
 
 ### Key Constraints
@@ -151,13 +166,14 @@ export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
 }
 ```
 
-Register it in `src/deck-config.ts`:
+Register it in `deck.json` by adding a slide entry with the matching id:
 
-```ts
-import type { SlideConfig } from "promptslide";
-import { SlideExample } from "@/slides/slide-example";
-
-export const slides: SlideConfig[] = [{ component: SlideExample, steps: 0 }];
+```json
+{
+  "slides": [
+    { "id": "example", "title": "Example" }
+  ]
+}
 ```
 
 ### Layouts (Master Themes)
@@ -173,7 +189,7 @@ The scaffolded project includes `SlideLayoutCentered` as a starter. Create new o
 Use `<Animated>` for click-to-reveal steps and `<AnimatedGroup>` for staggered reveals. Available animations: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`.
 
 **Critical rules**:
-- The `steps` value in `deck-config.ts` MUST equal the highest `step` number used in that slide. `steps: 0` means no animations.
+- The `meta.steps` export in the slide module MUST equal the highest `step` number used in that slide. `steps: 0` means no animations.
 - `<Animated>` renders a wrapper `<div>`. When inside a **grid or flex container**, you MUST pass layout classes (`h-full`, `w-full`, `col-span-*`) via `className` on the `<Animated>`, not only on the inner child — otherwise the wrapper collapses and breaks the layout.
 
 For the full animation API, see [references/animation-api.md](references/animation-api.md).
@@ -190,7 +206,12 @@ For content density rules, design principles, and visual anti-patterns, see [ref
 
 ### Visual Verification
 
-After creating or modifying a slide, you can capture a screenshot to visually verify it renders correctly. See [references/visual-verification.md](references/visual-verification.md) for the `promptslide to-image` command and workflow.
+After creating or modifying a slide, validate it first, then render it for visual verification.
+
+- `validate` catches unresolved imports, `meta.steps` mismatches, and runtime failures before you ask for screenshots.
+- `render` can produce slide PNG, slide HTML, deck overview PNG, and final PDF output.
+
+If you are working without MCP, the `promptslide to-image` command still works for local slide screenshots. See [references/visual-verification.md](references/visual-verification.md) for that fallback workflow.
 
 ### Annotations (User Feedback)
 
@@ -205,7 +226,7 @@ cat annotations.json 2>/dev/null
 ```
 
 Each annotation has:
-- `slideIndex` — which slide (0-based, matching `deck-config.ts` order)
+- `slideIndex` — which slide (0-based, matching `deck.json` slide order)
 - `slideTitle` — human-readable slide name
 - `target.selector` — CSS selector to the element within the slide
 - `target.textContent` — text content of the target element

@@ -8,6 +8,25 @@ import { ensureTsConfig } from "../utils/tsconfig.mjs"
 /** Default directory for MCP-managed decks */
 const DEFAULT_DECK_ROOT = join(homedir(), ".promptslide", "decks")
 
+async function waitForShutdown(cleanup) {
+  await new Promise((resolve) => {
+    let settled = false
+
+    const finish = async () => {
+      if (settled) return
+      settled = true
+      try {
+        await cleanup()
+      } finally {
+        resolve()
+      }
+    }
+
+    process.once("SIGINT", finish)
+    process.once("SIGTERM", finish)
+  })
+}
+
 export async function studio(args) {
   const portArg = args.find(a => a.startsWith("--port="))
   const port = portArg ? parseInt(portArg.split("=")[1], 10) : 5173
@@ -84,6 +103,13 @@ export async function studio(args) {
           // ignore
         }
       }
+
+      await waitForShutdown(async () => {
+        await Promise.allSettled([
+          viteServer.close(),
+          new Promise((resolve) => mcpHttpServer.close(() => resolve())),
+        ])
+      })
     } else {
       // Stdio transport mode (default): for CLI integration
       const { startMcpServer } = await import("../mcp/server.mjs")

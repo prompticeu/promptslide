@@ -12,13 +12,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 
-import { registerReadTools } from "./tools/read.mjs"
-import { registerWriteTools } from "./tools/write.mjs"
-import { registerDeleteTools } from "./tools/delete.mjs"
-import { registerAssetTools } from "./tools/assets.mjs"
-import { registerThemeTools } from "./tools/themes.mjs"
-import { registerAnnotationTools } from "./tools/annotations.mjs"
-import { registerUtilityTools } from "./tools/utility.mjs"
+import { registerCoreTools } from "./tools/core.mjs"
+import { registerGuideTools } from "./tools/read.mjs"
 import { registerPreviewTools } from "./tools/preview.mjs"
 
 function createMcpServer() {
@@ -26,24 +21,27 @@ function createMcpServer() {
     name: "Promptslide",
     version: "1.0.0",
     description: `PromptSlide — Create slide deck presentations.
-Slides are React/TSX components with Tailwind CSS. The framework provides
-Animated, AnimatedGroup, Morph components for animations, layout components
-for consistent structure, and SlideDeck for presentation mode.
+Slides are React/TSX components with Tailwind CSS, built-in animations,
+and PDF export.
 
-Use get_deck_info to see current state.
+Before writing slide code, confirm the visual direction with the user:
+theme colors, fonts, brand constraints, and overall style. Then plan each
+slide around its content. Do not default to generic cards and grids when a
+stronger composition fits better.
+
+Use inspect for semantic summaries and runtime state.
+Use show_tree for filesystem orientation.
+Use read and search for targeted file access.
+Use apply for structured file and manifest changes.
+Use validate before render when debugging a deck.
 Use get_guide("framework") for a comprehensive reference.
 Use get_guide("design-recipes") for code snippets and patterns.`
   })
 }
 
 function registerTools(server, context) {
-  registerReadTools(server, context)
-  registerWriteTools(server, context)
-  registerDeleteTools(server, context)
-  registerAssetTools(server, context)
-  registerThemeTools(server, context)
-  registerAnnotationTools(server, context)
-  registerUtilityTools(server, context)
+  registerCoreTools(server, context)
+  registerGuideTools(server, context)
   registerPreviewTools(server, context)
 }
 

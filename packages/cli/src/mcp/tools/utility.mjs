@@ -2,9 +2,16 @@
  * MCP Utility tools: export_pdf
  */
 
+import { exec } from "node:child_process"
+import { platform } from "node:os"
 import { z } from "zod"
 
-import { resolveDeckPath } from "../deck-resolver.mjs"
+import { withLegacyNotice } from "../services/legacy.mjs"
+import { renderArtifact } from "../services/render.mjs"
+import { ensureRuntimeContext } from "../services/runtime.mjs"
+import { validateWorkspaceTarget } from "../services/validate.mjs"
+import { resolveDeckContext } from "../services/workspace.mjs"
+import { errorResponse, jsonResponse } from "./responses.mjs"
 
 export function registerUtilityTools(server, context) {
   const { deckRoot } = context
@@ -21,29 +28,32 @@ export function registerUtilityTools(server, context) {
     },
     { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     async ({ deck, output_path }) => {
-      let deckPath
       try {
-        deckPath = resolveDeckPath(deckRoot, deck)
-      } catch (err) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
-      }
-
-      try {
-        const { ensureDevServer } = await import("../dev-server.mjs")
-        const port = await ensureDevServer({ root: deckRoot })
-
-        const { exportPdf } = await import("../pdf-export.mjs")
-        const pdfPath = await exportPdf({
-          deckRoot: deckPath,
-          deckSlug: deckPath.split("/").pop(),
-          devServerPort: port,
-          outputPath: output_path
+        const { deckSlug } = resolveDeckContext(deckRoot, deck)
+        const validation = await validateWorkspaceTarget({
+          deckRoot,
+          deck: deckSlug,
+          scope: "deck",
+          includeRuntime: true,
         })
+        const runtime = await ensureRuntimeContext({ deckRoot, deck: deckSlug })
+        const result = await renderArtifact({
+          deckRoot,
+          deck: deckSlug,
+          port: runtime.port,
+          format: "pdf",
+          outputPath: output_path,
+          staticDiagnostics: validation.diagnostics,
+        })
+
+        if (!result.ok || !result.data?.path) {
+          return jsonResponse(result)
+        }
+
+        const pdfPath = result.data.path
 
         // Auto-open the PDF
         try {
-          const { exec } = await import("node:child_process")
-          const { platform } = await import("node:os")
           const os = platform()
           const openCmd = os === "darwin" ? "open" : os === "win32" ? "start" : "xdg-open"
           exec(`${openCmd} "${pdfPath}"`)
@@ -54,14 +64,18 @@ export function registerUtilityTools(server, context) {
         return {
           content: [{
             type: "text",
-            text: JSON.stringify({
+            text: JSON.stringify(withLegacyNotice({
               path: pdfPath,
-              message: `PDF exported to ${pdfPath}`
-            })
+              message: `PDF exported to ${pdfPath}`,
+            }, {
+              tool: "export_pdf",
+              preferred: "render { format: \"pdf\" }",
+              note: "Legacy tool `export_pdf` is still supported during migration. Prefer `render` for new agent workflows.",
+            }))
           }]
         }
-      } catch (err) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: `PDF export failed: ${err.message}` }) }] }
+      } catch (error) {
+        return errorResponse(error)
       }
     }
   )
