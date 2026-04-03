@@ -88,12 +88,17 @@ export function SlideEmbed({ slides, transition, directionalTransition }: SlideE
   }, [baseOnTransitionComplete, currentSlide])
 
   // Render-ready signal: set data-slide-ready after fonts load + rAF on each slide change
+  // Uses a 2s timeout on fonts.ready to avoid hanging if external fonts fail to load (e.g. in headless browsers)
   const [slideReady, setSlideReady] = useState(false)
   useEffect(() => {
     setSlideReady(false)
+    const markReady = () => requestAnimationFrame(() => { setSlideReady(true) })
+    const timeout = setTimeout(markReady, 2000)
     document.fonts.ready.then(() => {
-      requestAnimationFrame(() => { setSlideReady(true) })
+      clearTimeout(timeout)
+      markReady()
     })
+    return () => clearTimeout(timeout)
   }, [currentSlide])
 
   // Post slide state to host whenever it changes

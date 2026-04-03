@@ -43,9 +43,13 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
   const SlideComponent = slideConfig.component
 
   useEffect(() => {
+    const markReady = () => requestAnimationFrame(() => { setReady(true) })
+    const timeout = setTimeout(markReady, 2000)
     document.fonts.ready.then(() => {
-      requestAnimationFrame(() => { setReady(true) })
+      clearTimeout(timeout)
+      markReady()
     })
+    return () => clearTimeout(timeout)
   }, [])
 
   return (
@@ -522,7 +526,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
               ) : (
                 <ScaledSlideContainer
                   innerRef={slideContainerRef}
-                  className="aspect-video w-full max-w-7xl bg-black shadow-2xl"
+                  className="aspect-video w-full max-w-7xl rounded-xl bg-black shadow-2xl overflow-hidden"
                 >
                   <SlideRenderer
                     slides={slides}
