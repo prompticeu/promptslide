@@ -6,6 +6,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs"
 import { join, basename } from "node:path"
 import { z } from "zod"
+import { registerAppTool } from "@modelcontextprotocol/ext-apps/server"
 
 import { parseDeckManifest } from "../../utils/deck-manifest.mjs"
 import { getGuideContent } from "../guides/index.mjs"
@@ -349,15 +350,19 @@ export function registerReadTools(server, context) {
     }
   )
 
-  // ─── get_slide_html (internal, used by MCP App widget) ───
-  server.tool(
+  // ─── get_slide_html (widget-only, hidden from agent) ───
+  registerAppTool(
+    server,
     "get_slide_html",
-    `Get a slide's rendered HTML with all CSS inlined. Used by the preview widget for crisp rendering.`,
     {
-      deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      slide: z.string().describe("Slide id (e.g. 'hero')")
+      description: `Get a slide's rendered HTML with all CSS inlined. Used by the preview widget.`,
+      inputSchema: {
+        deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
+        slide: z.string().describe("Slide id (e.g. 'hero')")
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false },
+      _meta: { ui: { visibility: ["app"] } }
     },
-    { readOnlyHint: true, destructiveHint: false },
     async ({ deck, slide }) => {
       let deckPath
       try {

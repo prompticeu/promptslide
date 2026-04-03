@@ -921,6 +921,10 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         const deckSlug = isDeckEmbed ? decodeURIComponent(parts[0]) : null
         const moduleId = buildVirtualId(VIRTUAL_EMBED_ID, [["deck", deckSlug]])
 
+        // Invalidate cached module so it re-reads deck.json (slides may have changed)
+        const mod = server.moduleGraph.getModuleById("\0" + moduleId)
+        if (mod) server.moduleGraph.invalidateModule(mod)
+
         const html = await server.transformIndexHtml(url.pathname, getEmbedHtmlTemplate(moduleId))
         res.setHeader("Content-Type", "text/html")
         res.statusCode = 200

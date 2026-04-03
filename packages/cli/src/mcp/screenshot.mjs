@@ -9,7 +9,7 @@
  * Slide swaps happen via JS (no page.goto per screenshot), cutting latency from
  * ~1-3s to ~200-400ms per capture.
  *
- * Waits on data-slide-ready attribute (fonts + rAF) instead of hardcoded timeouts.
+ * Waits on data-slide-ready attribute (double-rAF) instead of hardcoded timeouts.
  * Detects Vite error overlays on compile failures for actionable error messages.
  */
 
@@ -133,7 +133,7 @@ async function getEmbedPage({ deckSlug, devServerPort, scale = 1 }) {
 
   console.error(`[screenshot] Embed page ready for ${deckSlug}`)
   embedPages.set(key, page)
-  return { page, key, consoleErrors }
+  return { page, key }
 }
 
 /**
@@ -304,7 +304,31 @@ async function navigateToSlide(page, slideIndex) {
     }
   }
 
-  // Reset ready signal and navigate
+  // Check current slide state
+  const currentSlide = await page.evaluate(() => {
+    return JSON.parse(window.__promptslide.getState()).currentSlide
+  })
+
+  if (currentSlide === slideIndex) {
+    // Already on the correct slide. Wait for any pending HMR to settle,
+    // then check if already ready (don't reset the attribute — goToSlide
+    // to the same index is a no-op and won't re-trigger the ready signal)
+    await page.waitForLoadState("networkidle").catch(() => {})
+    const ready = await page.evaluate(() =>
+      document.querySelector("[data-slide-ready]")?.getAttribute("data-slide-ready") === "true"
+    )
+    if (ready) return
+    // Not ready yet (HMR just happened) — wait for it
+    const result = await waitForSlideOrError(page)
+    if (result.status === "error") throw new Error(`Slide compile error: ${result.message}`)
+    if (result.status === "timeout") {
+      const diagnostics = await getPageDiagnostics(page)
+      throw new Error(`Slide render timed out. ${diagnostics}`)
+    }
+    return
+  }
+
+  // Different slide — navigate and wait for render
   await page.evaluate((idx) => {
     document.querySelector("[data-slide-ready]")?.setAttribute("data-slide-ready", "false")
     window.__promptslide.goToSlide(idx)
@@ -337,8 +361,7 @@ async function captureScreenshot(page) {
  * Take a screenshot of a single slide.
  *
  * Uses the embed route with persistent page + JS-based slide navigation.
- * Waits for data-slide-ready (fonts + rAF) instead of hardcoded timeouts.
- * Uses CDP Page.captureScreenshot for lower overhead.
+ * Waits for data-slide-ready (double-rAF) instead of hardcoded timeouts.
  *
  * @param {Object} options
  * @param {string} options.deckRoot - Deck directory path (specific deck)
@@ -370,7 +393,7 @@ export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPor
  * Capture a slide's rendered DOM as self-contained HTML.
  *
  * Still uses the export route (per-slide) since it needs a clean single-slide DOM
- * without the embed shell. Uses font-ready signal instead of hardcoded timeout.
+ * without the embed shell.
  *
  * @param {Object} options
  * @param {string} options.deckRoot - Deck directory path
@@ -409,27 +432,38 @@ export async function captureSlideHtml({ deckRoot, deckSlug, slideId, devServerP
     // Race: export view renders vs Vite error overlay
     const exportResult = await page.evaluate((timeout) => {
       return new Promise((resolve) => {
-        const deadline = setTimeout(() => resolve({ status: "timeout" }), timeout)
+        let settled = false
+        let observer = null
+
+        const done = (val) => {
+          if (settled) return
+          settled = true
+          clearTimeout(deadline)
+          if (observer) observer.disconnect()
+          resolve(val)
+        }
+
+        const deadline = setTimeout(() => done({ status: "timeout" }), timeout)
+
         const check = () => {
           if (document.querySelector("[data-export-ready='true']")) {
-            clearTimeout(deadline)
-            return resolve({ status: "ready" })
+            return done({ status: "ready" })
           }
           const overlay = document.querySelector("vite-error-overlay")
           if (overlay) {
-            clearTimeout(deadline)
             const root = overlay.shadowRoot
             const msg = root?.querySelector(".message-body")?.textContent
               || root?.querySelector(".message")?.textContent
               || "Unknown Vite error"
-            return resolve({ status: "error", message: msg.trim() })
+            return done({ status: "error", message: msg.trim() })
           }
         }
+
         check()
-        const observer = new MutationObserver(check)
+        if (settled) return
+
+        observer = new MutationObserver(check)
         observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true })
-        const origResolve = resolve
-        resolve = (val) => { observer.disconnect(); origResolve(val) }
       })
     }, 10000)
 
