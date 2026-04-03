@@ -104,22 +104,85 @@ async function getEmbedPage({ deckSlug, devServerPort, scale = 1 }) {
     deviceScaleFactor: scale
   })
 
+  // Collect console errors for diagnostics
+  const consoleErrors = []
+  page.on("console", msg => {
+    if (msg.type() === "error") consoleErrors.push(msg.text())
+  })
+  page.on("pageerror", err => {
+    consoleErrors.push(err.message || String(err))
+  })
+
   const embedUrl = `http://localhost:${devServerPort}/${deckSlug}/embed?screenshot=true`
+  console.error(`[screenshot] Loading embed: ${embedUrl}`)
   await page.goto(embedUrl, { waitUntil: "networkidle", timeout: 15000 })
 
   // Wait for initial render or detect Vite compile errors
   const result = await waitForSlideOrError(page)
   if (result.status === "error") {
+    console.error(`[screenshot] Embed error: ${result.message}`)
     await page.close()
     throw new Error(`Slide render failed: ${result.message}`)
   }
   if (result.status === "timeout") {
+    const diagnostics = await getPageDiagnostics(page, consoleErrors)
+    console.error(`[screenshot] Embed timeout. Diagnostics: ${diagnostics}`)
     await page.close()
-    throw new Error("Slide render timed out — the deck may have compile errors or unresolved dependencies")
+    throw new Error(`Slide render timed out. ${diagnostics}`)
   }
 
+  console.error(`[screenshot] Embed page ready for ${deckSlug}`)
   embedPages.set(key, page)
-  return { page, key }
+  return { page, key, consoleErrors }
+}
+
+/**
+ * Gather diagnostic info from a page for error reporting.
+ * Extracts console errors, Vite overlay text, and page state.
+ */
+async function getPageDiagnostics(page, consoleErrors = []) {
+  const parts = []
+
+  // Check for Vite error overlay (might have appeared after our check)
+  try {
+    const overlayText = await page.evaluate(() => {
+      const overlay = document.querySelector("vite-error-overlay")
+      if (!overlay) return null
+      const root = overlay.shadowRoot
+      return root?.querySelector(".message-body")?.textContent
+        || root?.querySelector(".message")?.textContent
+        || null
+    })
+    if (overlayText) parts.push(`Vite error: ${overlayText.trim()}`)
+  } catch {}
+
+  // Include collected console errors (filter to most relevant)
+  const relevantErrors = consoleErrors.filter(e =>
+    e.includes("Failed to") || e.includes("Error") || e.includes("Cannot") ||
+    e.includes("import") || e.includes("resolve") || e.includes("404")
+  )
+  if (relevantErrors.length > 0) {
+    parts.push(relevantErrors.slice(0, 3).join(" | "))
+  } else if (consoleErrors.length > 0) {
+    parts.push(consoleErrors.slice(0, 3).join(" | "))
+  }
+
+  // Check if __promptslide exists
+  try {
+    const hasRuntime = await page.evaluate(() => !!window.__promptslide)
+    if (!hasRuntime) parts.push("Slide runtime did not initialize")
+  } catch {}
+
+  // Check for data-slide-ready attribute state
+  try {
+    const readyState = await page.evaluate(() => {
+      const el = document.querySelector("[data-slide-ready]")
+      return el ? el.getAttribute("data-slide-ready") : "attribute not found"
+    })
+    if (readyState !== "true") parts.push(`data-slide-ready=${readyState}`)
+  } catch {}
+
+  return parts.length > 0 ? parts.join(". ") : "No diagnostic info available — check server logs."
 }
 
 /**
@@ -223,7 +286,8 @@ async function navigateToSlide(page, slideIndex) {
     throw new Error(`Slide compile error: ${result.message}`)
   }
   if (result.status === "timeout") {
-    throw new Error("Slide render timed out — the slide may have an infinite loop or unresolved dependency")
+    const diagnostics = await getPageDiagnostics(page)
+    throw new Error(`Slide render timed out. ${diagnostics}`)
   }
 }
 
