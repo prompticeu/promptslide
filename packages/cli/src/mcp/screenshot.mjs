@@ -143,44 +143,66 @@ async function getEmbedPage({ deckSlug, devServerPort, scale = 1 }) {
 async function getPageDiagnostics(page, consoleErrors = []) {
   const parts = []
 
-  // Check for Vite error overlay (might have appeared after our check)
   try {
-    const overlayText = await page.evaluate(() => {
-      const overlay = document.querySelector("vite-error-overlay")
-      if (!overlay) return null
-      const root = overlay.shadowRoot
-      return root?.querySelector(".message-body")?.textContent
-        || root?.querySelector(".message")?.textContent
-        || null
-    })
-    if (overlayText) parts.push(`Vite error: ${overlayText.trim()}`)
-  } catch {}
+    const info = await page.evaluate(() => {
+      const result = {}
 
-  // Include collected console errors (filter to most relevant)
-  const relevantErrors = consoleErrors.filter(e =>
-    e.includes("Failed to") || e.includes("Error") || e.includes("Cannot") ||
-    e.includes("import") || e.includes("resolve") || e.includes("404")
-  )
-  if (relevantErrors.length > 0) {
-    parts.push(relevantErrors.slice(0, 3).join(" | "))
-  } else if (consoleErrors.length > 0) {
-    parts.push(consoleErrors.slice(0, 3).join(" | "))
+      // Check for Vite error overlay
+      const overlay = document.querySelector("vite-error-overlay")
+      if (overlay) {
+        const root = overlay.shadowRoot
+        result.viteError = root?.querySelector(".message-body")?.textContent
+          || root?.querySelector(".message")?.textContent
+          || "Unknown Vite error"
+      }
+
+      // Check runtime
+      result.hasRuntime = !!window.__promptslide
+
+      // Check data-slide-ready
+      const readyEl = document.querySelector("[data-slide-ready]")
+      result.readyState = readyEl ? readyEl.getAttribute("data-slide-ready") : "not found"
+
+      // Get visible page content (helps identify blank pages vs error states)
+      const body = document.body
+      result.bodyText = body ? body.innerText.slice(0, 300) : "no body"
+      result.bodyChildCount = body ? body.children.length : 0
+
+      // Check if #root exists and has content
+      const root = document.getElementById("root")
+      result.rootHtml = root ? root.innerHTML.slice(0, 200) : "no #root"
+
+      return result
+    })
+
+    if (info.viteError) parts.push(`Vite error: ${info.viteError.trim()}`)
+    if (!info.hasRuntime) parts.push("Slide runtime did not initialize")
+    if (info.readyState !== "true") parts.push(`data-slide-ready=${info.readyState}`)
+
+    // If root is empty, the JS module failed to load
+    if (info.rootHtml === "" || info.rootHtml === "no #root") {
+      parts.push("React did not mount — the embed module likely failed to load")
+    } else if (info.rootHtml && info.rootHtml.length > 0 && info.rootHtml !== "no #root") {
+      parts.push(`#root content: ${info.rootHtml}`)
+    }
+
+    if (info.bodyText && info.bodyText.trim()) {
+      parts.push(`Page text: ${info.bodyText.trim().slice(0, 150)}`)
+    }
+  } catch (err) {
+    parts.push(`Diagnostics failed: ${err.message}`)
   }
 
-  // Check if __promptslide exists
-  try {
-    const hasRuntime = await page.evaluate(() => !!window.__promptslide)
-    if (!hasRuntime) parts.push("Slide runtime did not initialize")
-  } catch {}
-
-  // Check for data-slide-ready attribute state
-  try {
-    const readyState = await page.evaluate(() => {
-      const el = document.querySelector("[data-slide-ready]")
-      return el ? el.getAttribute("data-slide-ready") : "attribute not found"
-    })
-    if (readyState !== "true") parts.push(`data-slide-ready=${readyState}`)
-  } catch {}
+  // Include collected console errors
+  if (consoleErrors.length > 0) {
+    const relevant = consoleErrors.filter(e =>
+      e.includes("Failed to") || e.includes("Error") || e.includes("Cannot") ||
+      e.includes("import") || e.includes("resolve") || e.includes("404") ||
+      e.includes("Uncaught") || e.includes("TypeError") || e.includes("ReferenceError")
+    )
+    const errors = relevant.length > 0 ? relevant : consoleErrors
+    parts.push(`Console errors: ${errors.slice(0, 5).join(" | ")}`)
+  }
 
   return parts.length > 0 ? parts.join(". ") : "No diagnostic info available — check server logs."
 }
