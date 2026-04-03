@@ -268,8 +268,8 @@ async function navigateToSlide(page, slideIndex) {
   if (!hasRuntime) {
     console.error("[screenshot] Runtime missing, waiting for page reload to complete...")
     // Wait for the page to finish loading (full-reload in progress)
-    await page.waitForLoadState("load", { timeout: 15000 }).catch(() => {})
-    await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {})
+    await page.waitForLoadState("load", { timeout: 5000 }).catch(() => {})
+    await page.waitForLoadState("networkidle", { timeout: 3000 }).catch(() => {})
 
     // Now wait for the slide runtime to initialize
     const result = await waitForSlideOrError(page)
