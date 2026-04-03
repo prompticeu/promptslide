@@ -9,8 +9,8 @@
  * Slide swaps happen via JS (no page.goto per screenshot), cutting latency from
  * ~1-3s to ~200-400ms per capture.
  *
- * Uses CDP Page.captureScreenshot directly for lower per-capture overhead.
  * Waits on data-slide-ready attribute (fonts + rAF) instead of hardcoded timeouts.
+ * Detects Vite error overlays on compile failures for actionable error messages.
  */
 
 import { readFileSync, existsSync } from "node:fs"
@@ -124,43 +124,52 @@ async function getEmbedPage({ deckSlug, devServerPort, scale = 1 }) {
 
 /**
  * Wait for either the slide to be ready or a Vite error overlay to appear.
- * Returns "ready" or "error". On error, extracts the message from the overlay.
+ * Returns { status: "ready" }, { status: "error", message }, or { status: "timeout" }.
  */
 async function waitForSlideOrError(page, timeout = 10000) {
-  const result = await page.evaluate((timeout) => {
-    return new Promise((resolve) => {
-      const deadline = setTimeout(() => resolve({ status: "timeout" }), timeout)
+  try {
+    const result = await page.evaluate((timeout) => {
+      return new Promise((resolve) => {
+        let settled = false
+        let observer = null
 
-      // Check immediately
-      const check = () => {
-        if (document.querySelector("[data-slide-ready='true']")) {
+        const done = (val) => {
+          if (settled) return
+          settled = true
           clearTimeout(deadline)
-          return resolve({ status: "ready" })
+          if (observer) observer.disconnect()
+          resolve(val)
         }
-        const overlay = document.querySelector("vite-error-overlay")
-        if (overlay) {
-          clearTimeout(deadline)
-          const root = overlay.shadowRoot
-          const msg = root?.querySelector(".message-body")?.textContent
-            || root?.querySelector(".message")?.textContent
-            || "Unknown Vite error"
-          return resolve({ status: "error", message: msg.trim() })
+
+        const deadline = setTimeout(() => done({ status: "timeout" }), timeout)
+
+        const check = () => {
+          if (document.querySelector("[data-slide-ready='true']")) {
+            return done({ status: "ready" })
+          }
+          const overlay = document.querySelector("vite-error-overlay")
+          if (overlay) {
+            const root = overlay.shadowRoot
+            const msg = root?.querySelector(".message-body")?.textContent
+              || root?.querySelector(".message")?.textContent
+              || "Unknown Vite error"
+            return done({ status: "error", message: msg.trim() })
+          }
         }
-      }
 
-      check()
+        // Check immediately before setting up observer
+        check()
+        if (settled) return
 
-      // Observe DOM for either signal
-      const observer = new MutationObserver(check)
-      observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true })
+        observer = new MutationObserver(check)
+        observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true })
+      })
+    }, timeout)
 
-      // Clean up on resolve
-      const origResolve = resolve
-      resolve = (val) => { observer.disconnect(); origResolve(val) }
-    })
-  }, timeout)
-
-  return result
+    return result
+  } catch {
+    return { status: "timeout" }
+  }
 }
 
 /**
@@ -219,20 +228,11 @@ async function navigateToSlide(page, slideIndex) {
 }
 
 /**
- * Capture a screenshot using CDP directly for lower overhead.
- * Returns a base64-encoded PNG string.
+ * Capture a screenshot of the page. Returns a base64-encoded PNG string.
  */
-async function cdpScreenshot(page) {
-  const cdp = await page.context().newCDPSession(page)
-  try {
-    const { data } = await cdp.send("Page.captureScreenshot", {
-      format: "png",
-      clip: { x: 0, y: 0, width: 1280, height: 720, scale: 1 }
-    })
-    return data
-  } finally {
-    await cdp.detach()
-  }
+async function captureScreenshot(page) {
+  const buffer = await page.screenshot({ type: "png" })
+  return buffer.toString("base64")
 }
 
 /**
@@ -257,7 +257,7 @@ export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPor
   const release = await acquireLock(key)
   try {
     await navigateToSlide(page, slideIndex)
-    return await cdpScreenshot(page)
+    return await captureScreenshot(page)
   } catch (err) {
     // Invalidate cached page so next call gets a fresh one after the agent fixes the error
     embedPages.delete(key)

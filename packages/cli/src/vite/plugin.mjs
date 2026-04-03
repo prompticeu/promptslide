@@ -779,7 +779,18 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         const srcIndex = importerPath ? importerPath.lastIndexOf("/src/") : -1
         if (srcIndex !== -1) {
           const deckRoot = importerPath.slice(0, srcIndex)
-          return join(deckRoot, "src", id.slice(2))
+          const basePath = join(deckRoot, "src", id.slice(2))
+          // Resolve extension — @/layouts/master → src/layouts/master.tsx
+          const extensions = [".tsx", ".ts", ".jsx", ".js"]
+          for (const ext of extensions) {
+            if (existsSync(basePath + ext)) return basePath + ext
+          }
+          // Try as directory with index file
+          for (const ext of extensions) {
+            if (existsSync(join(basePath, `index${ext}`))) return join(basePath, `index${ext}`)
+          }
+          // Return as-is and let Vite report the error
+          return basePath
         }
       }
     },
