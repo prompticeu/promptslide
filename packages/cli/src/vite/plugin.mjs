@@ -12,6 +12,11 @@ const RESOLVED_VIRTUAL_EMBED_ID = "\0" + VIRTUAL_EMBED_ID
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const FRAMEWORK_SOURCE_ROOT = resolve(__dirname, "../core")
 
+// Error ring buffer — stores recent browser and Vite compilation errors
+// Queryable via GET /__promptslide_errors, clearable via DELETE
+const recentErrors = []
+const MAX_ERRORS = 50
+
 // Inline script that catches module load errors (e.g. missing named exports)
 // and forwards them to the Vite dev server so they appear in terminal logs.
 // Must be a regular script (not type="module") to run before module evaluation.
@@ -779,7 +784,18 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         const srcIndex = importerPath ? importerPath.lastIndexOf("/src/") : -1
         if (srcIndex !== -1) {
           const deckRoot = importerPath.slice(0, srcIndex)
-          return join(deckRoot, "src", id.slice(2))
+          const base = join(deckRoot, "src", id.slice(2))
+          // If the import already has an extension, use it directly
+          if (/\.\w+$/.test(id.slice(2))) return base
+          // Try common extensions — resolveId must return a concrete file path
+          for (const ext of [".tsx", ".ts", ".jsx", ".js", ".css", ".json"]) {
+            if (existsSync(base + ext)) return base + ext
+          }
+          // Also check if it's a directory with an index file
+          for (const ext of [".tsx", ".ts", ".jsx", ".js"]) {
+            if (existsSync(join(base, "index" + ext))) return join(base, "index" + ext)
+          }
+          return base
         }
       }
     },
@@ -833,6 +849,61 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     },
 
     configureServer(server) {
+      // Intercept HMR error payloads to capture compilation/transform errors
+      const originalWsSend = server.ws.send.bind(server.ws)
+      server.ws.send = function(payload) {
+        if (payload && payload.type === 'error') {
+          recentErrors.push({
+            message: payload.err?.message || 'Unknown error',
+            stack: payload.err?.stack || '',
+            plugin: payload.err?.plugin || '',
+            source: "vite",
+            timestamp: Date.now()
+          })
+          if (recentErrors.length > MAX_ERRORS) recentErrors.shift()
+        }
+        return originalWsSend(payload)
+      }
+
+      // Pre-middleware: resolve deck-specific asset paths in multi-deck mode
+      // e.g. /assets/logo.svg → /my-deck/assets/logo.svg (based on Referer)
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "GET") return next()
+        const url = new URL(req.url, "http://localhost")
+        const pathname = url.pathname
+        // Skip internal routes
+        if (pathname.startsWith("/__") || pathname.startsWith("/@") || pathname.startsWith("/node_modules")) return next()
+        // Skip if file exists at workspace root (Vite default behavior)
+        if (existsSync(join(root, pathname))) return next()
+        // Resolve deck from Referer header and try serving from deck directory
+        const slug = getDeckSlugFromReferer(req.headers.referer)
+        if (slug) {
+          const deckRoot = resolveDeckRoot(root, slug)
+          if (deckRoot && deckRoot !== root && existsSync(join(deckRoot, pathname))) {
+            req.url = `/${slug}${pathname}${url.search}`
+          }
+        }
+        next()
+      })
+
+      // Pre-middleware: query/clear error buffer
+      server.middlewares.use((req, res, next) => {
+        if (req.url !== "/__promptslide_errors") return next()
+        if (req.method === "GET") {
+          res.setHeader("Content-Type", "application/json")
+          res.statusCode = 200
+          res.end(JSON.stringify({ errors: recentErrors }))
+          return
+        }
+        if (req.method === "DELETE") {
+          recentErrors.length = 0
+          res.statusCode = 204
+          res.end()
+          return
+        }
+        next()
+      })
+
       // Pre-middleware: receive browser errors and log them to the terminal
       server.middlewares.use((req, res, next) => {
         if (req.method !== "POST" || req.url !== "/__promptslide_error") return next()
@@ -844,6 +915,8 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
             const { message, filename } = JSON.parse(body)
             const location = filename ? ` ${dim(`(${filename})`)}` : ""
             server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, { timestamp: true })
+            recentErrors.push({ message, filename, source: "browser", timestamp: Date.now() })
+            if (recentErrors.length > MAX_ERRORS) recentErrors.shift()
           } catch {}
           res.statusCode = 204
           res.end()

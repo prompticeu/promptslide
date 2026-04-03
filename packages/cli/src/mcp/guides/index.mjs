@@ -3,8 +3,8 @@
  *
  * Two guides:
  * - "framework" — comprehensive reference for the slide format, animations,
- *   layouts, theming, and workflow. Read once at the start of a session.
- * - "design-recipes" — optional code snippets for backgrounds, card styles,
+ *   layouts, theming, PDF constraints, and workflow. Read once at the start.
+ * - "design-recipes" — PDF-safe code snippets for backgrounds, card styles,
  *   layout patterns, data visualization, and typography.
  */
 
@@ -21,13 +21,13 @@ Each slide is a \`.tsx\` file in \`src/slides/\` exporting a default React compo
 
 \`\`\`tsx
 import { Animated } from "promptslide"
-import { MasterLayout } from "@/layouts/master"
+import { ContentLayout } from "@/layouts/content"
 
 export const meta = { steps: 2 }
 
 export default function Hero({ slideNumber, totalSlides }) {
   return (
-    <MasterLayout slideNumber={slideNumber} totalSlides={totalSlides}>
+    <ContentLayout slideNumber={slideNumber} totalSlides={totalSlides}>
       <h1 className="text-7xl font-bold text-foreground">Title</h1>
       <Animated step={1} animation="fade">
         <p className="mt-4 text-xl text-muted-foreground">Subtitle appears on click</p>
@@ -35,7 +35,7 @@ export default function Hero({ slideNumber, totalSlides }) {
       <Animated step={2} animation="slide-up">
         <p className="mt-2 text-lg text-muted-foreground">More content</p>
       </Animated>
-    </MasterLayout>
+    </ContentLayout>
   )
 }
 \`\`\`
@@ -56,7 +56,7 @@ my-deck/
 ├── deck.json              # Manifest (slide order, transitions)
 ├── src/
 │   ├── slides/            # Slide TSX components
-│   ├── layouts/           # Layout components (shared structure)
+│   ├── layouts/           # Layout components (2-4 per deck)
 │   ├── components/        # Reusable components (cards, etc.)
 │   ├── globals.css        # Tailwind CSS + theme variables
 │   └── theme.ts           # Theme config (optional)
@@ -99,6 +99,8 @@ import { Animated } from "promptslide"
 
 Steps are 1-indexed. Multiple elements can share the same step.
 
+**Critical**: \`<Animated>\` renders a wrapper \`<div>\`. When inside a **grid or flex container**, pass layout classes (\`h-full\`, \`w-full\`, \`col-span-*\`) via \`className\` on the \`<Animated>\`, not only on the inner child — otherwise the wrapper collapses and breaks the layout.
+
 ### Animation Types
 
 | Type | Effect |
@@ -140,15 +142,20 @@ Set in deck.json or per-slide via \`export const meta = { transition: "zoom" }\`
 \`fade\` (default), \`slide-left\`, \`slide-right\`, \`slide-up\`, \`slide-down\`,
 \`zoom\`, \`zoom-fade\`, \`morph\`, \`none\`
 
-## Slide Master Layouts
+## Layouts
 
-Layouts are React components that wrap slide content for consistent structure.
+Layouts are React components in \`src/layouts/\` that wrap slide content. They control
+structure (headers, footers, backgrounds, padding) — like "master slides" in traditional tools.
+
+**Create 2–4 layouts per deck for visual variety.** Don't use a single layout for every slide.
+
+### Example: Content Layout
 
 \`\`\`tsx
-// src/layouts/master.tsx
+// src/layouts/content.tsx
 import { SlideFooter } from "promptslide"
 
-export function MasterLayout({ children, slideNumber, totalSlides }) {
+export function ContentLayout({ children, slideNumber, totalSlides }) {
   return (
     <div className="flex h-full w-full flex-col bg-background">
       <div className="flex-1 px-20 py-12 overflow-hidden">
@@ -161,20 +168,6 @@ export function MasterLayout({ children, slideNumber, totalSlides }) {
         </span>
       </div>
     </div>
-  )
-}
-\`\`\`
-
-Used in slides:
-\`\`\`tsx
-import { MasterLayout } from "@/layouts/master"
-
-export default function Problem({ slideNumber, totalSlides }) {
-  return (
-    <MasterLayout slideNumber={slideNumber} totalSlides={totalSlides}>
-      <h2 className="text-4xl font-bold">The Problem</h2>
-      <p className="mt-4 text-xl text-muted-foreground">Description...</p>
-    </MasterLayout>
   )
 }
 \`\`\`
@@ -197,6 +190,40 @@ export function SplitLayout({ left, right, slideNumber, totalSlides }) {
 }
 \`\`\`
 
+### Example: Title Layout
+
+\`\`\`tsx
+// src/layouts/title.tsx
+export function TitleLayout({ children }) {
+  return (
+    <div className="flex h-full w-full items-center justify-center bg-primary text-primary-foreground">
+      <div className="max-w-4xl text-center px-16">
+        {children}
+      </div>
+    </div>
+  )
+}
+\`\`\`
+
+### Example: Sidebar Layout
+
+\`\`\`tsx
+// src/layouts/sidebar.tsx
+export function SidebarLayout({ sidebar, children, slideNumber, totalSlides }) {
+  return (
+    <div className="flex h-full w-full bg-background">
+      <div className="w-1/4 flex flex-col justify-between bg-card px-8 py-10 border-r border-border">
+        {sidebar}
+        <span className="text-xs text-muted-foreground">{slideNumber} / {totalSlides}</span>
+      </div>
+      <div className="flex-1 px-16 py-12 overflow-hidden">
+        {children}
+      </div>
+    </div>
+  )
+}
+\`\`\`
+
 Slides without layouts are freeform (full 1280×720 container).
 
 ## Reusable Components
@@ -204,10 +231,10 @@ Slides without layouts are freeform (full 1280×720 container).
 Create shared building blocks in \`src/components/\`:
 
 \`\`\`tsx
-// src/components/card.tsx
+// src/components/card.tsx — PDF-safe card (no blur or shadow)
 export function Card({ title, icon, children }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-8 backdrop-blur-md">
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-8">
       {icon && <span className="text-2xl">{icon}</span>}
       <h3 className="mt-3 text-lg font-semibold text-foreground">{title}</h3>
       <div className="mt-2 text-sm text-muted-foreground">{children}</div>
@@ -229,10 +256,74 @@ import { Card } from "@/components/card"
 </div>
 \`\`\`
 
+## PDF Constraints
+
+These rules ensure slides look identical on screen and in PDF export.
+Violating them causes elements to **silently disappear** in exported PDFs:
+
+- **NO blur**: \`backdrop-blur-*\` and \`blur-*\` are silently dropped by Chromium's PDF pipeline
+- **NO gradients**: \`bg-gradient-to-*\` and radial gradients render inconsistently — use solid colors with opacity instead (e.g., \`bg-primary/5\`, \`bg-muted/20\`)
+- **NO shadows**: \`shadow-sm\`, \`shadow-lg\`, \`shadow-xl\`, etc. do not export correctly — use borders or background tints instead (e.g., \`border border-border\`, \`bg-white/5\`)
+
+**PDF-safe alternatives:**
+
+| Instead of | Use |
+|-----------|-----|
+| \`backdrop-blur-md bg-white/10\` | \`bg-white/5 border border-white/10\` |
+| \`bg-gradient-to-br from-primary/15\` | \`bg-primary/10\` |
+| \`shadow-lg shadow-primary/10\` | \`border border-border\` |
+| \`blur-3xl bg-primary/10\` (blob) | \`bg-primary/5 rounded-full\` (solid, no blur) |
+
+## Content Density
+
+Slides are projected, not read. Enforce strict limits:
+
+- **Title slides**: 1 heading + 1 subtitle (max 10 words). Optional logo or tagline.
+- **Content slides**: 1 heading + 4–6 bullet points, OR 1 heading + 2–4 cards in a grid
+- **Data slides**: 1 heading + 1 chart/table (max 6 rows)
+- **Quote slides**: 1 quote (max 30 words) + attribution
+
+**Split rule**: If you're writing a 7th bullet point, stop — create a second slide instead. Two clean slides always beat one cramped one.
+
+## Design Thinking
+
+Before writing slide code, plan the deck holistically:
+
+- **Let content shape the layout.** A single important number → make it huge. A comparison → side by side. A feature list → maybe clean typography is enough, not everything needs cards.
+- **Create rhythm.** Alternate dense and spacious, dark and light, structured and freeform. Three similar slides in a row is monotonous — break runs with a dark "breather" slide, a full-bleed color block, or an asymmetric layout.
+- **Plan hero moments.** Every deck needs 1–2 slides that break the pattern — an oversized number, a bold color block, a single sentence with generous whitespace. These are what people remember.
+- **Use color sparingly.** A primary-colored accent on every slide means none stand out. Save bold color for 3–4 key moments: the cover, a chapter divider, a key stat, the closing.
+- **The "unforgettable" test**: If someone saw this deck for 10 seconds, what would they remember? If the answer is "nothing" — the design needs a stronger hero moment.
+
+## Visual Anti-Patterns
+
+Avoid these:
+
+- Same card style (\`rounded-xl border bg-card p-8\`) on every slide
+- Uniform icon-title-description grids on 3+ consecutive slides
+- Centering everything — use left-aligned, asymmetric, or split layouts for variety
+- Every heading the same size — vary with \`text-2xl\` to \`text-6xl\`
+- \`slide-up\` animation on everything — match animation to content (see design-recipes guide)
+- Using primary color on every element — save it for impact
+
+## Style Presets
+
+Use these as mood inspiration when starting a new deck:
+
+| Preset | Mood | Primary | Key Feature |
+|--------|------|---------|-------------|
+| Electric Noir | Cinematic dark | \`oklch(0.65 0.25 250)\` blue | Oversized numbers, high contrast |
+| Midnight Studio | Warm editorial | \`oklch(0.7 0.18 70)\` amber | Serif/sans contrast, elegant |
+| Neon Terminal | Hacker/dev | \`oklch(0.75 0.2 145)\` green | Monospace, terminal aesthetic |
+| Clean Corporate | Professional | \`oklch(0.5 0.2 250)\` blue | Generous whitespace, data-focused |
+| Warm Editorial | Magazine | \`oklch(0.55 0.15 30)\` terracotta | Asymmetric text, pull quotes |
+| Pastel Soft | Friendly | \`oklch(0.6 0.15 280)\` purple | Tinted card backgrounds, playful |
+| Grid Rational | Bauhaus/Swiss | \`oklch(0.6 0.25 30)\` red | Bold color blocks, geometric |
+| Deep Night | Polished dark | \`oklch(0.65 0.22 280)\` purple | Layered opacity cards |
+
 ## Theming
 
-Theme variables are in \`src/globals.css\`. The default theme includes Tailwind
-import and color mappings. Customize by editing CSS variables:
+Theme variables are in \`src/globals.css\`. Customize by editing CSS variables:
 
 \`\`\`css
 :root { --primary: oklch(0.55 0.2 250); }
@@ -240,14 +331,6 @@ import and color mappings. Customize by editing CSS variables:
 \`\`\`
 
 OKLCH: \`oklch(lightness chroma hue)\` — lightness 0-1, chroma 0-0.4, hue 0-360
-
-| Brand | Light | Dark | Hue |
-|-------|-------|------|-----|
-| Blue | oklch(0.55 0.2 250) | oklch(0.6 0.2 250) | 250 |
-| Purple | oklch(0.55 0.2 300) | oklch(0.6 0.2 300) | 300 |
-| Green | oklch(0.6 0.2 145) | oklch(0.65 0.2 145) | 145 |
-| Orange | oklch(0.661 0.201 41) | oklch(0.7 0.2 41) | 41 |
-| Teal | oklch(0.6 0.15 195) | oklch(0.65 0.15 195) | 195 |
 
 ### Semantic Color Classes
 
@@ -265,32 +348,49 @@ OKLCH: \`oklch(lightness chroma hue)\` — lightness 0-1, chroma 0-0.4, hue 0-36
 Common issues only visible in rendered output: broken alignment, wrong colors,
 text overflow, content clipped by overflow-hidden.
 
+## Troubleshooting
+
+- **get_build_errors** — check for Vite compilation errors and dev server issues
+- **validate_deck** — render every slide and report per-slide status
+- **get_project_files** — list all files in the deck directory
+
+Common issues:
+- Import errors (\`@/layouts/...\` path wrong) → check with get_build_errors
+- Slide not rendering → validate_deck shows per-slide errors
+- Animations not working → verify \`export const meta = { steps: N }\` matches highest step number
+- Content clipped → check for missing \`overflow-hidden\` or wrong flex layout
+
 ## Workflow
 
 1. create_deck → directory structure + deck.json + globals.css
-2. write_layout × 1-2 → slide master layouts
+2. write_layout × 2-4 → purpose-specific layouts (content, title, split, etc.)
 3. write_component (optional) → reusable cards, stat blocks, etc.
-4. create_slide × N → slides importing layouts and components
+4. create_slide × N → slides importing different layouts
 5. get_screenshot / get_deck_overview → verify visuals
-6. edit_slide / write_slide → iterate
-7. export_pdf (optional) → generate a shareable deck artifact`,
+6. get_build_errors → check for compilation issues
+7. edit_slide / write_slide → iterate
+8. validate_deck → verify all slides render
+9. export_pdf → generate a shareable deck artifact`,
 
   "design-recipes": `# Design Recipes
 
 Ready-to-use TSX snippets for visually diverse slides.
+All recipes are **PDF-export safe** — no gradients, no blur, no box-shadow.
 Do not repeat the same pattern on consecutive slides.
 
 ## Background Treatments
 
-### Gradient Mesh
+### Layered Opacity
+
 \`\`\`tsx
-<div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background" />
-<div className="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
-<div className="absolute bottom-1/4 right-10 h-64 w-64 rounded-full bg-primary/5 blur-2xl" />
+<div className="absolute inset-0 bg-primary/5" />
+<div className="absolute top-1/4 -left-20 h-96 w-96 rounded-full bg-primary/10" />
+<div className="absolute bottom-1/4 right-10 h-64 w-64 rounded-full bg-primary/5" />
 <div className="relative z-10">Content here</div>
 \`\`\`
 
 ### Split Background
+
 \`\`\`tsx
 <div className="absolute inset-y-0 left-0 w-2/5 bg-primary" />
 <div className="relative flex h-full">
@@ -301,29 +401,36 @@ Do not repeat the same pattern on consecutive slides.
 </div>
 \`\`\`
 
-### Radial Spotlight
+### Solid Accent Block
+
 \`\`\`tsx
-<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--primary)_0%,_transparent_70%)] opacity-10" />
+<div className="absolute inset-0 bg-primary/5" />
+<div className="absolute top-0 left-0 w-full h-1/3 bg-primary/10" />
+<div className="relative z-10">Content here</div>
 \`\`\`
 
 ## Card Styles
 
-### Glass
+### Frosted (PDF-safe)
+
 \`\`\`tsx
-<div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-lg shadow-primary/5 backdrop-blur-md">
+<div className="rounded-2xl border border-white/10 bg-white/5 p-8">
 \`\`\`
 
-### Gradient
+### Tinted
+
 \`\`\`tsx
-<div className="rounded-2xl border border-primary/10 bg-gradient-to-br from-primary/15 to-transparent p-8">
+<div className="rounded-2xl border border-primary/10 bg-primary/10 p-8">
 \`\`\`
 
-### Elevated
+### Bordered
+
 \`\`\`tsx
-<div className="rounded-2xl bg-card p-8 shadow-xl shadow-primary/10">
+<div className="rounded-2xl border border-border bg-card p-8">
 \`\`\`
 
 ### Accent Border
+
 \`\`\`tsx
 <div className="rounded-2xl border border-border border-l-4 border-l-primary bg-card p-8">
 \`\`\`
@@ -331,21 +438,23 @@ Do not repeat the same pattern on consecutive slides.
 ## Layout Patterns
 
 ### Bento Grid
+
 \`\`\`tsx
 <div className="grid h-full grid-cols-3 grid-rows-2 gap-4">
-  <Animated step={1} animation="scale">
-    <div className="col-span-2 rounded-2xl bg-gradient-to-br from-primary/15 to-transparent p-8">Wide tile</div>
+  <Animated step={1} animation="scale" className="col-span-2">
+    <div className="h-full rounded-2xl bg-primary/10 p-8">Wide tile</div>
   </Animated>
-  <Animated step={1} animation="scale" delay={0.1}>
-    <div className="row-span-2 rounded-2xl border border-border bg-card p-6">Tall tile</div>
+  <Animated step={1} animation="scale" delay={0.1} className="row-span-2">
+    <div className="h-full rounded-2xl border border-border bg-card p-6">Tall tile</div>
   </Animated>
   <Animated step={1} animation="scale" delay={0.2}>
-    <div className="rounded-2xl bg-muted/30 p-6">Small</div>
+    <div className="h-full rounded-2xl bg-muted/30 p-6">Small</div>
   </Animated>
 </div>
 \`\`\`
 
 ### Vertical Timeline
+
 \`\`\`tsx
 <div className="relative flex h-full items-center justify-center">
   <div className="absolute left-1/2 top-4 bottom-4 w-px -translate-x-1/2 bg-border" />
@@ -364,6 +473,7 @@ Do not repeat the same pattern on consecutive slides.
 \`\`\`
 
 ### Comparison / Before-After
+
 \`\`\`tsx
 <div className="relative flex h-full items-center">
   <div className="grid w-full grid-cols-2 gap-8">
@@ -373,7 +483,7 @@ Do not repeat the same pattern on consecutive slides.
       </div>
     </Animated>
     <Animated step={2} animation="slide-left">
-      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8 shadow-lg shadow-primary/10">
+      <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
         <h3 className="mb-6 text-lg font-semibold text-primary">The New Way</h3>
       </div>
     </Animated>
@@ -384,11 +494,12 @@ Do not repeat the same pattern on consecutive slides.
 ## Data Visualization
 
 ### Big Numbers + Progress Bars
+
 \`\`\`tsx
 <AnimatedGroup startStep={1} animation="slide-up" staggerDelay={0.1} className="grid grid-cols-3 gap-10">
   <div>
     <div className="text-6xl font-bold tracking-tight text-primary">$10M</div>
-    <div className="mt-4 h-1 w-4/5 rounded-full bg-gradient-to-r from-primary to-primary/30" />
+    <div className="mt-4 h-1 w-4/5 rounded-full bg-primary/30" />
     <div className="mt-3 text-lg font-semibold text-foreground">Revenue</div>
     <div className="text-sm text-muted-foreground">Annual recurring</div>
   </div>
@@ -396,6 +507,7 @@ Do not repeat the same pattern on consecutive slides.
 \`\`\`
 
 ### CSS Bar Chart
+
 \`\`\`tsx
 <div className="flex h-48 items-end gap-4">
   <div className="flex w-16 flex-col items-center gap-2">
@@ -408,6 +520,7 @@ Do not repeat the same pattern on consecutive slides.
 ## Typography
 
 ### Large Quote
+
 \`\`\`tsx
 <div className="flex h-full flex-col items-center justify-center text-center">
   <span className="block font-serif text-[120px] leading-none text-primary/20">&ldquo;</span>
@@ -446,7 +559,8 @@ Do not repeat the same pattern on consecutive slides.
 - Same card style on every slide
 - \`slide-up\` on everything
 - All equal-width columns
-- Two consecutive slides with same layout pattern`
+- Two consecutive slides with same layout pattern
+- Using blur, gradients, or shadows (breaks PDF export)`
 }
 
 /**

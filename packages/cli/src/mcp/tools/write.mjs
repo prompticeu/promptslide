@@ -10,6 +10,31 @@ import { z } from "zod"
 
 import { resolveDeckPath } from "../deck-resolver.mjs"
 import { ensureTsConfig } from "../../utils/tsconfig.mjs"
+import { getDevServerPort } from "../dev-server.mjs"
+
+/**
+ * Check for Vite compilation errors after writing a slide file.
+ * Clears the error buffer, waits for HMR to process, then checks for new errors.
+ * Returns an array of warning strings, or empty if no errors.
+ */
+async function checkPostWriteErrors() {
+  const port = getDevServerPort()
+  if (!port) return []
+
+  try {
+    // Clear existing errors
+    await fetch(`http://localhost:${port}/__promptslide_errors`, { method: "DELETE" })
+    // Wait for Vite HMR to process the file change
+    await new Promise(r => setTimeout(r, 600))
+    // Check for new errors
+    const res = await fetch(`http://localhost:${port}/__promptslide_errors`)
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.errors || []).map(e => e.message)
+  } catch {
+    return []
+  }
+}
 
 /**
  * Resolve slide file path for a given slide id.
@@ -124,13 +149,14 @@ export function registerWriteTools(server, context) {
   // ─── write_layout ───
   server.tool(
     "write_layout",
-    `Create or update a slide master layout as a TSX component. ` +
-    `Layouts define repeating structure (headers, footers, section numbering) shared across slides. ` +
+    `Create or update a slide layout as a TSX component. ` +
+    `Layouts define repeating structure (headers, footers, backgrounds, padding) shared across slides. ` +
+    `Create 2-4 different layouts per deck for visual variety (e.g. content, title, split, section-break). ` +
     `The layout receives { children, slideNumber, totalSlides } as props. ` +
-    `Slides import and use layouts: import { MasterLayout } from "@/layouts/master"`,
+    `Slides import layouts: import { ContentLayout } from "@/layouts/content"`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      name: z.string().describe("Layout name (e.g. 'master', 'title', 'split')"),
+      name: z.string().describe("Layout name (e.g. 'content', 'title', 'split', 'section-break')"),
       content: z.string().describe("TSX source code for the layout component")
     },
     { readOnlyHint: false, destructiveHint: false },
@@ -150,11 +176,13 @@ export function registerWriteTools(server, context) {
       writeFileSync(layoutFile, content)
 
       const layoutName = name.replace(/\.tsx$/, "")
+      const exportMatch = content.match(/export\s+(?:function|const|class)\s+(\w+)/)
+      const exportName = exportMatch ? exportMatch[1] : titleCase(layoutName)
       return { content: [{ type: "text", text: JSON.stringify({
         success: true,
         layout: layoutName,
         file: `src/layouts/${filename}`,
-        message: `Layout ${isNew ? "created" : "updated"}. Import in slides: import { ${titleCase(layoutName)} } from "@/layouts/${layoutName}"`
+        message: `Layout ${isNew ? "created" : "updated"}. Import in slides: import { ${exportName} } from "@/layouts/${layoutName}"`
       }) }] }
     }
   )
@@ -187,11 +215,13 @@ export function registerWriteTools(server, context) {
       writeFileSync(componentFile, content)
 
       const componentName = name.replace(/\.tsx$/, "")
+      const exportMatch = content.match(/export\s+(?:function|const|class)\s+(\w+)/)
+      const exportName = exportMatch ? exportMatch[1] : titleCase(componentName)
       return { content: [{ type: "text", text: JSON.stringify({
         success: true,
         component: componentName,
         file: `src/components/${filename}`,
-        message: `Component ${isNew ? "created" : "updated"}. Import in slides: import { ... } from "@/components/${componentName}"`
+        message: `Component ${isNew ? "created" : "updated"}. Import in slides: import { ${exportName} } from "@/components/${componentName}"`
       }) }] }
     }
   )
@@ -204,6 +234,8 @@ export function registerWriteTools(server, context) {
     `Use Animated, AnimatedGroup, Morph from "promptslide" for animations. ` +
     `Import layouts from "@/layouts/..." and components from "@/components/...". ` +
     `Use Tailwind CSS classes and semantic colors (text-foreground, bg-primary, etc.). ` +
+    `PDF-safe styling only: NO blur (backdrop-blur), NO gradients (bg-gradient-to-*), NO shadows (shadow-*). ` +
+    `Use solid colors with opacity instead (bg-primary/10, bg-white/5). ` +
     `Export const meta = { steps: N } for animation step count. ` +
     `Dimensions: 1280x720 (16:9).`,
     {
@@ -246,7 +278,10 @@ export function registerWriteTools(server, context) {
         writeFileSync(manifestPath, JSON.stringify(manifest, null, 2))
       }
 
-      return { content: [{ type: "text", text: JSON.stringify({ id, file: `src/slides/${filename}`, message: "Slide created and added to deck. Use get_screenshot to verify the visual result." }) }] }
+      const warnings = await checkPostWriteErrors()
+      const result = { id, file: `src/slides/${filename}`, message: "Slide created and added to deck. Use get_screenshot to verify the visual result." }
+      if (warnings.length) result.warnings = warnings
+      return { content: [{ type: "text", text: JSON.stringify(result) }] }
     }
   )
 
@@ -275,7 +310,10 @@ export function registerWriteTools(server, context) {
       }
 
       writeFileSync(resolved.fullPath, content)
-      return { content: [{ type: "text", text: JSON.stringify({ success: true, file: `src/slides/${resolved.file}`, message: "Slide updated. Use get_screenshot to verify the visual result." }) }] }
+      const warnings = await checkPostWriteErrors()
+      const result = { success: true, file: `src/slides/${resolved.file}`, message: "Slide updated. Use get_screenshot to verify the visual result." }
+      if (warnings.length) result.warnings = warnings
+      return { content: [{ type: "text", text: JSON.stringify(result) }] }
     }
   )
 
@@ -320,7 +358,10 @@ export function registerWriteTools(server, context) {
       const updated = content.replace(old_string, new_string)
       writeFileSync(resolved.fullPath, updated)
 
-      return { content: [{ type: "text", text: JSON.stringify({ success: true, file: `src/slides/${resolved.file}`, message: "Slide edited. Use get_screenshot to verify the visual result." }) }] }
+      const warnings = await checkPostWriteErrors()
+      const result = { success: true, file: `src/slides/${resolved.file}`, message: "Slide edited. Use get_screenshot to verify the visual result." }
+      if (warnings.length) result.warnings = warnings
+      return { content: [{ type: "text", text: JSON.stringify(result) }] }
     }
   )
 

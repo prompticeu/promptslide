@@ -11,11 +11,14 @@ import { parseDeckManifest } from "../../utils/deck-manifest.mjs"
 import { getGuideContent } from "../guides/index.mjs"
 import { resolveDeckPath, listDeckSlugs } from "../deck-resolver.mjs"
 
-/** Detect max step from TSX source: step={N} */
+/** Detect max step from TSX source: step={N} and startStep={N} (AnimatedGroup) */
 function detectSteps(content) {
-  const matches = content.matchAll(/step=\{(\d+)\}/g)
   let max = 0
-  for (const m of matches) {
+  for (const m of content.matchAll(/step=\{(\d+)\}/g)) {
+    const n = parseInt(m[1], 10)
+    if (n > max) max = n
+  }
+  for (const m of content.matchAll(/startStep=\{(\d+)\}/g)) {
     const n = parseInt(m[1], 10)
     if (n > max) max = n
   }
@@ -431,6 +434,152 @@ export function registerReadTools(server, context) {
     async ({ topic }) => {
       const content = getGuideContent(topic)
       return { content: [{ type: "text", text: content }] }
+    }
+  )
+
+  // ─── get_build_errors ───
+  server.tool(
+    "get_build_errors",
+    `Get recent Vite compilation errors and dev server output. ` +
+    `Use when a slide fails to render, a screenshot times out, or you suspect a build issue. ` +
+    `Returns both Vite HMR errors (import resolution, JSX syntax, etc.) and recent dev server stderr.`,
+    {
+      deck: z.string().optional().describe("Deck slug (optional if only one deck exists)")
+    },
+    { readOnlyHint: true, destructiveHint: false },
+    async ({ deck }) => {
+      try {
+        const { ensureDevServer } = await import("../dev-server.mjs")
+        const port = await ensureDevServer({ root: deckRoot })
+
+        // Fetch errors from Vite plugin's error buffer
+        let viteErrors = []
+        try {
+          const res = await fetch(`http://localhost:${port}/__promptslide_errors`)
+          if (res.ok) {
+            const data = await res.json()
+            viteErrors = data.errors || []
+          }
+        } catch { /* dev server may not support this endpoint yet */ }
+
+        // Get recent stderr from dev server process
+        let stderr = []
+        try {
+          const { getRecentStderr } = await import("../dev-server.mjs")
+          stderr = getRecentStderr()
+        } catch { /* may not be available */ }
+
+        const hasErrors = viteErrors.length > 0 || stderr.length > 0
+
+        return { content: [{ type: "text", text: JSON.stringify({
+          hasErrors,
+          viteErrors,
+          stderr: stderr.slice(-20), // last 20 lines
+          message: hasErrors
+            ? `Found ${viteErrors.length} Vite error(s) and ${stderr.length} stderr line(s).`
+            : "No errors detected."
+        }, null, 2) }] }
+      } catch (err) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Failed to check errors: ${err.message}` }) }] }
+      }
+    }
+  )
+
+  // ─── get_project_files ───
+  server.tool(
+    "get_project_files",
+    `List the file tree of a deck directory. Shows files, directories, and file sizes. ` +
+    `Use to inspect the actual project structure, check config files (tsconfig.json, deck.json), ` +
+    `or debug path issues.`,
+    {
+      deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
+      depth: z.number().optional().default(3).describe("Max directory depth (default 3)")
+    },
+    { readOnlyHint: true, destructiveHint: false },
+    async ({ deck, depth }) => {
+      let deckPath
+      try {
+        deckPath = resolveDeckPath(deckRoot, deck)
+      } catch (err) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
+      }
+
+      const maxDepth = depth || 3
+      const EXCLUDED = new Set(["node_modules", ".git", "dist", ".next", ".cache"])
+
+      function listDir(dir, currentDepth) {
+        if (currentDepth > maxDepth) return []
+        if (!existsSync(dir)) return []
+
+        const entries = readdirSync(dir, { withFileTypes: true })
+          .filter(e => !EXCLUDED.has(e.name))
+          .sort((a, b) => {
+            // Directories first, then files
+            if (a.isDirectory() && !b.isDirectory()) return -1
+            if (!a.isDirectory() && b.isDirectory()) return 1
+            return a.name.localeCompare(b.name)
+          })
+
+        return entries.map(entry => {
+          const fullPath = join(dir, entry.name)
+          if (entry.isDirectory()) {
+            return {
+              name: entry.name,
+              type: "dir",
+              children: listDir(fullPath, currentDepth + 1)
+            }
+          }
+          const stat = statSync(fullPath)
+          return { name: entry.name, type: "file", size: stat.size }
+        })
+      }
+
+      const tree = listDir(deckPath, 1)
+      return { content: [{ type: "text", text: JSON.stringify({ path: deckPath, tree }, null, 2) }] }
+    }
+  )
+
+  // ─── read_file ───
+  server.tool(
+    "read_file",
+    `Read any file in a deck directory. Use to inspect config files (tsconfig.json, deck.json, globals.css, theme.ts), ` +
+    `layouts, components, or any other project file. Path is relative to the deck root.`,
+    {
+      deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
+      path: z.string().describe("File path relative to deck root (e.g. 'src/globals.css', 'tsconfig.json', 'deck.json')"),
+    },
+    { readOnlyHint: true, destructiveHint: false },
+    async ({ deck, path: filePath }) => {
+      let deckPath
+      try {
+        deckPath = resolveDeckPath(deckRoot, deck)
+      } catch (err) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
+      }
+
+      // Security: prevent path traversal outside deck directory
+      const resolved = join(deckPath, filePath)
+      if (!resolved.startsWith(deckPath)) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Path traversal not allowed" }) }] }
+      }
+
+      if (!existsSync(resolved)) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `File not found: ${filePath}` }) }] }
+      }
+
+      try {
+        const stat = statSync(resolved)
+        if (stat.isDirectory()) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: `${filePath} is a directory, not a file. Use get_project_files to list directories.` }) }] }
+        }
+        if (stat.size > 512 * 1024) {
+          return { content: [{ type: "text", text: JSON.stringify({ error: `File too large (${(stat.size / 1024).toFixed(0)} KB). Max 512 KB.` }) }] }
+        }
+        const content = readFileSync(resolved, "utf-8")
+        return { content: [{ type: "text", text: content }] }
+      } catch (err) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Failed to read file: ${err.message}` }) }] }
+      }
     }
   )
 }

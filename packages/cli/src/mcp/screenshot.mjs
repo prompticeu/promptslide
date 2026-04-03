@@ -37,6 +37,58 @@ function resolveSlidePath(deckRoot, slideId) {
 }
 
 /**
+ * Navigate to a slide URL and wait for [data-export-ready='true'].
+ * On failure, captures Vite error overlay content and console errors
+ * for better diagnostic messages instead of generic "Timeout".
+ *
+ * @param {import("playwright").Page} page
+ * @param {string} url
+ * @param {Object} [opts]
+ * @param {number} [opts.timeout=10000]
+ * @param {number} [opts.settleMs=200]
+ */
+async function waitForReady(page, url, { timeout = 10000, settleMs = 200 } = {}) {
+  const consoleErrors = []
+  const onConsole = (msg) => {
+    if (msg.type() === "error") consoleErrors.push(msg.text())
+  }
+  page.on("console", onConsole)
+
+  try {
+    await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
+    await page.waitForSelector("[data-export-ready='true']", { timeout })
+    await page.waitForTimeout(settleMs)
+  } catch (err) {
+    // Try to extract Vite error overlay content
+    let errorDetail = null
+    try {
+      errorDetail = await page.evaluate(() => {
+        const overlay = document.querySelector("vite-error-overlay")
+        if (overlay && overlay.shadowRoot) {
+          const msg = overlay.shadowRoot.querySelector(".message-body")
+          return msg?.textContent?.trim() || overlay.shadowRoot.textContent?.trim()?.slice(0, 500) || null
+        }
+        return null
+      })
+    } catch { /* page may be crashed */ }
+
+    const parts = []
+    if (errorDetail) {
+      parts.push(`Slide compilation error: ${errorDetail}`)
+    }
+    if (consoleErrors.length > 0) {
+      parts.push(`Console errors: ${consoleErrors.slice(0, 5).join("; ")}`)
+    }
+    if (parts.length === 0) {
+      parts.push(err.message)
+    }
+    throw new Error(parts.join("\n"))
+  } finally {
+    page.off("console", onConsole)
+  }
+}
+
+/**
  * Get or create the shared browser instance.
  */
 async function getBrowser() {
@@ -86,9 +138,7 @@ export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPor
       deviceScaleFactor: scale
     })
     try {
-      await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
-      await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
-      await page.waitForTimeout(200)
+      await waitForReady(page, url)
       const exportEl = await page.$("[data-export-ready]")
       const buffer = exportEl
         ? await exportEl.screenshot({ type: "png" })
@@ -120,9 +170,7 @@ export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPor
       if (el) el.setAttribute("data-export-ready", "false")
     }).catch(() => {})
 
-    await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
-    await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
-    await page.waitForTimeout(200)
+    await waitForReady(page, url)
 
     const exportEl = await page.$("[data-export-ready]")
     const buffer = exportEl
@@ -174,9 +222,7 @@ export async function captureSlideHtml({ deckRoot, deckSlug, slideId, devServerP
     if (el) el.setAttribute("data-export-ready", "false")
   }).catch(() => {})
 
-  await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
-  await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
-  await page.waitForTimeout(200)
+  await waitForReady(page, url)
 
   const html = await page.evaluate(() => {
     const styles = []

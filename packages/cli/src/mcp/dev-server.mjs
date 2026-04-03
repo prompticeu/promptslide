@@ -19,6 +19,10 @@ let serverInstance = null
 
 let cleanupRegistered = false
 
+// Continuous stderr buffer from the dev server child process
+const recentStderr = []
+const MAX_STDERR_LINES = 100
+
 /**
  * Register an externally managed dev server (e.g. started by the Tauri app launcher).
  * When set, ensureDevServer() will reuse this port instead of spawning a child process.
@@ -94,10 +98,13 @@ export async function ensureDevServer({ root, port }) {
     let attempts = 0
     const maxAttempts = 30 // 15 seconds
 
-    // Capture stderr for error reporting
+    // Capture stderr for error reporting (startup + continuous buffer)
     let stderrOutput = ""
     child.stderr.on("data", (chunk) => {
       stderrOutput += chunk.toString()
+      const lines = chunk.toString().split('\n').filter(Boolean)
+      recentStderr.push(...lines)
+      while (recentStderr.length > MAX_STDERR_LINES) recentStderr.shift()
     })
 
     child.on("error", (err) => {
@@ -149,4 +156,13 @@ export async function ensureDevServer({ root, port }) {
  */
 export function getDevServerPort() {
   return serverInstance?.port || null
+}
+
+/**
+ * Get recent stderr output from the dev server child process.
+ *
+ * @returns {string[]}
+ */
+export function getRecentStderr() {
+  return recentStderr.slice()
 }
