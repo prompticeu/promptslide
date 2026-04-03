@@ -3,7 +3,7 @@
  */
 
 import { readFileSync, existsSync } from "node:fs"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { z } from "zod"
 
 import { parseDeckManifest } from "../../utils/deck-manifest.mjs"
@@ -38,7 +38,7 @@ export function registerUtilityTools(server, context) {
         const { exportPdf } = await import("../pdf-export.mjs")
         const pdfPath = await exportPdf({
           deckRoot: deckPath,
-          deckSlug: deckPath.split("/").pop(),
+          deckSlug: basename(deckPath),
           devServerPort: port,
           outputPath: output_path
         })

@@ -15,6 +15,26 @@ import { useSlideNavigation } from "./use-slide-navigation"
 import { cn } from "./utils"
 
 // =============================================================================
+// CROSS-BROWSER FULLSCREEN HELPERS (Safari/WKWebView need webkit prefix)
+// =============================================================================
+
+function requestFullscreen(el: HTMLElement): Promise<void> {
+  if (el.requestFullscreen) return el.requestFullscreen()
+  if ((el as any).webkitRequestFullscreen) return (el as any).webkitRequestFullscreen()
+  return Promise.reject(new Error("Fullscreen API not supported"))
+}
+
+function exitFullscreen(): Promise<void> {
+  if (document.exitFullscreen) return document.exitFullscreen()
+  if ((document as any).webkitExitFullscreen) return (document as any).webkitExitFullscreen()
+  return Promise.reject(new Error("Fullscreen API not supported"))
+}
+
+function getFullscreenElement(): Element | null {
+  return document.fullscreenElement ?? (document as any).webkitFullscreenElement ?? null
+}
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
@@ -43,7 +63,10 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
   const SlideComponent = slideConfig.component
 
   useEffect(() => {
-    setReady(true)
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => { setReady(true) })
+    })
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   return (
@@ -106,7 +129,7 @@ function ScaledSlideContainer({ children, className, innerRef }: { children: Rea
   const scaledHeight = SLIDE_DIMENSIONS.height * containerScale
 
   return (
-    <div ref={outerRef} className={className} style={{ position: "relative", overflow: "hidden" }}>
+    <div ref={outerRef} className={cn("relative overflow-hidden", className)}>
       <div
         ref={innerRef}
         style={{
@@ -224,6 +247,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
   const [isExporting, setIsExporting] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const slideContainerRef = useRef<HTMLDivElement>(null)
+  const fullscreenTargetRef = useRef<HTMLDivElement>(null)
 
   const {
     currentSlide,
@@ -240,20 +264,34 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
   })
 
   const togglePresentationMode = useCallback(async () => {
-    if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen()
-    } else {
-      await document.exitFullscreen()
+    const entering = !isPresentationMode
+    setIsPresentationMode(entering)
+    if (entering) setViewMode("slide")
+    try {
+      if (entering) {
+        const el = fullscreenTargetRef.current ?? document.documentElement
+        await requestFullscreen(el)
+      } else if (getFullscreenElement()) {
+        await exitFullscreen()
+      }
+    } catch {
+      // Fullscreen API not available — presentation mode still works without it
     }
-  }, [])
+  }, [isPresentationMode])
 
-  // Listen for fullscreen changes
+  // Sync presentation mode when user exits browser fullscreen (e.g. via Escape)
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsPresentationMode(!!document.fullscreenElement)
+      if (!getFullscreenElement()) {
+        setIsPresentationMode(false)
+      }
     }
     document.addEventListener("fullscreenchange", handleFullscreenChange)
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange)
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange)
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange)
+    }
   }, [])
 
   // Calculate scale factor for presentation mode
@@ -316,6 +354,14 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isPresentationMode) {
+        setIsPresentationMode(false)
+        if (getFullscreenElement()) {
+          exitFullscreen().catch(() => {})
+        }
+        return
+      }
+
       if (e.key === "f" || e.key === "F") {
         togglePresentationMode()
         return
@@ -340,10 +386,10 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [advance, goBack, viewMode, togglePresentationMode, isAnnotationMode])
+  }, [advance, goBack, viewMode, togglePresentationMode, isPresentationMode, isAnnotationMode])
 
   return (
-    <div className="min-h-screen w-full bg-neutral-950 text-foreground">
+    <div ref={fullscreenTargetRef} className={cn("min-h-screen w-full text-foreground", isPresentationMode ? "bg-black" : "bg-neutral-950")}>
       <style>{`
         @media print {
           @page {
@@ -520,7 +566,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
               ) : (
                 <ScaledSlideContainer
                   innerRef={slideContainerRef}
-                  className="aspect-video w-full max-w-7xl rounded-xl border border-neutral-800 bg-black shadow-2xl"
+                  className="aspect-video w-full max-w-7xl rounded-xl bg-black shadow-2xl overflow-hidden"
                 >
                   <SlideRenderer
                     slides={slides}

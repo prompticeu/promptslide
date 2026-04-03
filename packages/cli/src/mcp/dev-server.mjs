@@ -69,7 +69,7 @@ export async function ensureDevServer({ root, port }) {
     }
 
     if (serverInstance.child && !serverInstance.child.killed) {
-      serverInstance.child.kill("SIGTERM")
+      serverInstance.child.kill()
     }
     serverInstance = null
   }
@@ -138,7 +138,7 @@ export async function ensureDevServer({ root, port }) {
     cleanupRegistered = true
     const cleanup = () => {
       if (serverInstance && serverInstance.child && !serverInstance.child.killed) {
-        serverInstance.child.kill("SIGTERM")
+        serverInstance.child.kill()
       }
     }
     process.on("exit", cleanup)

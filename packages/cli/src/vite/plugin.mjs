@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from "node:fs"
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, rmSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { bold, dim } from "../utils/ansi.mjs"
+import { readDeckManifest } from "../utils/deck-manifest.mjs"
 
 const VIRTUAL_ENTRY_ID = "virtual:promptslide-entry"
 const RESOLVED_VIRTUAL_ENTRY_ID = "\0" + VIRTUAL_ENTRY_ID
@@ -11,11 +12,6 @@ const VIRTUAL_EMBED_ID = "virtual:promptslide-embed"
 const RESOLVED_VIRTUAL_EMBED_ID = "\0" + VIRTUAL_EMBED_ID
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const FRAMEWORK_SOURCE_ROOT = resolve(__dirname, "../core")
-
-// Error ring buffer — stores recent browser and Vite compilation errors
-// Queryable via GET /__promptslide_errors, clearable via DELETE
-const recentErrors = []
-const MAX_ERRORS = 50
 
 // Inline script that catches module load errors (e.g. missing named exports)
 // and forwards them to the Vite dev server so they appear in terminal logs.
@@ -101,15 +97,10 @@ function getGlobalsCssImport(root) {
   return globalsPath
 }
 
-/**
- * Read and parse deck.json if it exists.
- * Returns null if not found.
- */
+/** Read and normalize deck.json via the shared manifest parser. */
 function readDeckJson(root) {
-  const deckJsonPath = join(root, "deck.json")
-  if (!existsSync(deckJsonPath)) return null
   try {
-    return JSON.parse(readFileSync(deckJsonPath, "utf-8"))
+    return readDeckManifest(root)
   } catch {
     return null
   }
@@ -251,10 +242,6 @@ function getThemeCssImport(root, deckJson) {
   return themeCssPath ? `import "${themeCssPath}"` : ""
 }
 
-function isLegacyHtmlDeck(deckJson) {
-  return Boolean(deckJson?.slides?.some(entry => typeof entry.file === "string" && entry.file.endsWith(".html")))
-}
-
 function hasLegacyApp(root) {
   const appCandidates = [
     "src/App.tsx",
@@ -279,12 +266,31 @@ function getDeckIndexEntryModule(root) {
   }))
 
   return `
-import { StrictMode, createElement } from "react"
+import { StrictMode, createElement, useState } from "react"
 import { createRoot } from "react-dom/client"
 
-const decks = ${JSON.stringify(cards)}
+var initialDecks = ${JSON.stringify(cards)}
 
 function DeckIndex() {
+  var _s = useState(initialDecks)
+  var deckList = _s[0]
+  var setDeckList = _s[1]
+
+  function handleDelete(e, slug, name) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm("Delete \\"" + name + "\\"? This cannot be undone.")) return
+    fetch("/__promptslide_deck", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: slug })
+    }).then(function(res) {
+      if (res.ok) {
+        setDeckList(function(prev) { return prev.filter(function(d) { return d.slug !== slug }) })
+      }
+    }).catch(function() {})
+  }
+
   return createElement("main", {
     style: {
       minHeight: "100vh",
@@ -295,6 +301,7 @@ function DeckIndex() {
       padding: "40px"
     }
   },
+    createElement("style", null, ".deck-card:hover .deck-delete{opacity:1!important}.deck-delete:hover{color:#ef4444!important;border-color:rgba(239,68,68,0.3)!important}"),
     createElement("div", { style: { maxWidth: "1120px", margin: "0 auto" } },
       createElement("div", {
         style: {
@@ -323,7 +330,7 @@ function DeckIndex() {
             fontSize: "14px",
             paddingBottom: "6px"
           }
-        }, decks.length === 1 ? "1 deck" : decks.length + " decks")
+        }, deckList.length === 1 ? "1 deck" : deckList.length + " decks")
       ),
       createElement("div", {
         style: {
@@ -332,48 +339,78 @@ function DeckIndex() {
           gap: "18px"
         }
       },
-        ...decks.map(deck => createElement("a", {
+        ...deckList.map(function(deck) { return createElement("div", {
           key: deck.slug,
-          href: deck.href,
-          style: {
-            textDecoration: "none",
-            color: "inherit",
-            border: "1px solid rgba(255,255,255,0.08)",
-            background: "#17191d",
-            borderRadius: "18px",
-            padding: "20px",
-            minHeight: "180px",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.18)"
-          }
+          className: "deck-card",
+          style: { position: "relative" }
         },
-          createElement("div", null,
+          createElement("a", {
+            href: deck.href,
+            style: {
+              textDecoration: "none",
+              color: "inherit",
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "#17191d",
+              borderRadius: "18px",
+              padding: "20px",
+              minHeight: "180px",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.18)"
+            }
+          },
+            createElement("div", null,
+              createElement("div", {
+                style: {
+                  color: "#8a8f98",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.14em",
+                  fontSize: "11px",
+                  marginBottom: "12px"
+                }
+              }, deck.slug),
+              createElement("h2", { style: { margin: 0, fontSize: "24px", lineHeight: 1.15 } }, deck.name),
+              createElement("p", { style: { margin: "10px 0 0", color: "#b5bcc7", fontSize: "14px", lineHeight: 1.45 } },
+                deck.slides + " slides",
+                deck.theme ? " \\u00b7 theme " + deck.theme : "",
+                deck.transition ? " \\u00b7 " + deck.transition : ""
+              )
+            ),
             createElement("div", {
               style: {
-                color: "#8a8f98",
-                textTransform: "uppercase",
-                letterSpacing: "0.14em",
-                fontSize: "11px",
-                marginBottom: "12px"
+                color: "#d4d4d8",
+                fontSize: "13px",
+                marginTop: "20px"
               }
-            }, deck.slug),
-            createElement("h2", { style: { margin: 0, fontSize: "24px", lineHeight: 1.15 } }, deck.name),
-            createElement("p", { style: { margin: "10px 0 0", color: "#b5bcc7", fontSize: "14px", lineHeight: 1.45 } },
-              deck.slides + " slides",
-              deck.theme ? " · theme " + deck.theme : "",
-              deck.transition ? " · " + deck.transition : ""
-            )
+            }, "Open deck \\u2192")
           ),
-          createElement("div", {
+          createElement("button", {
+            className: "deck-delete",
+            onClick: function(e) { handleDelete(e, deck.slug, deck.name) },
+            title: "Delete deck",
             style: {
-              color: "#d4d4d8",
-              fontSize: "13px",
-              marginTop: "20px"
+              position: "absolute",
+              top: "12px",
+              right: "12px",
+              width: "28px",
+              height: "28px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: "8px",
+              background: "rgba(0,0,0,0.5)",
+              color: "#9ca3af",
+              cursor: "pointer",
+              fontSize: "16px",
+              lineHeight: 1,
+              backdropFilter: "blur(4px)",
+              opacity: 0,
+              transition: "opacity 0.15s, color 0.15s, border-color 0.15s"
             }
-          }, "Open deck →")
-        ))
+          }, "\\u00d7")
+        )})
       )
     )
   )
@@ -462,53 +499,6 @@ function NotFound() {
 
 createRoot(document.getElementById("root")).render(
   createElement(StrictMode, null, createElement(NotFound))
-)
-`
-}
-
-function getLegacyDeckEntryModule(deckSlug) {
-  return `
-import { StrictMode, createElement } from "react"
-import { createRoot } from "react-dom/client"
-
-function LegacyDeckNotice() {
-  return createElement("main", {
-    style: {
-      minHeight: "100vh",
-      display: "grid",
-      placeItems: "center",
-      background: "#111315",
-      color: "#f5f5f5",
-      fontFamily: "ui-sans-serif, system-ui, sans-serif",
-      padding: "32px"
-    }
-  }, createElement("div", {
-    style: {
-      width: "min(760px, 100%)",
-      border: "1px solid rgba(255,255,255,0.08)",
-      background: "#17191d",
-      borderRadius: "18px",
-      padding: "28px 30px"
-    }
-  },
-    createElement("div", {
-      style: {
-        color: "#8a8f98",
-        textTransform: "uppercase",
-        letterSpacing: "0.16em",
-        fontSize: "12px",
-        marginBottom: "10px"
-      }
-    }, "Migration needed"),
-    createElement("h1", { style: { margin: 0, fontSize: "32px", lineHeight: 1.1 } }, ${JSON.stringify(deckSlug)}),
-    createElement("p", { style: { margin: "12px 0 0", color: "#b5bcc7", fontSize: "15px", lineHeight: 1.5 } },
-      "This deck still uses the legacy HTML format. It needs to be migrated to the TSX deck runtime before it can render in the shared app host."
-    )
-  ))
-}
-
-createRoot(document.getElementById("root")).render(
-  createElement(StrictMode, null, createElement(LegacyDeckNotice))
 )
 `
 }
@@ -784,18 +774,18 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         const srcIndex = importerPath ? importerPath.lastIndexOf("/src/") : -1
         if (srcIndex !== -1) {
           const deckRoot = importerPath.slice(0, srcIndex)
-          const base = join(deckRoot, "src", id.slice(2))
-          // If the import already has an extension, use it directly
-          if (/\.\w+$/.test(id.slice(2))) return base
-          // Try common extensions — resolveId must return a concrete file path
-          for (const ext of [".tsx", ".ts", ".jsx", ".js", ".css", ".json"]) {
-            if (existsSync(base + ext)) return base + ext
+          const basePath = join(deckRoot, "src", id.slice(2))
+          // Resolve extension — @/layouts/master → src/layouts/master.tsx
+          const extensions = [".tsx", ".ts", ".jsx", ".js"]
+          for (const ext of extensions) {
+            if (existsSync(basePath + ext)) return basePath + ext
           }
-          // Also check if it's a directory with an index file
-          for (const ext of [".tsx", ".ts", ".jsx", ".js"]) {
-            if (existsSync(join(base, "index" + ext))) return join(base, "index" + ext)
+          // Try as directory with index file
+          for (const ext of extensions) {
+            if (existsSync(join(basePath, `index${ext}`))) return join(basePath, `index${ext}`)
           }
-          return base
+          // Return as-is and let Vite report the error
+          return basePath
         }
       }
     },
@@ -809,9 +799,6 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         if (deckRoot) {
           const deckJson = readDeckJson(deckRoot)
           if (deckJson && deckJson.slides?.length) {
-            if (isLegacyHtmlDeck(deckJson)) {
-              return getLegacyDeckEntryModule(deckSlug || deckJson.slug || "deck")
-            }
             return getDeckJsonEntryModule(deckRoot, deckJson)
           }
           if (hasLegacyApp(deckRoot)) {
@@ -825,9 +812,6 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
 
         const deckJson = readDeckJson(root)
         if (deckJson && deckJson.slides?.length) {
-          if (isLegacyHtmlDeck(deckJson)) {
-            return getLegacyDeckEntryModule(deckJson.slug || "deck")
-          }
           return getDeckJsonEntryModule(root, deckJson)
         }
         if (hasLegacyApp(root)) {
@@ -849,61 +833,6 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     },
 
     configureServer(server) {
-      // Intercept HMR error payloads to capture compilation/transform errors
-      const originalWsSend = server.ws.send.bind(server.ws)
-      server.ws.send = function(payload) {
-        if (payload && payload.type === 'error') {
-          recentErrors.push({
-            message: payload.err?.message || 'Unknown error',
-            stack: payload.err?.stack || '',
-            plugin: payload.err?.plugin || '',
-            source: "vite",
-            timestamp: Date.now()
-          })
-          if (recentErrors.length > MAX_ERRORS) recentErrors.shift()
-        }
-        return originalWsSend(payload)
-      }
-
-      // Pre-middleware: resolve deck-specific asset paths in multi-deck mode
-      // e.g. /assets/logo.svg → /my-deck/assets/logo.svg (based on Referer)
-      server.middlewares.use((req, res, next) => {
-        if (req.method !== "GET") return next()
-        const url = new URL(req.url, "http://localhost")
-        const pathname = url.pathname
-        // Skip internal routes
-        if (pathname.startsWith("/__") || pathname.startsWith("/@") || pathname.startsWith("/node_modules")) return next()
-        // Skip if file exists at workspace root (Vite default behavior)
-        if (existsSync(join(root, pathname))) return next()
-        // Resolve deck from Referer header and try serving from deck directory
-        const slug = getDeckSlugFromReferer(req.headers.referer)
-        if (slug) {
-          const deckRoot = resolveDeckRoot(root, slug)
-          if (deckRoot && deckRoot !== root && existsSync(join(deckRoot, pathname))) {
-            req.url = `/${slug}${pathname}${url.search}`
-          }
-        }
-        next()
-      })
-
-      // Pre-middleware: query/clear error buffer
-      server.middlewares.use((req, res, next) => {
-        if (req.url !== "/__promptslide_errors") return next()
-        if (req.method === "GET") {
-          res.setHeader("Content-Type", "application/json")
-          res.statusCode = 200
-          res.end(JSON.stringify({ errors: recentErrors }))
-          return
-        }
-        if (req.method === "DELETE") {
-          recentErrors.length = 0
-          res.statusCode = 204
-          res.end()
-          return
-        }
-        next()
-      })
-
       // Pre-middleware: receive browser errors and log them to the terminal
       server.middlewares.use((req, res, next) => {
         if (req.method !== "POST" || req.url !== "/__promptslide_error") return next()
@@ -915,8 +844,6 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
             const { message, filename } = JSON.parse(body)
             const location = filename ? ` ${dim(`(${filename})`)}` : ""
             server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, { timestamp: true })
-            recentErrors.push({ message, filename, source: "browser", timestamp: Date.now() })
-            if (recentErrors.length > MAX_ERRORS) recentErrors.shift()
           } catch {}
           res.statusCode = 204
           res.end()
@@ -972,6 +899,48 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         })
       })
 
+      // Pre-middleware: delete deck
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "DELETE" || req.url !== "/__promptslide_deck") return next()
+
+        let body = ""
+        req.on("data", chunk => { body += chunk })
+        req.on("end", () => {
+          try {
+            const { slug } = JSON.parse(body)
+            if (!slug || typeof slug !== "string") {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: "Missing slug" }))
+              return
+            }
+
+            const deckPath = join(root, slug)
+
+            // Safety: refuse to delete root or paths outside it
+            if (deckPath === root || !deckPath.startsWith(root + "/")) {
+              res.statusCode = 403
+              res.end(JSON.stringify({ error: "Refusing to delete." }))
+              return
+            }
+
+            if (!existsSync(deckPath)) {
+              res.statusCode = 404
+              res.end(JSON.stringify({ error: "Deck not found." }))
+              return
+            }
+
+            rmSync(deckPath, { recursive: true, force: true })
+
+            res.setHeader("Content-Type", "application/json")
+            res.statusCode = 200
+            res.end(JSON.stringify({ success: true }))
+          } catch {
+            res.statusCode = 400
+            res.end()
+          }
+        })
+      })
+
       // Pre-middleware: serve /embed route
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, "http://localhost")
@@ -982,6 +951,10 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
 
         const deckSlug = isDeckEmbed ? decodeURIComponent(parts[0]) : null
         const moduleId = buildVirtualId(VIRTUAL_EMBED_ID, [["deck", deckSlug]])
+
+        // Invalidate cached module so it re-reads deck.json (slides may have changed)
+        const mod = server.moduleGraph.getModuleById("\0" + moduleId)
+        if (mod) server.moduleGraph.invalidateModule(mod)
 
         const html = await server.transformIndexHtml(url.pathname, getEmbedHtmlTemplate(moduleId))
         res.setHeader("Content-Type", "text/html")

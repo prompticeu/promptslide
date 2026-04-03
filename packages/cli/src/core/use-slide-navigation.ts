@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import type { NavigationDirection, SlideConfig } from "./types"
 
@@ -120,30 +120,13 @@ export function useSlideNavigation({
     })
   }, [])
 
-  // Use refs for values needed by the auto-advance timer
-  // so the timeout closure always reads fresh values
-  const currentSlideRef = useRef(currentSlide)
-  currentSlideRef.current = currentSlide
-  const slidesRef = useRef(slides)
-  slidesRef.current = slides
-  const onSlideChangeRef = useRef(onSlideChange)
-  onSlideChangeRef.current = onSlideChange
-  const navStatusRef = useRef(navState.status)
-  navStatusRef.current = navState.status
-
-  /** Advance to the next slide. Used both directly and by auto-advance timer. */
   const doAdvanceSlide = useCallback(() => {
-    // Guard: if a transition started while the timer was pending, bail out
-    if (navStatusRef.current === "transitioning") return
-
-    const cs = currentSlideRef.current
-    const sl = slidesRef.current
-    const nextSlide = (cs + 1) % sl.length
+    const nextSlide = (currentSlide + 1) % slides.length
     setNavState({ status: "transitioning", direction: 1 })
     setAnimationStep(0)
     setCurrentSlide(nextSlide)
-    onSlideChangeRef.current?.(nextSlide)
-  }, [])
+    onSlideChange?.(nextSlide)
+  }, [currentSlide, slides.length, onSlideChange])
 
   const advance = useCallback(() => {
     if (navState.status === "transitioning") {
@@ -154,12 +137,11 @@ export function useSlideNavigation({
     const currentTotalSteps = slides[currentSlide]?.steps ?? 0
 
     if (animationStep >= currentTotalSteps) {
-      // All steps already visible — advance to next slide
+      // All steps already visible — advance immediately
       doAdvanceSlide()
     } else {
       // Reveal next step
-      const nextStep = animationStep + 1
-      setAnimationStep(nextStep)
+      setAnimationStep(animationStep + 1)
     }
   }, [navState.status, animationStep, currentSlide, slides, doAdvanceSlide])
 

@@ -11,7 +11,7 @@
  */
 
 import { readFileSync, existsSync } from "node:fs"
-import { join, dirname } from "node:path"
+import { join, dirname, basename } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createServer as createHttpServer } from "node:http"
 import { z } from "zod"
@@ -181,7 +181,7 @@ export function registerPreviewTools(server, context) {
       }
 
       const manifest = parseDeckManifest(readFileSync(manifestPath, "utf-8"))
-      const deckSlug = deckPath.split("/").pop()
+      const deckSlug = basename(deckPath)
 
       // Enrich slides with file info and step counts
       const slides = manifest.slides.map(s => {
