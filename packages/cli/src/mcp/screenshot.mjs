@@ -262,19 +262,31 @@ async function navigateToSlide(page, slideIndex) {
     throw new Error(`Slide compile error: ${existingError.trim()}`)
   }
 
-  // Reset ready signal and navigate — guard against __promptslide being
-  // undefined (React may have unmounted due to an HMR module error)
-  const navError = await page.evaluate((idx) => {
-    document.querySelector("[data-slide-ready]")?.setAttribute("data-slide-ready", "false")
-    if (!window.__promptslide?.goToSlide) {
-      return "Slide runtime not available — the slide may have a compile error that broke the module"
+  // Check if __promptslide exists. If not, the page may be mid-reload
+  // (deck.json changes trigger full-reload). Wait for reload to finish.
+  const hasRuntime = await page.evaluate(() => !!window.__promptslide?.goToSlide)
+  if (!hasRuntime) {
+    console.error("[screenshot] Runtime missing, waiting for page reload to complete...")
+    // Wait for the page to finish loading (full-reload in progress)
+    await page.waitForLoadState("load", { timeout: 15000 }).catch(() => {})
+    await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {})
+
+    // Now wait for the slide runtime to initialize
+    const result = await waitForSlideOrError(page)
+    if (result.status === "error") {
+      throw new Error(`Slide compile error: ${result.message}`)
     }
-    window.__promptslide.goToSlide(idx)
-    return null
-  }, slideIndex)
-  if (navError) {
-    throw new Error(navError)
+    if (result.status === "timeout") {
+      const diagnostics = await getPageDiagnostics(page)
+      throw new Error(`Slide render timed out after reload. ${diagnostics}`)
+    }
   }
+
+  // Reset ready signal and navigate
+  await page.evaluate((idx) => {
+    document.querySelector("[data-slide-ready]")?.setAttribute("data-slide-ready", "false")
+    window.__promptslide.goToSlide(idx)
+  }, slideIndex)
 
   // Wait for any in-flight HMR module fetches to complete
   await page.waitForLoadState("networkidle").catch(() => {})
