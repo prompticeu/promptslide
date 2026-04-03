@@ -510,6 +510,8 @@ export async function captureSlideHtml({ deckRoot, deckSlug, slideId, devServerP
  * @returns {Promise<string>} Base64-encoded PNG
  */
 export async function takeDeckOverview({ deckRoot, deckSlug, devServerPort }) {
+  const MAX_OVERVIEW_SLIDES = 16
+
   const manifestPath = join(deckRoot, "deck.json")
   if (!existsSync(manifestPath)) {
     throw new Error("No deck.json found")
@@ -522,61 +524,67 @@ export async function takeDeckOverview({ deckRoot, deckSlug, devServerPort }) {
     throw new Error("Deck has no slides")
   }
 
-  const b = await getBrowser()
+  if (slideCount > MAX_OVERVIEW_SLIDES) {
+    throw new Error(
+      `Deck has ${slideCount} slides — too many for an overview grid. ` +
+      `Use get_screenshot to capture individual slides instead.`
+    )
+  }
 
-  if (slideCount <= 8) {
-    // Capture each slide individually at smaller scale
+  // Use the embed page to capture each slide, then composite into a grid
+  const { page, key } = await getEmbedPage({ deckSlug, devServerPort, scale: 1 })
+  const release = await acquireLock(key)
+
+  try {
+    const thumbs = []
+    for (let i = 0; i < slideCount; i++) {
+      await navigateToSlide(page, i)
+      const buffer = await page.screenshot({ type: "png" })
+      thumbs.push(buffer)
+    }
+
+    // Composite thumbnails into a grid using a temporary page
+    const b = await getBrowser()
     const thumbWidth = 320
     const thumbHeight = 180
+    const gap = 4
     const cols = Math.min(slideCount, 4)
     const rows = Math.ceil(slideCount / cols)
-    const gridWidth = cols * thumbWidth
-    const gridHeight = rows * thumbHeight
+    const gridWidth = cols * thumbWidth + (cols - 1) * gap
+    const gridHeight = rows * thumbHeight + (rows - 1) * gap
 
-    const page = await b.newPage({
+    const gridPage = await b.newPage({
       viewport: { width: gridWidth, height: gridHeight }
     })
 
     try {
-      // Build an HTML page with all slides as iframes in export mode
-      const iframes = manifest.slides.map((s) => {
-        const slidePath = resolveSlidePath(deckRoot, s.id)
-        return `<iframe src="http://localhost:${devServerPort}/${deckSlug}?export=true&slidePath=${slidePath}" ` +
-          `style="width:${thumbWidth}px;height:${thumbHeight}px;border:1px solid #333;` +
-          `transform-origin:top left;" frameborder="0"></iframe>`
+      // Build grid HTML with base64 images and slide labels
+      const cards = thumbs.map((buf, i) => {
+        const b64 = buf.toString("base64")
+        const slide = manifest.slides[i]
+        const label = slide.title ? `${i + 1}. ${slide.title}` : `${i + 1}. ${slide.id}`
+        return `<div class="card">` +
+          `<img src="data:image/png;base64,${b64}" />` +
+          `<div class="label">${label}</div>` +
+          `</div>`
       }).join("")
 
       const gridHtml = `<!doctype html><html><head><style>
-        body { margin:0; background:#0a0a0a; display:flex; flex-wrap:wrap; }
-        iframe { display:block; }
-      </style></head><body>${iframes}</body></html>`
+        body { margin:0; background:#0a0a0a; display:flex; flex-wrap:wrap; gap:${gap}px; font-family:system-ui,sans-serif; }
+        .card { position:relative; width:${thumbWidth}px; height:${thumbHeight}px; border-radius:4px; overflow:hidden; }
+        .card img { width:100%; height:100%; object-fit:cover; display:block; }
+        .label { position:absolute; bottom:0; left:0; right:0; padding:4px 8px; font-size:11px; color:#fff; background:rgba(0,0,0,0.7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      </style></head><body>${cards}</body></html>`
 
-      await page.setContent(gridHtml, { waitUntil: "networkidle", timeout: 20000 })
-      await page.waitForTimeout(2000) // Wait for iframes to load
+      await gridPage.setContent(gridHtml, { waitUntil: "load" })
+      await gridPage.waitForTimeout(100)
 
-      const buffer = await page.screenshot({ type: "png", fullPage: true })
+      const buffer = await gridPage.screenshot({ type: "png", fullPage: true })
       return buffer.toString("base64")
     } finally {
-      await page.close()
+      await gridPage.close()
     }
-  } else {
-    // For larger decks, use the framework's grid view
-    const page = await b.newPage({
-      viewport: { width: 1280, height: 720 }
-    })
-
-    try {
-      await page.goto(`http://localhost:${devServerPort}/${deckSlug}`, { waitUntil: "networkidle", timeout: 15000 })
-      await page.waitForTimeout(500)
-
-      // Press 'g' to open grid view (keyboard shortcut in SlideDeck)
-      await page.keyboard.press("g")
-      await page.waitForTimeout(500)
-
-      const buffer = await page.screenshot({ type: "png", fullPage: true })
-      return buffer.toString("base64")
-    } finally {
-      await page.close()
-    }
+  } finally {
+    release()
   }
 }

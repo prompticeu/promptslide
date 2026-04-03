@@ -398,6 +398,7 @@ export function registerReadTools(server, context) {
   server.tool(
     "get_deck_overview",
     `Get a thumbnail grid of all slides in the deck as a single base64 PNG image. ` +
+    `Limited to decks with 16 or fewer slides — for larger decks, use get_screenshot on individual slides. ` +
     `Starts the dev server automatically if not already running.`,
     { deck: z.string().optional().describe("Deck slug (optional if only one deck exists)") },
     { readOnlyHint: true, destructiveHint: false },
