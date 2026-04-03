@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "promptslide studio",
-    "app": "source ~/.cargo/env && cd packages/app && bun run tauri:dev",
+    "app": "cd packages/app && bun run tauri:dev",
     "build": "promptslide build",
     "preview": "promptslide preview",
     "lint": "oxlint",

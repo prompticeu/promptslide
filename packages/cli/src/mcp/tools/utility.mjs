@@ -2,6 +2,7 @@
  * MCP Utility tools: export_pdf
  */
 
+import { basename } from "node:path"
 import { z } from "zod"
 
 import { resolveDeckPath } from "../deck-resolver.mjs"
@@ -35,7 +36,7 @@ export function registerUtilityTools(server, context) {
         const { exportPdf } = await import("../pdf-export.mjs")
         const pdfPath = await exportPdf({
           deckRoot: deckPath,
-          deckSlug: deckPath.split("/").pop(),
+          deckSlug: basename(deckPath),
           devServerPort: port,
           outputPath: output_path
         })

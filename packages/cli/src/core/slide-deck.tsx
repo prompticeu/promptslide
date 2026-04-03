@@ -63,7 +63,10 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
   const SlideComponent = slideConfig.component
 
   useEffect(() => {
-    setReady(true)
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => { setReady(true) })
+    })
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   return (
@@ -563,7 +566,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
               ) : (
                 <ScaledSlideContainer
                   innerRef={slideContainerRef}
-                  className="aspect-video w-full max-w-7xl rounded-xl border border-neutral-800 bg-black shadow-2xl"
+                  className="aspect-video w-full max-w-7xl rounded-xl bg-black shadow-2xl overflow-hidden"
                 >
                   <SlideRenderer
                     slides={slides}

@@ -774,7 +774,18 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         const srcIndex = importerPath ? importerPath.lastIndexOf("/src/") : -1
         if (srcIndex !== -1) {
           const deckRoot = importerPath.slice(0, srcIndex)
-          return join(deckRoot, "src", id.slice(2))
+          const basePath = join(deckRoot, "src", id.slice(2))
+          // Resolve extension — @/layouts/master → src/layouts/master.tsx
+          const extensions = [".tsx", ".ts", ".jsx", ".js"]
+          for (const ext of extensions) {
+            if (existsSync(basePath + ext)) return basePath + ext
+          }
+          // Try as directory with index file
+          for (const ext of extensions) {
+            if (existsSync(join(basePath, `index${ext}`))) return join(basePath, `index${ext}`)
+          }
+          // Return as-is and let Vite report the error
+          return basePath
         }
       }
     },
@@ -940,6 +951,10 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
 
         const deckSlug = isDeckEmbed ? decodeURIComponent(parts[0]) : null
         const moduleId = buildVirtualId(VIRTUAL_EMBED_ID, [["deck", deckSlug]])
+
+        // Invalidate cached module so it re-reads deck.json (slides may have changed)
+        const mod = server.moduleGraph.getModuleById("\0" + moduleId)
+        if (mod) server.moduleGraph.invalidateModule(mod)
 
         const html = await server.transformIndexHtml(url.pathname, getEmbedHtmlTemplate(moduleId))
         res.setHeader("Content-Type", "text/html")

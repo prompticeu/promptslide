@@ -63,6 +63,12 @@ function postToHost(type: string, data?: Record<string, unknown>) {
 export function SlideEmbed({ slides, transition, directionalTransition }: SlideEmbedProps) {
   const [scale, setScale] = useState(1)
 
+  // Screenshot mode: show all animations, no transitions
+  const [isScreenshotMode] = useState(() => {
+    if (typeof window === "undefined") return false
+    return new URLSearchParams(window.location.search).get("screenshot") === "true"
+  })
+
   const {
     currentSlide,
     animationStep,
@@ -80,6 +86,19 @@ export function SlideEmbed({ slides, transition, directionalTransition }: SlideE
     baseOnTransitionComplete()
     postToHost("transitionComplete", { currentSlide })
   }, [baseOnTransitionComplete, currentSlide])
+
+  // Render-ready signal: set data-slide-ready after React renders + browser paints.
+  // Uses double-rAF to ensure the browser has committed the frame.
+  // Does NOT wait on document.fonts.ready — external fonts may hang in headless browsers
+  // or when CSS @import is malformed. System font fallbacks render fine for screenshots.
+  const [slideReady, setSlideReady] = useState(false)
+  useEffect(() => {
+    setSlideReady(false)
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => { setSlideReady(true) })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [currentSlide])
 
   // Post slide state to host whenever it changes
   useEffect(() => {
@@ -179,7 +198,7 @@ export function SlideEmbed({ slides, transition, directionalTransition }: SlideE
   }, [])
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-black">
+    <div className="h-screen w-screen overflow-hidden bg-black" data-slide-ready={slideReady ? "true" : "false"}>
       <div
         className="absolute left-1/2 top-1/2 overflow-hidden"
         style={{
@@ -192,12 +211,12 @@ export function SlideEmbed({ slides, transition, directionalTransition }: SlideE
         <SlideRenderer
           slides={slides}
           currentSlide={currentSlide}
-          animationStep={animationStep}
-          totalSteps={totalSteps}
+          animationStep={isScreenshotMode ? (slides[currentSlide]?.steps ?? 0) : animationStep}
+          totalSteps={isScreenshotMode ? (slides[currentSlide]?.steps ?? 0) : totalSteps}
           direction={direction}
-          showAllAnimations={showAllAnimations}
-          transition={transition}
-          directionalTransition={directionalTransition}
+          showAllAnimations={isScreenshotMode || showAllAnimations}
+          transition={isScreenshotMode ? "none" : transition}
+          directionalTransition={isScreenshotMode ? false : directionalTransition}
           onTransitionComplete={onTransitionComplete}
         />
       </div>
