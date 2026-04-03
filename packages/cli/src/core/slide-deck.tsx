@@ -43,13 +43,10 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
   const SlideComponent = slideConfig.component
 
   useEffect(() => {
-    const markReady = () => requestAnimationFrame(() => { setReady(true) })
-    const timeout = setTimeout(markReady, 2000)
-    document.fonts.ready.then(() => {
-      clearTimeout(timeout)
-      markReady()
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => { setReady(true) })
     })
-    return () => clearTimeout(timeout)
+    return () => cancelAnimationFrame(frame)
   }, [])
 
   return (
