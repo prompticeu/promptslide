@@ -20,20 +20,29 @@ fn main() {
             // Only spawn the backend in release builds where there's no beforeDevCommand.
             if !cfg!(debug_assertions) {
                 std::thread::spawn(move || {
+                    let deck_root = dirs::home_dir()
+                        .unwrap_or_default()
+                        .join(".promptslide")
+                        .join("decks");
+
+                    // Use the JS entry point directly — .bin shims are shell
+                    // scripts on Unix and .cmd files on Windows, so neither
+                    // works reliably when invoked via `node`.
+                    let cli_entry = deck_root
+                        .join("node_modules")
+                        .join("promptslide")
+                        .join("src")
+                        .join("index.mjs");
+
                     let child = Command::new("node")
                         .args([
-                            "node_modules/.bin/promptslide",
+                            cli_entry.to_string_lossy().as_ref(),
                             "studio",
                             "--mcp",
                             "--transport=http",
                             "--json",
                         ])
-                        .current_dir(
-                            dirs::home_dir()
-                                .unwrap_or_default()
-                                .join(".promptslide")
-                                .join("decks"),
-                        )
+                        .current_dir(&deck_root)
                         .stdout(std::process::Stdio::piped())
                         .stderr(std::process::Stdio::piped())
                         .spawn();

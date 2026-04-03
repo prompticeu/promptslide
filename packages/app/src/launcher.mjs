@@ -75,8 +75,8 @@ child.on("exit", (code) => {
 })
 
 process.on("SIGINT", () => {
-  child.kill("SIGTERM")
+  child.kill()
 })
 process.on("SIGTERM", () => {
-  child.kill("SIGTERM")
+  child.kill()
 })

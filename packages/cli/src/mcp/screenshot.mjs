@@ -2,13 +2,15 @@
  * Screenshot service for MCP.
  *
  * Uses Playwright to render slides in a headless browser and capture screenshots.
- * Leverages the framework's built-in export mode (?export=true&slidePath=...) which
- * renders a single slide at exact 1280x720 with all animations shown.
+ * Leverages the embed route (/:deckSlug/embed) which loads all slides and exposes
+ * window.__promptslide for fast in-page slide navigation.
  *
  * The browser instance is lazy-initialized and reused across requests.
+ * Slide swaps happen via JS (no page.goto per screenshot), cutting latency from
+ * ~1-3s to ~200-400ms per capture.
  *
- * In the shared host runtime, decks are served via `/:deckSlug`.
- * Export mode is triggered via ?export=true&slidePath=src/slides/slide-name.tsx
+ * Uses CDP Page.captureScreenshot directly for lower per-capture overhead.
+ * Waits on data-slide-ready attribute (fonts + rAF) instead of hardcoded timeouts.
  */
 
 import { readFileSync, existsSync } from "node:fs"
@@ -17,10 +19,14 @@ import { parseDeckManifest } from "../utils/deck-manifest.mjs"
 
 let browser = null
 let browserPromise = null
-let screenshotPage = null
+
+// Persistent embed pages keyed by "{deckSlug}:{port}:{scale}"
+const embedPages = new Map()
+// Mutex locks per page key
+const pageLocks = new Map()
+
+// Persistent page for HTML capture (still uses export route)
 let capturePage = null
-// Simple mutex to serialize access to each reusable page
-let screenshotLock = Promise.resolve()
 let captureLock = Promise.resolve()
 
 function resolveSlidePath(deckRoot, slideId) {
@@ -34,6 +40,18 @@ function resolveSlidePath(deckRoot, slideId) {
     if (existsSync(join(deckRoot, candidate))) return candidate
   }
   return `src/slides/slide-${slideId}.tsx`
+}
+
+/**
+ * Resolve a slide id to its 0-based index in the deck manifest.
+ */
+function resolveSlideIndex(deckRoot, slideId) {
+  const manifestPath = join(deckRoot, "deck.json")
+  if (!existsSync(manifestPath)) return 0
+  const manifest = parseDeckManifest(readFileSync(manifestPath, "utf-8"))
+  const normalized = slideId.replace(/\.(tsx|jsx)$/, "").replace(/^slide-/, "")
+  const index = manifest.slides.findIndex(s => s.id === normalized)
+  return index >= 0 ? index : 0
 }
 
 /**
@@ -61,13 +79,151 @@ async function getBrowser() {
 }
 
 /**
+ * Acquire a mutex lock for a given key. Returns a release function.
+ */
+function acquireLock(key) {
+  const prev = pageLocks.get(key) || Promise.resolve()
+  let release
+  const next = new Promise(r => { release = r })
+  pageLocks.set(key, next)
+  return prev.then(() => release)
+}
+
+/**
+ * Get or create a persistent embed page for a deck.
+ * The embed route loads all slides and exposes window.__promptslide for navigation.
+ */
+async function getEmbedPage({ deckSlug, devServerPort, scale = 1 }) {
+  const key = `${deckSlug}:${devServerPort}:${scale}`
+  const existing = embedPages.get(key)
+  if (existing && !existing.isClosed()) return { page: existing, key }
+
+  const b = await getBrowser()
+  const page = await b.newPage({
+    viewport: { width: 1280, height: 720 },
+    deviceScaleFactor: scale
+  })
+
+  const embedUrl = `http://localhost:${devServerPort}/${deckSlug}/embed?screenshot=true`
+  await page.goto(embedUrl, { waitUntil: "networkidle", timeout: 15000 })
+
+  // Wait for initial render or detect Vite compile errors
+  const result = await waitForSlideOrError(page)
+  if (result.status === "error") {
+    await page.close()
+    throw new Error(`Slide render failed: ${result.message}`)
+  }
+  if (result.status === "timeout") {
+    await page.close()
+    throw new Error("Slide render timed out — the deck may have compile errors or unresolved dependencies")
+  }
+
+  embedPages.set(key, page)
+  return { page, key }
+}
+
+/**
+ * Wait for either the slide to be ready or a Vite error overlay to appear.
+ * Returns "ready" or "error". On error, extracts the message from the overlay.
+ */
+async function waitForSlideOrError(page, timeout = 10000) {
+  const result = await page.evaluate((timeout) => {
+    return new Promise((resolve) => {
+      const deadline = setTimeout(() => resolve({ status: "timeout" }), timeout)
+
+      // Check immediately
+      const check = () => {
+        if (document.querySelector("[data-slide-ready='true']")) {
+          clearTimeout(deadline)
+          return resolve({ status: "ready" })
+        }
+        const overlay = document.querySelector("vite-error-overlay")
+        if (overlay) {
+          clearTimeout(deadline)
+          const root = overlay.shadowRoot
+          const msg = root?.querySelector(".message-body")?.textContent
+            || root?.querySelector(".message")?.textContent
+            || "Unknown Vite error"
+          return resolve({ status: "error", message: msg.trim() })
+        }
+      }
+
+      check()
+
+      // Observe DOM for either signal
+      const observer = new MutationObserver(check)
+      observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true })
+
+      // Clean up on resolve
+      const origResolve = resolve
+      resolve = (val) => { observer.disconnect(); origResolve(val) }
+    })
+  }, timeout)
+
+  return result
+}
+
+/**
+ * Navigate to a slide index within the embed page and wait for render.
+ *
+ * Waits for any pending Vite HMR updates to land before capturing.
+ * When the agent edits a file and immediately calls get_screenshot,
+ * Vite pushes an HMR update via websocket. We reset the ready signal,
+ * wait for network to settle (HMR module fetches), then wait for the
+ * component to re-render and signal readiness.
+ *
+ * If a Vite compile error occurs (syntax error, missing import, etc.),
+ * detects the error overlay and throws with the error message instead
+ * of hanging until timeout.
+ */
+async function navigateToSlide(page, slideIndex) {
+  // Clear any previous Vite error overlay and reset ready signal
+  await page.evaluate((idx) => {
+    document.querySelector("vite-error-overlay")?.remove()
+    document.querySelector("[data-slide-ready]")?.setAttribute("data-slide-ready", "false")
+    window.__promptslide.goToSlide(idx)
+  }, slideIndex)
+
+  // Wait for any in-flight HMR module fetches to complete
+  await page.waitForLoadState("networkidle").catch(() => {})
+
+  // Race: slide renders successfully vs Vite error overlay appears
+  const result = await waitForSlideOrError(page)
+
+  if (result.status === "error") {
+    throw new Error(`Slide render failed: ${result.message}`)
+  }
+  if (result.status === "timeout") {
+    throw new Error("Slide render timed out — the slide may have an infinite loop or unresolved dependency")
+  }
+}
+
+/**
+ * Capture a screenshot using CDP directly for lower overhead.
+ * Returns a base64-encoded PNG string.
+ */
+async function cdpScreenshot(page) {
+  const cdp = await page.context().newCDPSession(page)
+  try {
+    const { data } = await cdp.send("Page.captureScreenshot", {
+      format: "png",
+      clip: { x: 0, y: 0, width: 1280, height: 720, scale: 1 }
+    })
+    return data
+  } finally {
+    await cdp.detach()
+  }
+}
+
+/**
  * Take a screenshot of a single slide.
  *
- * Uses the framework's export mode which renders at exact 1280x720
- * with all animations visible and no UI chrome.
+ * Uses the embed route with persistent page + JS-based slide navigation.
+ * Waits for data-slide-ready (fonts + rAF) instead of hardcoded timeouts.
+ * Uses CDP Page.captureScreenshot for lower overhead.
  *
  * @param {Object} options
- * @param {string} options.deckRoot - Deck directory path (specific deck, e.g. ~/.promptslide/decks/my-pitch)
+ * @param {string} options.deckRoot - Deck directory path (specific deck)
  * @param {string} options.deckSlug - Deck slug for URL routing
  * @param {string} options.slideId - Slide id (e.g. "hero" or "slide-hero")
  * @param {number} options.devServerPort - Vite dev server port
@@ -75,72 +231,23 @@ async function getBrowser() {
  * @returns {Promise<string>} Base64-encoded PNG
  */
 export async function takeScreenshot({ deckRoot, deckSlug, slideId, devServerPort, scale = 1 }) {
-  const b = await getBrowser()
-  const slidePath = resolveSlidePath(deckRoot, slideId)
-  const url = `http://localhost:${devServerPort}/${deckSlug}?export=true&slidePath=${slidePath}`
+  const slideIndex = resolveSlideIndex(deckRoot, slideId)
+  const { page, key } = await getEmbedPage({ deckSlug, devServerPort, scale })
 
-  // Non-default scale: create a fresh page (no contention)
-  if (scale !== 1) {
-    const page = await b.newPage({
-      viewport: { width: 1280, height: 720 },
-      deviceScaleFactor: scale
-    })
-    try {
-      await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
-      await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
-      await page.waitForTimeout(200)
-      const exportEl = await page.$("[data-export-ready]")
-      const buffer = exportEl
-        ? await exportEl.screenshot({ type: "png" })
-        : await page.screenshot({ type: "png" })
-      return buffer.toString("base64")
-    } finally {
-      await page.close()
-    }
-  }
-
-  // Scale=1: reuse page with mutex to prevent concurrent navigation
-  let resolve
-  const prev = screenshotLock
-  screenshotLock = new Promise(r => { resolve = r })
-
-  await prev // wait for previous screenshot to finish
-
+  const release = await acquireLock(key)
   try {
-    if (!screenshotPage || screenshotPage.isClosed()) {
-      screenshotPage = await b.newPage({
-        viewport: { width: 1280, height: 720 },
-        deviceScaleFactor: 1
-      })
-    }
-    const page = screenshotPage
-
-    await page.evaluate(() => {
-      const el = document.querySelector("[data-export-ready]")
-      if (el) el.setAttribute("data-export-ready", "false")
-    }).catch(() => {})
-
-    await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
-    await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
-    await page.waitForTimeout(200)
-
-    const exportEl = await page.$("[data-export-ready]")
-    const buffer = exportEl
-      ? await exportEl.screenshot({ type: "png" })
-      : await page.screenshot({ type: "png" })
-
-    return buffer.toString("base64")
+    await navigateToSlide(page, slideIndex)
+    return await cdpScreenshot(page)
   } finally {
-    resolve()
+    release()
   }
 }
 
 /**
  * Capture a slide's rendered DOM as self-contained HTML.
  *
- * Navigates to the export route, waits for render, then extracts the
- * final DOM with all stylesheets inlined. Scripts are stripped since
- * the output is rendered as static content inside the MCP App widget.
+ * Still uses the export route (per-slide) since it needs a clean single-slide DOM
+ * without the embed shell. Uses font-ready signal instead of hardcoded timeout.
  *
  * @param {Object} options
  * @param {string} options.deckRoot - Deck directory path
@@ -161,43 +268,75 @@ export async function captureSlideHtml({ deckRoot, deckSlug, slideId, devServerP
   await prev
 
   try {
-  if (!capturePage || capturePage.isClosed()) {
-    capturePage = await b.newPage({
-      viewport: { width: 1280, height: 720 },
-      deviceScaleFactor: 1
-    })
-  }
-  const page = capturePage
-
-  await page.evaluate(() => {
-    const el = document.querySelector("[data-export-ready]")
-    if (el) el.setAttribute("data-export-ready", "false")
-  }).catch(() => {})
-
-  await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
-  await page.waitForSelector("[data-export-ready='true']", { timeout: 10000 })
-  await page.waitForTimeout(200)
-
-  const html = await page.evaluate(() => {
-    const styles = []
-    for (const sheet of document.styleSheets) {
-      try {
-        const rules = []
-        for (const rule of sheet.cssRules) rules.push(rule.cssText)
-        styles.push(rules.join("\n"))
-      } catch {}
+    if (!capturePage || capturePage.isClosed()) {
+      capturePage = await b.newPage({
+        viewport: { width: 1280, height: 720 },
+        deviceScaleFactor: 1
+      })
     }
-    const el = document.querySelector("[data-export-ready]")
-    if (!el) return null
-    return `<!DOCTYPE html>
+    const page = capturePage
+
+    await page.evaluate(() => {
+      const el = document.querySelector("[data-export-ready]")
+      if (el) el.setAttribute("data-export-ready", "false")
+    }).catch(() => {})
+
+    await page.goto(url, { waitUntil: "networkidle", timeout: 15000 })
+
+    // Race: export view renders vs Vite error overlay
+    const exportResult = await page.evaluate((timeout) => {
+      return new Promise((resolve) => {
+        const deadline = setTimeout(() => resolve({ status: "timeout" }), timeout)
+        const check = () => {
+          if (document.querySelector("[data-export-ready='true']")) {
+            clearTimeout(deadline)
+            return resolve({ status: "ready" })
+          }
+          const overlay = document.querySelector("vite-error-overlay")
+          if (overlay) {
+            clearTimeout(deadline)
+            const root = overlay.shadowRoot
+            const msg = root?.querySelector(".message-body")?.textContent
+              || root?.querySelector(".message")?.textContent
+              || "Unknown Vite error"
+            return resolve({ status: "error", message: msg.trim() })
+          }
+        }
+        check()
+        const observer = new MutationObserver(check)
+        observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true })
+        const origResolve = resolve
+        resolve = (val) => { observer.disconnect(); origResolve(val) }
+      })
+    }, 10000)
+
+    if (exportResult.status === "error") {
+      throw new Error(`Slide render failed: ${exportResult.message}`)
+    }
+    if (exportResult.status === "timeout") {
+      throw new Error("Slide render timed out — the slide may have compile errors or unresolved dependencies")
+    }
+
+    const html = await page.evaluate(() => {
+      const styles = []
+      for (const sheet of document.styleSheets) {
+        try {
+          const rules = []
+          for (const rule of sheet.cssRules) rules.push(rule.cssText)
+          styles.push(rules.join("\n"))
+        } catch {}
+      }
+      const el = document.querySelector("[data-export-ready]")
+      if (!el) return null
+      return `<!DOCTYPE html>
 <html lang="en" class="${document.documentElement.className}">
 <head><meta charset="UTF-8"><style>${styles.join("\n")}</style>
 <style>html,body{margin:0;padding:0;overflow:hidden;width:1280px;height:720px;background:transparent}</style></head>
 <body>${el.outerHTML}</body></html>`
-  })
+    })
 
-  if (!html) throw new Error("Export element not found")
-  return html
+    if (!html) throw new Error("Export element not found")
+    return html
   } finally {
     resolve()
   }

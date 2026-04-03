@@ -4,7 +4,7 @@
  */
 
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs"
-import { join } from "node:path"
+import { join, basename } from "node:path"
 import { z } from "zod"
 
 import { parseDeckManifest } from "../../utils/deck-manifest.mjs"
@@ -337,7 +337,7 @@ export function registerReadTools(server, context) {
         const { takeScreenshot } = await import("../screenshot.mjs")
         const base64 = await takeScreenshot({
           deckRoot: deckPath,
-          deckSlug: deckPath.split("/").pop(),
+          deckSlug: basename(deckPath),
           slideId: slide,
           devServerPort: port,
           scale: scale || 1
@@ -378,7 +378,7 @@ export function registerReadTools(server, context) {
         const { captureSlideHtml } = await import("../screenshot.mjs")
         const html = await captureSlideHtml({
           deckRoot: deckPath,
-          deckSlug: deckPath.split("/").pop(),
+          deckSlug: basename(deckPath),
           slideId: slide,
           devServerPort: port
         })
@@ -409,7 +409,7 @@ export function registerReadTools(server, context) {
         const port = await ensureDevServer({ root: deckRoot })
 
         const { takeDeckOverview } = await import("../screenshot.mjs")
-        const base64 = await takeDeckOverview({ deckRoot: deckPath, deckSlug: deckPath.split("/").pop(), devServerPort: port })
+        const base64 = await takeDeckOverview({ deckRoot: deckPath, deckSlug: basename(deckPath), devServerPort: port })
         return { content: [{ type: "image", data: base64, mimeType: "image/png" }] }
       } catch (err) {
         return { content: [{ type: "text", text: JSON.stringify({ error: `Overview failed: ${err.message}` }) }] }
