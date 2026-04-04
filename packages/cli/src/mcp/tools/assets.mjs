@@ -142,11 +142,7 @@ export function registerAssetTools(server, context) {
       }
 
       try {
-        const orgSlug = auth.organizationSlug || "personal"
-        const uniqueId = randomUUID()
-        const uploadSlug = `${orgSlug}/mcp-assets/${uniqueId}`
-
-        const tokens = await requestUploadTokens(uploadSlug, [
+        const tokens = await requestUploadTokens("mcp-assets", [
           { path: targetPath, contentType: content_type, size }
         ], auth)
 
