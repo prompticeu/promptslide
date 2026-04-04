@@ -440,7 +440,7 @@ export function registerAssetTools(server, context) {
 
       pendingUploads.delete(upload_id)
 
-      const { deckSlug, deckPath, assetSlug, filename, contentType } = pending
+      const { deckSlug, deckPath, assetSlug, filename, contentType, clientToken } = pending
       const importPath = `@/assets/${target_path}`
       const varName = toVarName(target_path)
 
@@ -449,19 +449,27 @@ export function registerAssetTools(server, context) {
         : "src/assets/"
 
       // Optionally download to local deck
+      let saveError = null
       if (save_locally) {
-        try {
-          const assetsDir = join(deckPath, "src", "assets")
-          const fullTarget = join(assetsDir, target_path)
-          if (fullTarget.startsWith(assetsDir)) {
+        const assetsDir = join(deckPath, "src", "assets")
+        const fullTarget = join(assetsDir, target_path)
+        if (!fullTarget.startsWith(assetsDir)) {
+          saveError = "Path traversal not allowed"
+        } else {
+          try {
             mkdirSync(dirname(fullTarget), { recursive: true })
-            const resp = await fetch(blob_url, { signal: AbortSignal.timeout(60_000) })
+            const resp = await fetch(blob_url, {
+              headers: clientToken ? { "Authorization": `Bearer ${clientToken}` } : {},
+              signal: AbortSignal.timeout(60_000)
+            })
             if (resp.ok) {
               writeFileSync(fullTarget, Buffer.from(await resp.arrayBuffer()))
+            } else {
+              saveError = `Download failed: HTTP ${resp.status} — blob may be private. Try import_from_url with a public URL instead.`
             }
+          } catch (err) {
+            saveError = `Download failed: ${err.message}`
           }
-        } catch {
-          // Non-fatal — local save is optional
         }
       }
 
@@ -493,7 +501,8 @@ export function registerAssetTools(server, context) {
                 importPath,
                 importStatement: `import ${varName} from "${importPath}"`,
                 usage: `<img src={${varName}} />`,
-                message: `Asset uploaded and published as ${assetSlug} (v${result.version}). Import it in your slide to use.`
+                message: `Asset uploaded and published as ${assetSlug} (v${result.version}). Import it in your slide to use.`,
+                ...(saveError && { save_locally_error: saveError })
               })
             }]
           }
@@ -511,7 +520,8 @@ export function registerAssetTools(server, context) {
             importPath,
             importStatement: `import ${varName} from "${importPath}"`,
             usage: `<img src={${varName}} />`,
-            message: `Upload confirmed. Import it in your slide to use.`
+            message: `Upload confirmed. Import it in your slide to use.`,
+            ...(saveError && { save_locally_error: saveError })
           })
         }]
       }
