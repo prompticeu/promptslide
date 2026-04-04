@@ -141,7 +141,11 @@ export function registerAssetTools(server, context) {
       }
 
       try {
-        const tokens = await requestUploadTokens("mcp-asset-upload", [
+        const orgSlug = auth.organizationSlug || "personal"
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        const uploadSlug = `${orgSlug}/mcp-assets/${uniqueId}`
+
+        const tokens = await requestUploadTokens(uploadSlug, [
           { path: targetPath, contentType: content_type, size }
         ], auth)
 
