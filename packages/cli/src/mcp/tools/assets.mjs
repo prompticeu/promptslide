@@ -15,6 +15,7 @@
 
 import { existsSync, unlinkSync, readdirSync, statSync, mkdirSync, writeFileSync } from "node:fs"
 import { join, basename, extname, dirname } from "node:path"
+import { randomUUID } from "node:crypto"
 import { z } from "zod"
 
 import { resolveDeckPath } from "../deck-resolver.mjs"
@@ -142,7 +143,7 @@ export function registerAssetTools(server, context) {
 
       try {
         const orgSlug = auth.organizationSlug || "personal"
-        const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        const uniqueId = randomUUID()
         const uploadSlug = `${orgSlug}/mcp-assets/${uniqueId}`
 
         const tokens = await requestUploadTokens(uploadSlug, [
@@ -161,7 +162,7 @@ export function registerAssetTools(server, context) {
         const uploadUrl = `https://blob.vercel-storage.com/${pathname}`
 
         // Store pending upload for confirm step
-        const uploadId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+        const uploadId = randomUUID()
         pendingUploads.set(uploadId, { targetPath, deckPath, clientToken })
 
         return {
