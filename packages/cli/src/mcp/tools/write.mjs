@@ -79,6 +79,10 @@ export function registerWriteTools(server, context) {
       const deckSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
       const deckPath = join(deckRoot, deckSlug)
 
+      if (existsSync(join(deckPath, "deck.json"))) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Deck "${deckSlug}" already exists. Use update_deck to modify it, or choose a different name/slug.` }) }], isError: true }
+      }
+
       // Create directory structure
       const dirs = ["src/slides", "src/layouts", "src/components", "themes", "assets"]
       for (const dir of dirs) {
