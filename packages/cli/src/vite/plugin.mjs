@@ -1,14 +1,12 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+
 import { bold, dim } from "../utils/ansi.mjs"
 
 const VIRTUAL_ENTRY_ID = "virtual:promptslide-entry"
-const RESOLVED_VIRTUAL_ENTRY_ID = "\0" + VIRTUAL_ENTRY_ID
 const VIRTUAL_EXPORT_ID = "virtual:promptslide-export"
-const RESOLVED_VIRTUAL_EXPORT_ID = "\0" + VIRTUAL_EXPORT_ID
 const VIRTUAL_EMBED_ID = "virtual:promptslide-embed"
-const RESOLVED_VIRTUAL_EMBED_ID = "\0" + VIRTUAL_EMBED_ID
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const FRAMEWORK_SOURCE_ROOT = resolve(__dirname, "../core")
 
@@ -240,30 +238,26 @@ const themeMod = await import("${themeModulePath}")
 }
 
 function getThemeCssImport(root, deckJson) {
-  const themeCssPath = deckJson?.theme && existsSync(join(root, "themes", `${deckJson.theme}.css`))
-    ? `${root}/themes/${deckJson.theme}.css`
-    : null
+  const themeCssPath =
+    deckJson?.theme && existsSync(join(root, "themes", `${deckJson.theme}.css`))
+      ? `${root}/themes/${deckJson.theme}.css`
+      : null
   return themeCssPath ? `import "${themeCssPath}"` : ""
 }
 
 function isLegacyHtmlDeck(deckJson) {
-  return Boolean(deckJson?.slides?.some(entry => typeof entry.file === "string" && entry.file.endsWith(".html")))
+  return Boolean(
+    deckJson?.slides?.some(entry => typeof entry.file === "string" && entry.file.endsWith(".html"))
+  )
 }
 
 function hasLegacyApp(root) {
-  const appCandidates = [
-    "src/App.tsx",
-    "src/App.jsx",
-    "src/App.ts",
-    "src/App.js"
-  ]
-  const globalsCandidates = [
-    "src/globals.css",
-    "src/globals.scss",
-    "src/globals.sass"
-  ]
-  return appCandidates.some(candidate => existsSync(join(root, candidate))) &&
+  const appCandidates = ["src/App.tsx", "src/App.jsx", "src/App.ts", "src/App.js"]
+  const globalsCandidates = ["src/globals.css", "src/globals.scss", "src/globals.sass"]
+  return (
+    appCandidates.some(candidate => existsSync(join(root, candidate))) &&
     globalsCandidates.some(candidate => existsSync(join(root, candidate)))
+  )
 }
 
 function getDeckIndexEntryModule(root) {
@@ -835,7 +829,10 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
       }
       if (base === VIRTUAL_EXPORT_ID) {
         const deckRoot = resolveDeckRoot(root, params.get("deck")) || root
-        return getExportEntryModule(deckRoot, params.get("slidePath") || getDefaultSlidePath(deckRoot))
+        return getExportEntryModule(
+          deckRoot,
+          params.get("slidePath") || getDefaultSlidePath(deckRoot)
+        )
       }
       if (base === VIRTUAL_EMBED_ID) {
         const deckRoot = resolveDeckRoot(root, params.get("deck")) || root
@@ -849,12 +846,16 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         if (req.method !== "POST" || req.url !== "/__promptslide_error") return next()
 
         let body = ""
-        req.on("data", chunk => { body += chunk })
+        req.on("data", chunk => {
+          body += chunk
+        })
         req.on("end", () => {
           try {
             const { message, filename } = JSON.parse(body)
             const location = filename ? ` ${dim(`(${filename})`)}` : ""
-            server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, { timestamp: true })
+            server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, {
+              timestamp: true
+            })
           } catch {}
           res.statusCode = 204
           res.end()
@@ -889,7 +890,9 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         if (req.method !== "POST" || req.url !== "/__promptslide_annotations") return next()
 
         let body = ""
-        req.on("data", chunk => { body += chunk })
+        req.on("data", chunk => {
+          body += chunk
+        })
         req.on("end", () => {
           try {
             const data = JSON.parse(body)
@@ -931,6 +934,32 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         res.end(html)
       })
 
+      // Pre-middleware: PDF export API — generates PDF via Playwright (no print dialog)
+      server.middlewares.use(async (req, res, next) => {
+        const match = req.url?.match(/^\/api\/export\/(.+)\.pdf$/)
+        if (!match) return next()
+
+        const deckSlug = decodeURIComponent(match[1])
+        const port = server.httpServer.address()?.port
+        if (!port) {
+          res.writeHead(500, { "Content-Type": "application/json" })
+          res.end(JSON.stringify({ error: "Dev server port not available" }))
+          return
+        }
+
+        try {
+          const { exportPdfBuffer } = await import("../mcp/pdf-export.mjs")
+          const pdfBuffer = await exportPdfBuffer({ deckSlug, devServerPort: port })
+          res.setHeader("Content-Type", "application/pdf")
+          res.setHeader("Content-Disposition", `attachment; filename="${deckSlug}.pdf"`)
+          res.writeHead(200)
+          res.end(pdfBuffer)
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" })
+          res.end(JSON.stringify({ error: err.message }))
+        }
+      })
+
       // Pre-middleware: intercept export URLs before Vite's SPA fallback rewrites them
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, "http://localhost")
@@ -950,17 +979,17 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         res.end(html)
       })
 
-      server.watcher.on("change", (filePath) => {
+      server.watcher.on("change", filePath => {
         if (filePath.startsWith(root) && filePath.endsWith("/deck.json")) {
           server.ws.send({ type: "full-reload" })
         }
       })
-      server.watcher.on("add", (filePath) => {
+      server.watcher.on("add", filePath => {
         if (filePath.startsWith(root) && filePath.endsWith("/deck.json")) {
           server.ws.send({ type: "full-reload" })
         }
       })
-      server.watcher.on("unlink", (filePath) => {
+      server.watcher.on("unlink", filePath => {
         if (filePath.startsWith(root) && filePath.endsWith("/deck.json")) {
           server.ws.send({ type: "full-reload" })
         }

@@ -1,0 +1,6 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for the PromptSlide app",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:webview:allow-print", "shell:allow-open", "process:default"]
+}
