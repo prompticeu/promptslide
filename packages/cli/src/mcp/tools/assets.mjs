@@ -61,7 +61,53 @@ function toVarName(filename) {
 }
 
 export function registerAssetTools(server, context) {
-  const { deckRoot } = context
+  const { deckRoot, uploadEndpoint } = context
+
+  // ─── get_upload_endpoint ───
+  server.tool(
+    "get_upload_endpoint",
+    `Get the HTTP upload endpoint URL for direct binary file uploads. ` +
+    `Agents that can execute code (curl, Python requests, etc.) can POST files directly ` +
+    `instead of using MCP tool arguments. This is the simplest way to upload generated images, ` +
+    `videos, or other binary assets. Returns null if the MCP server is running in stdio mode (local only).`,
+    {
+      deck: z.string().optional().describe("Deck slug (optional if only one deck exists)")
+    },
+    { readOnlyHint: true },
+    async ({ deck }) => {
+      if (!uploadEndpoint) {
+        return {
+          content: [{
+            type: "text",
+            text: JSON.stringify({
+              endpoint: null,
+              message: "HTTP upload not available in stdio mode. Use import_asset with a local file path instead."
+            })
+          }]
+        }
+      }
+
+      // Validate deck exists
+      try {
+        resolveDeckPath(deckRoot, deck)
+      } catch (err) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
+      }
+
+      const deckParam = deck ? `&deck=${encodeURIComponent(deck)}` : ""
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            endpoint: uploadEndpoint,
+            method: "POST",
+            example: `curl -X POST "${uploadEndpoint}?path=images/hero.png${deckParam}" --data-binary @/tmp/hero.png -H "Content-Type: image/png"`,
+            message: `POST binary data to this URL with ?path=<target_path> query parameter. The file will be saved to src/assets/<target_path>.`
+          })
+        }]
+      }
+    }
+  )
 
   // ─── import_asset ───
   server.tool(
