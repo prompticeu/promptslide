@@ -35,6 +35,7 @@ export function createViteConfig({ cwd, mode = "development" }) {
     appType: "custom",
     plugins: [react(), promptslidePlugin({ root: cwd })],
     resolve: {
+      dedupe: ["react", "react-dom"],
       alias: {
         promptslide: promptslidePath,
         // CSS @import "tailwindcss" → resolved from CLI package
@@ -59,7 +60,15 @@ export function createViteConfig({ cwd, mode = "development" }) {
     // esbuild aliases ensure pre-bundling works regardless of Vite root location.
     optimizeDeps: {
       entries: [],
-      include: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "react-dom/client"],
+      include: [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "react/jsx-dev-runtime",
+        "react-dom/client",
+        "framer-motion",
+        "lucide-react"
+      ],
       esbuildOptions: {
         resolveExtensions: [".mjs", ".js", ".ts", ".jsx", ".tsx", ".json"],
         nodePaths: [resolve(cliRoot, "node_modules")],

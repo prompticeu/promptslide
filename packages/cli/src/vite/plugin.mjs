@@ -1,15 +1,13 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, rmSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+
 import { bold, dim } from "../utils/ansi.mjs"
 import { readDeckManifest } from "../utils/deck-manifest.mjs"
 
 const VIRTUAL_ENTRY_ID = "virtual:promptslide-entry"
-const RESOLVED_VIRTUAL_ENTRY_ID = "\0" + VIRTUAL_ENTRY_ID
 const VIRTUAL_EXPORT_ID = "virtual:promptslide-export"
-const RESOLVED_VIRTUAL_EXPORT_ID = "\0" + VIRTUAL_EXPORT_ID
 const VIRTUAL_EMBED_ID = "virtual:promptslide-embed"
-const RESOLVED_VIRTUAL_EMBED_ID = "\0" + VIRTUAL_EMBED_ID
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const FRAMEWORK_SOURCE_ROOT = resolve(__dirname, "../core")
 
@@ -236,26 +234,20 @@ const themeMod = await import("${themeModulePath}")
 }
 
 function getThemeCssImport(root, deckJson) {
-  const themeCssPath = deckJson?.theme && existsSync(join(root, "themes", `${deckJson.theme}.css`))
-    ? `${root}/themes/${deckJson.theme}.css`
-    : null
+  const themeCssPath =
+    deckJson?.theme && existsSync(join(root, "themes", `${deckJson.theme}.css`))
+      ? `${root}/themes/${deckJson.theme}.css`
+      : null
   return themeCssPath ? `import "${themeCssPath}"` : ""
 }
 
 function hasLegacyApp(root) {
-  const appCandidates = [
-    "src/App.tsx",
-    "src/App.jsx",
-    "src/App.ts",
-    "src/App.js"
-  ]
-  const globalsCandidates = [
-    "src/globals.css",
-    "src/globals.scss",
-    "src/globals.sass"
-  ]
-  return appCandidates.some(candidate => existsSync(join(root, candidate))) &&
+  const appCandidates = ["src/App.tsx", "src/App.jsx", "src/App.ts", "src/App.js"]
+  const globalsCandidates = ["src/globals.css", "src/globals.scss", "src/globals.sass"]
+  return (
+    appCandidates.some(candidate => existsSync(join(root, candidate))) &&
     globalsCandidates.some(candidate => existsSync(join(root, candidate)))
+  )
 }
 
 function getDeckIndexEntryModule(root) {
@@ -824,7 +816,10 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
       }
       if (base === VIRTUAL_EXPORT_ID) {
         const deckRoot = resolveDeckRoot(root, params.get("deck")) || root
-        return getExportEntryModule(deckRoot, params.get("slidePath") || getDefaultSlidePath(deckRoot))
+        return getExportEntryModule(
+          deckRoot,
+          params.get("slidePath") || getDefaultSlidePath(deckRoot)
+        )
       }
       if (base === VIRTUAL_EMBED_ID) {
         const deckRoot = resolveDeckRoot(root, params.get("deck")) || root
@@ -833,21 +828,79 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     },
 
     configureServer(server) {
-      // Pre-middleware: receive browser errors and log them to the terminal
+      // Error buffer keyed by deck slug ("_global" for unknown deck)
+      const MAX_ERRORS = 50
+      const errorBuffer = new Map() // slug → [{ message, filename, timestamp }]
+
+      function pushError(slug, entry) {
+        const key = slug || "_global"
+        if (!errorBuffer.has(key)) errorBuffer.set(key, [])
+        const buf = errorBuffer.get(key)
+        buf.push(entry)
+        while (buf.length > MAX_ERRORS) buf.shift()
+      }
+
+      function getErrors(slug) {
+        if (slug) return errorBuffer.get(slug) || []
+        // No slug → return all errors merged
+        return [...errorBuffer.values()].flat()
+      }
+
+      function clearErrors(slug) {
+        if (slug) {
+          errorBuffer.delete(slug)
+        } else {
+          errorBuffer.clear()
+        }
+      }
+
+      // Pre-middleware: receive browser errors, log + buffer them
       server.middlewares.use((req, res, next) => {
         if (req.method !== "POST" || req.url !== "/__promptslide_error") return next()
 
         let body = ""
-        req.on("data", chunk => { body += chunk })
+        req.on("data", chunk => {
+          body += chunk
+        })
         req.on("end", () => {
           try {
             const { message, filename } = JSON.parse(body)
             const location = filename ? ` ${dim(`(${filename})`)}` : ""
-            server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, { timestamp: true })
+            server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, {
+              timestamp: true
+            })
+
+            // Infer deck slug from the referer URL path (e.g. /my-deck → "my-deck")
+            const deckSlug = getDeckSlugFromReferer(req.headers.referer)
+            pushError(deckSlug, { message, filename: filename || null, timestamp: Date.now() })
           } catch {}
           res.statusCode = 204
           res.end()
         })
+      })
+
+      // Pre-middleware: GET/DELETE /__promptslide_errors?deck=<slug>
+      server.middlewares.use((req, res, next) => {
+        const parsed = new URL(req.url, "http://localhost")
+        if (parsed.pathname !== "/__promptslide_errors") return next()
+        const deckSlug = parsed.searchParams.get("deck") || null
+
+        if (req.method === "GET") {
+          const errors = getErrors(deckSlug)
+          res.setHeader("Content-Type", "application/json")
+          res.statusCode = 200
+          res.end(JSON.stringify({ errors }))
+          return
+        }
+
+        if (req.method === "DELETE") {
+          clearErrors(deckSlug)
+          res.statusCode = 204
+          res.end()
+          return
+        }
+
+        next()
       })
 
       // Pre-middleware: read annotations
@@ -878,7 +931,9 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         if (req.method !== "POST" || req.url !== "/__promptslide_annotations") return next()
 
         let body = ""
-        req.on("data", chunk => { body += chunk })
+        req.on("data", chunk => {
+          body += chunk
+        })
         req.on("end", () => {
           try {
             const data = JSON.parse(body)
@@ -904,7 +959,9 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         if (req.method !== "DELETE" || req.url !== "/__promptslide_deck") return next()
 
         let body = ""
-        req.on("data", chunk => { body += chunk })
+        req.on("data", chunk => {
+          body += chunk
+        })
         req.on("end", () => {
           try {
             const { slug } = JSON.parse(body)
@@ -981,17 +1038,17 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         res.end(html)
       })
 
-      server.watcher.on("change", (filePath) => {
+      server.watcher.on("change", filePath => {
         if (filePath.startsWith(root) && filePath.endsWith("/deck.json")) {
           server.ws.send({ type: "full-reload" })
         }
       })
-      server.watcher.on("add", (filePath) => {
+      server.watcher.on("add", filePath => {
         if (filePath.startsWith(root) && filePath.endsWith("/deck.json")) {
           server.ws.send({ type: "full-reload" })
         }
       })
-      server.watcher.on("unlink", (filePath) => {
+      server.watcher.on("unlink", filePath => {
         if (filePath.startsWith(root) && filePath.endsWith("/deck.json")) {
           server.ws.send({ type: "full-reload" })
         }
