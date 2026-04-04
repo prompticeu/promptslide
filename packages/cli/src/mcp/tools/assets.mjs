@@ -407,7 +407,7 @@ export function registerAssetTools(server, context) {
               "Authorization": `Bearer ${token.clientToken}`,
               "x-content-type": content_type,
               "x-api-version": "7",
-              "x-vercel-blob-access": "private"
+              "x-vercel-blob-access": "public"
             },
             expires_in: "1 hour",
             message: `PUT your binary data to upload_url with the provided headers. ` +
