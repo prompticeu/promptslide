@@ -1,51 +1,32 @@
 /**
- * MCP Asset tools: upload_asset OR (request_asset_upload + confirm_asset_upload),
+ * MCP Asset tools: upload_asset + request_user_upload OR (request_asset_upload + confirm_asset_upload),
  *                  list_assets, delete_asset
  *
  * Assets are stored in src/assets/ and referenced via Vite imports:
  *   import heroImg from "@/assets/images/hero.png"
  *
  * Upload tools are registered based on the environment:
- * - Local (stdio or http://): upload_asset — agent passes source_path, server copies directly
+ * - Local (stdio or http://): upload_asset (file path copy) + request_user_upload (browser upload via elicitation)
  * - Remote (https://): request_asset_upload + confirm_asset_upload — presigned Vercel Blob flow
  */
 
-import { randomUUID } from "node:crypto"
-import {
-  existsSync,
-  readFileSync,
-  unlinkSync,
-  readdirSync,
-  statSync,
-  mkdirSync,
-  writeFileSync
-} from "node:fs"
+import { existsSync, readFileSync, unlinkSync, readdirSync, statSync, mkdirSync, writeFileSync } from "node:fs"
 import { join, basename, extname, dirname } from "node:path"
-
+import { randomUUID } from "node:crypto"
 import { z } from "zod"
 
+import { resolveDeckPath } from "../deck-resolver.mjs"
 import { loadAuth } from "../../utils/auth.mjs"
 import { requestUploadTokens } from "../../utils/registry.mjs"
-import { resolveDeckPath } from "../deck-resolver.mjs"
+import { waitForUserUpload } from "../upload-bridge.mjs"
 
 const MIME_MAP = {
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".gif": "image/gif",
-  ".ico": "image/x-icon",
-  ".svg": "image/svg+xml",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-  ".mp4": "video/mp4",
-  ".webm": "video/webm",
-  ".pdf": "application/pdf",
-  ".css": "text/css",
-  ".js": "application/javascript",
-  ".json": "application/json",
-  ".txt": "text/plain",
-  ".html": "text/html"
+  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+  ".webp": "image/webp", ".gif": "image/gif", ".ico": "image/x-icon",
+  ".svg": "image/svg+xml", ".woff": "font/woff", ".woff2": "font/woff2",
+  ".mp4": "video/mp4", ".webm": "video/webm", ".pdf": "application/pdf",
+  ".css": "text/css", ".js": "application/javascript", ".json": "application/json",
+  ".txt": "text/plain", ".html": "text/html"
 }
 
 function getMimeType(filePath) {
@@ -62,12 +43,7 @@ function walkDir(dir, prefix = "") {
       results.push(...walkDir(join(dir, entry.name), rel))
     } else {
       const stat = statSync(join(dir, entry.name))
-      results.push({
-        name: entry.name,
-        path: rel,
-        size: stat.size,
-        mimeType: getMimeType(entry.name)
-      })
+      results.push({ name: entry.name, path: rel, size: stat.size, mimeType: getMimeType(entry.name) })
     }
   }
   return results
@@ -85,20 +61,15 @@ function assetSavedResponse(targetPath, size) {
   const varName = toVarName(targetPath)
   const importPath = `@/assets/${targetPath}`
   return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify({
-          success: true,
-          path: `src/assets/${targetPath}`,
-          importPath,
-          importStatement: `import ${varName} from "${importPath}"`,
-          usage: `<img src={${varName}} />`,
-          size,
-          message: `Asset saved. Add this import to your slide/layout, then use src={${varName}}.`
-        })
-      }
-    ]
+    content: [{ type: "text", text: JSON.stringify({
+      success: true,
+      path: `src/assets/${targetPath}`,
+      importPath,
+      importStatement: `import ${varName} from "${importPath}"`,
+      usage: `<img src={${varName}} />`,
+      size,
+      message: `Asset saved. Add this import to your slide/layout, then use src={${varName}}.`
+    }) }]
   }
 }
 
@@ -121,8 +92,8 @@ export function registerAssetTools(server, context) {
     server.tool(
       "upload_asset",
       `Upload a binary asset into the deck. ` +
-        `Provide the absolute path to the file on disk — the server copies it directly into src/assets/. ` +
-        `Returns the Vite import statement to use in your slides.`,
+      `Provide the absolute path to the file on disk — the server copies it directly into src/assets/. ` +
+      `Returns the Vite import statement to use in your slides.`,
       {
         deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
         path: z.string().describe("Target path relative to src/assets/ (e.g. 'images/glow.png')"),
@@ -143,14 +114,7 @@ export function registerAssetTools(server, context) {
         }
 
         if (!existsSync(source_path)) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({ error: `Source file not found: ${source_path}` })
-              }
-            ]
-          }
+          return { content: [{ type: "text", text: JSON.stringify({ error: `Source file not found: ${source_path}` }) }] }
         }
 
         const buffer = readFileSync(source_path)
@@ -160,6 +124,68 @@ export function registerAssetTools(server, context) {
         return assetSavedResponse(targetPath, buffer.length)
       }
     )
+
+    // ─── request_user_upload (local only) ───
+    // For when the agent can see a file (e.g. an image in chat) but doesn't have
+    // the raw file on disk. Opens a browser upload page for the user.
+    if (uploadEndpoint) {
+      const uploadPageBase = uploadEndpoint.replace(/\/upload$/, "/upload-page")
+
+      server.tool(
+        "request_user_upload",
+        `Ask the user to upload a file via their browser. ` +
+        `Use this when you need a file the user has shared (e.g. an image pasted into chat) but you don't have the raw file on disk. ` +
+        `Opens a browser upload page where the user can drag and drop the file. ` +
+        `Waits for the upload to complete and returns the Vite import statement.`,
+        {
+          deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
+          path: z.string().describe("Target path relative to src/assets/ (e.g. 'images/logo.png')"),
+          message: z.string().optional().describe("Message to show the user explaining what file to upload (e.g. 'Please upload the logo image you shared earlier')")
+        },
+        { readOnlyHint: false },
+        async ({ deck, path: targetPath, message }) => {
+          try {
+            resolveDeckPath(deckRoot, deck)
+          } catch (err) {
+            return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
+          }
+
+          const uploadId = randomUUID()
+          const userMessage = message || `Please upload the file for src/assets/${targetPath}`
+          const qs = new URLSearchParams({ path: targetPath, uploadId, message: userMessage })
+          if (deck) qs.set("deck", deck)
+          const pageUrl = `${uploadPageBase}?${qs.toString()}`
+
+          // Try elicitation (URL mode) if the client supports it
+          try {
+            const elicitResult = await server.server.elicitInput({
+              mode: "url",
+              message: userMessage,
+              url: pageUrl,
+              elicitationId: uploadId
+            })
+
+            if (elicitResult.action === "decline" || elicitResult.action === "cancel") {
+              return { content: [{ type: "text", text: JSON.stringify({ error: "User declined the upload request." }) }] }
+            }
+
+            // User accepted — wait for the actual upload via HTTP
+            const result = await waitForUserUpload(uploadId)
+            return assetSavedResponse(targetPath, result.size)
+          } catch (err) {
+            // Elicitation not supported — fall back to returning the URL
+            console.error("[request_user_upload] Elicitation failed, falling back to URL:", err?.message || err)
+            return {
+              content: [{ type: "text", text: JSON.stringify({
+                action_required: "user_upload",
+                url: pageUrl,
+                message: `Ask the user to open this URL in their browser and upload the file: ${pageUrl}`
+              }) }]
+            }
+          }
+        }
+      )
+    }
   } else {
     // ─── request_asset_upload (remote only) ───
     const pendingUploads = new Map()
@@ -167,8 +193,8 @@ export function registerAssetTools(server, context) {
     server.tool(
       "request_asset_upload",
       `Request a presigned upload URL for a binary asset. ` +
-        `Returns a Vercel Blob URL to PUT your file to. After uploading, call confirm_asset_upload to save it into the deck. ` +
-        `Requires the user to be logged in (promptslide login).`,
+      `Returns a Vercel Blob URL to PUT your file to. After uploading, call confirm_asset_upload to save it into the deck. ` +
+      `Requires the user to be logged in (promptslide login).`,
       {
         deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
         path: z.string().describe("Target path relative to src/assets/ (e.g. 'images/glow.png')"),
@@ -192,35 +218,22 @@ export function registerAssetTools(server, context) {
         const auth = loadAuth()
         if (!auth) {
           return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  error:
-                    "Not authenticated. The user must run `promptslide login` first to enable presigned uploads."
-                })
-              }
-            ]
+            content: [{ type: "text", text: JSON.stringify({
+              error: "Not authenticated. The user must run `promptslide login` first to enable presigned uploads."
+            }) }]
           }
         }
 
         try {
-          const tokens = await requestUploadTokens(
-            "mcp-assets",
-            [{ path: targetPath, contentType: content_type, size }],
-            auth
-          )
+          const tokens = await requestUploadTokens("mcp-assets", [
+            { path: targetPath, contentType: content_type, size }
+          ], auth)
 
           if (!tokens.length) {
             return {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify({
-                    error: "Registry does not support presigned uploads."
-                  })
-                }
-              ]
+              content: [{ type: "text", text: JSON.stringify({
+                error: "Registry does not support presigned uploads."
+              }) }]
             }
           }
 
@@ -231,24 +244,19 @@ export function registerAssetTools(server, context) {
           pendingUploads.set(uploadId, { targetPath, deckPath, auth })
 
           return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  uploadId,
-                  uploadUrl,
-                  method: "PUT",
-                  headers: {
-                    Authorization: `Bearer ${clientToken}`,
-                    "x-content-type": content_type,
-                    "x-api-version": "7",
-                    "x-vercel-blob-access": "private"
-                  },
-                  example: `curl -X PUT "${uploadUrl}" -H "Authorization: Bearer ${clientToken}" -H "x-content-type: ${content_type}" -H "x-api-version: 7" -H "x-vercel-blob-access: private" --data-binary @/path/to/file`,
-                  next_step: `After uploading, call confirm_asset_upload with uploadId="${uploadId}" to save the file into the deck.`
-                })
-              }
-            ]
+            content: [{ type: "text", text: JSON.stringify({
+              uploadId,
+              uploadUrl,
+              method: "PUT",
+              headers: {
+                "Authorization": `Bearer ${clientToken}`,
+                "x-content-type": content_type,
+                "x-api-version": "7",
+                "x-vercel-blob-access": "private"
+              },
+              example: `curl -X PUT "${uploadUrl}" -H "Authorization: Bearer ${clientToken}" -H "x-content-type: ${content_type}" -H "x-api-version: 7" -H "x-vercel-blob-access: private" --data-binary @/path/to/file`,
+              next_step: `After uploading, call confirm_asset_upload with uploadId="${uploadId}" to save the file into the deck.`
+            }) }]
           }
         } catch (err) {
           return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
@@ -260,28 +268,20 @@ export function registerAssetTools(server, context) {
     server.tool(
       "confirm_asset_upload",
       `Confirm a presigned blob upload and save the file into the deck. ` +
-        `Call this after uploading a file via the URL from request_asset_upload. ` +
-        `The MCP server will fetch the file from Vercel Blob and save it to src/assets/.`,
+      `Call this after uploading a file via the URL from request_asset_upload. ` +
+      `The MCP server will fetch the file from Vercel Blob and save it to src/assets/.`,
       {
         upload_id: z.string().describe("The uploadId returned by request_asset_upload"),
-        blob_url: z
-          .string()
-          .describe("The blob URL returned after your PUT upload (from the response body)")
+        blob_url: z.string().describe("The blob URL returned after your PUT upload (from the response body)")
       },
       { readOnlyHint: false },
       async ({ upload_id, blob_url }) => {
         const pending = pendingUploads.get(upload_id)
         if (!pending) {
           return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  error:
-                    "Upload not found. The uploadId may have expired or is invalid. Call request_asset_upload again."
-                })
-              }
-            ]
+            content: [{ type: "text", text: JSON.stringify({
+              error: "Upload not found. The uploadId may have expired or is invalid. Call request_asset_upload again."
+            }) }]
           }
         }
 
@@ -342,12 +342,10 @@ export function registerAssetTools(server, context) {
       }))
 
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({ assets: files, total: files.length }, null, 2)
-          }
-        ]
+        content: [{
+          type: "text",
+          text: JSON.stringify({ assets: files, total: files.length }, null, 2)
+        }]
       }
     }
   )
@@ -358,11 +356,7 @@ export function registerAssetTools(server, context) {
     `Remove an asset file from the deck's src/assets/ directory.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      path: z
-        .string()
-        .describe(
-          "Path relative to src/assets/ (e.g. 'images/logo.png') or full deck-relative path (e.g. 'src/assets/images/logo.png')"
-        )
+      path: z.string().describe("Path relative to src/assets/ (e.g. 'images/logo.png') or full deck-relative path (e.g. 'src/assets/images/logo.png')")
     },
     { readOnlyHint: false, destructiveHint: true },
     async ({ deck, path: assetPath }) => {
@@ -377,34 +371,15 @@ export function registerAssetTools(server, context) {
       const fullPath = join(deckPath, "src", "assets", normalized)
 
       if (!fullPath.startsWith(join(deckPath, "src", "assets"))) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ error: "Path traversal not allowed" }) }]
-        }
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Path traversal not allowed" }) }] }
       }
 
       if (!existsSync(fullPath)) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ error: `Asset not found: src/assets/${normalized}` })
-            }
-          ]
-        }
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Asset not found: src/assets/${normalized}` }) }] }
       }
 
       unlinkSync(fullPath)
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              success: true,
-              message: `Asset deleted: src/assets/${normalized}`
-            })
-          }
-        ]
-      }
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, message: `Asset deleted: src/assets/${normalized}` }) }] }
     }
   )
 }

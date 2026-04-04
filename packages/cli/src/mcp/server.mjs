@@ -15,6 +15,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join, basename, extname, dirname } from "node:path"
 import { resolveDeckPath } from "./deck-resolver.mjs"
+import { completeUserUpload } from "./upload-bridge.mjs"
 
 import { registerReadTools } from "./tools/read.mjs"
 import { registerWriteTools } from "./tools/write.mjs"
@@ -126,8 +127,99 @@ async function handleAssetUpload(req, res, url, deckRoot) {
     message: `Asset saved. Add this import to your slide/layout, then use src={${varName}}.`
   }
 
+  // If this upload was triggered by request_user_upload, resolve the waiting tool call
+  const uploadId = url.searchParams.get("uploadId")
+  if (uploadId) {
+    completeUserUpload(uploadId, result)
+  }
+
   res.writeHead(200, { "Content-Type": "application/json" })
   res.end(JSON.stringify(result))
+}
+
+/** Generate the HTML for the drag-and-drop upload page */
+function getUploadPageHtml({ uploadEndpoint, targetPath, uploadId, deck, message }) {
+  const qs = new URLSearchParams()
+  if (targetPath) qs.set("path", targetPath)
+  if (uploadId) qs.set("uploadId", uploadId)
+  if (deck) qs.set("deck", deck)
+  const actionUrl = `${uploadEndpoint}?${qs.toString()}`
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Upload Asset — PromptSlide</title>
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  body { min-height: 100vh; display: grid; place-items: center; background: #111315; color: #f5f5f5; font-family: ui-sans-serif, system-ui, sans-serif; padding: 24px; }
+  .card { width: min(480px, 100%); background: #17191d; border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 32px; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: #8a8f98; font-size: 13px; margin-bottom: 24px; }
+  .target { color: #60a5fa; font-family: ui-monospace, monospace; }
+  .drop { border: 2px dashed rgba(255,255,255,0.15); border-radius: 12px; padding: 48px 24px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .drop:hover, .drop.over { border-color: #60a5fa; background: rgba(96,165,250,0.05); }
+  .drop input { display: none; }
+  .drop p { color: #b5bcc7; font-size: 14px; }
+  .drop .icon { font-size: 32px; margin-bottom: 12px; }
+  .status { margin-top: 16px; font-size: 14px; min-height: 20px; }
+  .status.ok { color: #4ade80; }
+  .status.err { color: #f87171; }
+  .status.uploading { color: #facc15; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Upload Asset</h1>
+  ${message ? `<p class="sub" style="color: #e2e8f0; font-size: 14px; margin-bottom: 12px;">${message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>` : ""}
+  <p class="sub">${targetPath ? `Target: <span class="target">src/assets/${targetPath}</span>` : "Drop a file to upload it to the deck."}</p>
+  <div class="drop" id="drop">
+    <input type="file" id="file">
+    <div class="icon">&#128206;</div>
+    <p>Drop file here or click to browse</p>
+  </div>
+  <div class="status" id="status"></div>
+</div>
+<script>
+  const drop = document.getElementById("drop")
+  const fileInput = document.getElementById("file")
+  const status = document.getElementById("status")
+  const actionUrl = ${JSON.stringify(actionUrl)}
+  const hasTargetPath = ${JSON.stringify(!!targetPath)}
+
+  drop.addEventListener("click", () => fileInput.click())
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over") })
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"))
+  drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files[0]) })
+  fileInput.addEventListener("change", () => { if (fileInput.files[0]) upload(fileInput.files[0]) })
+
+  async function upload(file) {
+    if (!file) return
+    status.className = "status uploading"
+    status.textContent = "Uploading " + file.name + "..."
+
+    // If no target path was specified, use the filename
+    let url = actionUrl
+    if (!hasTargetPath) {
+      const sep = url.includes("?") ? "&" : "?"
+      url += sep + "path=" + encodeURIComponent(file.name)
+    }
+
+    try {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file })
+      if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.error || res.statusText) }
+      const data = await res.json()
+      status.className = "status ok"
+      status.textContent = "Uploaded. Use: " + data.importStatement
+    } catch (err) {
+      status.className = "status err"
+      status.textContent = "Error: " + err.message
+    }
+  }
+</script>
+</body>
+</html>`
 }
 
 /**
@@ -182,6 +274,17 @@ export async function startMcpHttpServer({ deckRoot, mcpPort = 29170 }) {
     }
 
     const url = new URL(req.url, `http://127.0.0.1:${mcpPort}`)
+
+    // Serve the upload page for user-initiated uploads
+    if (url.pathname === "/assets/upload-page" && req.method === "GET") {
+      const targetPath = url.searchParams.get("path") || ""
+      const uploadId = url.searchParams.get("uploadId") || ""
+      const deck = url.searchParams.get("deck") || ""
+      const message = url.searchParams.get("message") || ""
+      res.writeHead(200, { "Content-Type": "text/html" })
+      res.end(getUploadPageHtml({ uploadEndpoint, targetPath, uploadId, deck, message }))
+      return
+    }
 
     if (url.pathname === "/assets/upload" && req.method === "POST") {
       handleAssetUpload(req, res, url, deckRoot).catch(err => {
