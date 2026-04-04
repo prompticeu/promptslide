@@ -542,7 +542,7 @@ Fonts are projected large and seen at a distance — they carry real visual weig
 You can't use gradients, blur, or box-shadow — but you can create depth and atmosphere:
 
 - **Solid color blocks** as design elements — a bold colored panel, a dark sidebar, a full-bleed background change
-- **Glow overlays** — the project includes \`glow-white.png\` (\`/public/images/\`) which can add subtle radial depth on dark slides. Position it \`absolute inset-0\` with \`object-cover\` and \`opacity-30\` to \`opacity-50\`. One option among many — not every deck needs it.
+- **Glow overlays** — a radial glow PNG can add subtle depth on dark slides. Generate one with Pillow (see style-presets guide) and place in \`public/images/\`. Position it \`absolute inset-0\` with \`object-cover\` and \`opacity-30\` to \`opacity-50\`.
 - **Opacity layers** — \`bg-white/5\`, \`bg-primary/10\` on dark backgrounds create subtle depth
 - **Borders as structure** — colored top borders (\`border-t-[3px] border-primary\`) on cards create accent without shadows
 - **Image overlays at low opacity** — brand patterns or textures at 5–10% opacity add atmosphere without competing with content
@@ -817,9 +817,22 @@ Everything is optional except \`name\`. Omitted values fall back to \`globals.cs
 
 ## Background Glow (Optional)
 
-Projects include \`/public/images/glow-white.png\` — a neutral radial glow PNG that can add subtle depth on dark slides. It's one design option, not a default — use it when it fits the deck's aesthetic.
+A radial glow PNG can add subtle depth on dark slides. It's one design option among many — not a default.
 
-Usage: add as the first child inside a slide's root \`<div>\`:
+**Generating a glow asset** (Python + Pillow):
+
+\`\`\`python
+from PIL import Image, ImageDraw, ImageFilter
+img = Image.new("RGBA", (1920, 1080), (0, 0, 0, 0))
+draw = ImageDraw.Draw(img)
+draw.ellipse([360, 140, 1560, 940], fill=(255, 255, 255, 80))
+img = img.filter(ImageFilter.GaussianBlur(radius=150))
+img.save("glow-white.png")
+\`\`\`
+
+This technique works for any color — swap \`(255, 255, 255, 80)\` for \`(0, 120, 255, 60)\` etc. Save to \`public/images/\` and use \`import_asset\` or \`import_from_url\` to add it to the deck.
+
+Usage in a slide:
 
 \`\`\`tsx
 <img
@@ -829,7 +842,7 @@ Usage: add as the first child inside a slide's root \`<div>\`:
 />
 \`\`\`
 
-Adjust \`opacity-40\` to control intensity. The glow is a PNG (not a CSS gradient) for PDF export compatibility.
+Adjust \`opacity-40\` to control intensity. Uses a PNG (not CSS gradient) for PDF export compatibility.
 
 ---
 
