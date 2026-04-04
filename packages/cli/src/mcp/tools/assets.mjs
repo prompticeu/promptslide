@@ -159,7 +159,7 @@ export function registerAssetTools(server, context) {
 
         // Store pending upload for confirm step
         const uploadId = randomUUID()
-        pendingUploads.set(uploadId, { targetPath, deckPath, clientToken })
+        pendingUploads.set(uploadId, { targetPath, deckPath, auth })
 
         return {
           content: [{ type: "text", text: JSON.stringify({
@@ -172,7 +172,7 @@ export function registerAssetTools(server, context) {
               "x-api-version": "7",
               "x-vercel-blob-access": "private"
             },
-            example: `curl -X PUT "${uploadUrl}" -H "Authorization: Bearer ${clientToken}" -H "x-content-type: ${content_type}" -H "x-api-version: 7" -H "x-vercel-blob-access: public" --data-binary @/path/to/file`,
+            example: `curl -X PUT "${uploadUrl}" -H "Authorization: Bearer ${clientToken}" -H "x-content-type: ${content_type}" -H "x-api-version: 7" -H "x-vercel-blob-access: private" --data-binary @/path/to/file`,
             next_step: `After uploading, call confirm_asset_upload with uploadId="${uploadId}" to save the file into the deck.`
           }) }]
         }
@@ -204,16 +204,20 @@ export function registerAssetTools(server, context) {
         }
       }
 
-      const { targetPath, deckPath, clientToken } = pending
+      const { targetPath, deckPath, auth } = pending
 
       try {
-        // Fetch from Blob (with auth for private blobs)
-        const res = await fetch(blob_url, {
-          headers: { Authorization: `Bearer ${clientToken}` }
+        // Fetch via registry proxy (registry has the BLOB_READ_WRITE_TOKEN, we don't)
+        const downloadUrl = `${auth.registry}/api/storage/download?url=${encodeURIComponent(blob_url)}`
+        const res = await fetch(downloadUrl, {
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            ...(auth.organizationId && { "X-Organization-Id": auth.organizationId })
+          }
         })
 
         if (!res.ok) {
-          throw new Error(`Failed to fetch from blob (${res.status}): ${await res.text()}`)
+          throw new Error(`Failed to download via registry (${res.status}): ${await res.text()}`)
         }
 
         const buffer = Buffer.from(await res.arrayBuffer())
