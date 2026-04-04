@@ -57,6 +57,16 @@ function resolveSlideFile(deckPath, slideId) {
   return null
 }
 
+function resolveManifestSlideFile(deckPath, slide) {
+  if (typeof slide?.file === "string" && slide.file) {
+    const fullPath = join(deckPath, slide.file)
+    if (existsSync(fullPath)) {
+      return { file: slide.file.replace(/^src\/slides\//, ""), fullPath }
+    }
+  }
+  return resolveSlideFile(deckPath, slide?.id)
+}
+
 export function registerReadTools(server, context) {
   const { deckRoot } = context
 
@@ -118,15 +128,15 @@ export function registerReadTools(server, context) {
 
       // Enrich slides with auto-detected steps from TSX source
       const slides = manifest.slides.map(s => {
-        const resolved = resolveSlideFile(deckPath, s.id)
-        let steps = 0
+        const resolved = resolveManifestSlideFile(deckPath, s)
+        let steps = s.steps ?? 0
         let file = null
         if (resolved) {
           file = resolved.file
           const source = readFileSync(resolved.fullPath, "utf-8")
           steps = detectSteps(source)
         }
-        return { id: s.id, file, section: s.section, transition: s.transition, title: s.title, steps }
+        return { id: s.id, file, exportName: s.exportName, section: s.section, transition: s.transition, title: s.title, steps }
       })
 
       // List layouts
@@ -401,6 +411,7 @@ export function registerReadTools(server, context) {
   server.tool(
     "get_deck_overview",
     `Get a thumbnail grid of all slides in the deck as a single base64 PNG image. ` +
+    `Limited to decks with 16 or fewer slides — for larger decks, use get_screenshot on individual slides. ` +
     `Starts the dev server automatically if not already running.`,
     { deck: z.string().optional().describe("Deck slug (optional if only one deck exists)") },
     { readOnlyHint: true, destructiveHint: false },
@@ -428,12 +439,15 @@ export function registerReadTools(server, context) {
   // ─── get_guide ───
   server.tool(
     "get_guide",
-    `Get framework documentation. Two guides available: ` +
-    `"framework" — comprehensive reference for slide format, animations, layouts, theming, and workflow (read once at start). ` +
-    `"design-recipes" — code snippets for backgrounds, card styles, layout patterns, data viz, and typography.`,
+    `Get framework documentation by topic. Available guides: ` +
+    `"framework" — core reference: slide format, layouts, components, PDF constraints, workflow (read first). ` +
+    `"animation-api" — Animated, AnimatedGroup, Morph, step rules, animation intent guide. ` +
+    `"slide-design" — content density, design thinking, design principles, anti-patterns, distinctive aesthetics. ` +
+    `"style-presets" — 8 curated visual directions with design philosophy. ` +
+    `"theming" — colors, CSS variables, theme config, fonts, glow.`,
     {
-      topic: z.enum(["framework", "design-recipes"])
-        .describe('Guide topic: "framework" (comprehensive reference) or "design-recipes" (code snippets)')
+      topic: z.enum(["framework", "animation-api", "slide-design", "style-presets", "theming"])
+        .describe('Guide topic: "framework", "animation-api", "slide-design", "style-presets", or "theming"')
     },
     { readOnlyHint: true, destructiveHint: false },
     async ({ topic }) => {
