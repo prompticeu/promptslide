@@ -439,12 +439,15 @@ export function registerReadTools(server, context) {
   // ─── get_guide ───
   server.tool(
     "get_guide",
-    `Get framework documentation. Two guides available: ` +
-    `"framework" — comprehensive reference for slide format, animations, layouts, theming, and workflow (read once at start). ` +
-    `"design-recipes" — code snippets for backgrounds, card styles, layout patterns, data viz, and typography.`,
+    `Get framework documentation by topic. Available guides: ` +
+    `"framework" — core reference: slide format, layouts, components, PDF constraints, workflow (read first). ` +
+    `"animation-api" — Animated, AnimatedGroup, Morph, step rules, animation intent guide. ` +
+    `"slide-design" — content density, design thinking, design principles, anti-patterns, distinctive aesthetics. ` +
+    `"style-presets" — 8 curated visual directions with design philosophy. ` +
+    `"theming" — colors, CSS variables, theme config, fonts, glow.`,
     {
-      topic: z.enum(["framework", "design-recipes"])
-        .describe('Guide topic: "framework" (comprehensive reference) or "design-recipes" (code snippets)')
+      topic: z.enum(["framework", "animation-api", "slide-design", "style-presets", "theming"])
+        .describe('Guide topic: "framework", "animation-api", "slide-design", "style-presets", or "theming"')
     },
     { readOnlyHint: true, destructiveHint: false },
     async ({ topic }) => {
