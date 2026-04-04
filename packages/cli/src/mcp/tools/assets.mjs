@@ -169,7 +169,7 @@ export function registerAssetTools(server, context) {
               "Authorization": `Bearer ${clientToken}`,
               "x-content-type": content_type,
               "x-api-version": "7",
-              "x-vercel-blob-access": "public"
+              "x-vercel-blob-access": "private"
             },
             example: `curl -X PUT "${uploadUrl}" -H "Authorization: Bearer ${clientToken}" -H "x-content-type: ${content_type}" -H "x-api-version: 7" -H "x-vercel-blob-access: public" --data-binary @/path/to/file`,
             next_step: `After uploading, call confirm_asset_upload with uploadId="${uploadId}" to save the file into the deck.`
