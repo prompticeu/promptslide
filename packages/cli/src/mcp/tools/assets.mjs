@@ -1,5 +1,11 @@
 /**
- * MCP Asset tools: import_asset, list_assets, publish_asset, delete_asset
+ * MCP Asset tools: import_asset, import_from_url, list_assets, publish_asset,
+ * request_asset_upload, confirm_asset_upload, delete_asset
+ *
+ * Assets are stored in src/assets/ and referenced via Vite imports:
+ *   import heroImg from "@/assets/images/hero.png"
+ * This works in all modes (single-deck, multi-deck, production, PDF export)
+ * because Vite's module resolver handles path resolution.
  */
 
 import { copyFileSync, readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync, statSync } from "node:fs"
@@ -47,24 +53,29 @@ function walkDir(dir, prefix = "") {
   return results
 }
 
+/** Generate a camelCase variable name from a filename */
+function toVarName(filename) {
+  return basename(filename, extname(filename))
+    .replace(/[^a-zA-Z0-9]+(.)/g, (_, c) => c.toUpperCase())
+    .replace(/^[^a-zA-Z]/, "_$&")
+}
+
 export function registerAssetTools(server, context) {
   const { deckRoot } = context
 
   // ─── import_asset ───
   server.tool(
     "import_asset",
-    `Import a local file into the deck. Copies the file from a local path into the deck's public/ directory. ` +
-    `Returns a browser-usable reference (e.g. /images/logo.png) for use in slides. ` +
-    `No binary data flows through the conversation — only file paths. ` +
-    `For assets that need to render in slides, always use destination "public".`,
+    `Import a local file into the deck's src/assets/ directory. ` +
+    `Returns a Vite import statement to use in slides: import img from "@/assets/images/hero.png". ` +
+    `No binary data flows through the conversation — only file paths.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
       source_path: z.string().describe("Absolute path to the local file (e.g. /Users/name/Desktop/logo.png)"),
-      target_path: z.string().describe("Target path relative to destination dir (e.g. 'images/logo.png', 'logo.svg')"),
-      destination: z.enum(["public", "assets"]).default("public").describe("Target directory: 'public' (browser-accessible, publishable) or 'assets' (local-only)")
+      target_path: z.string().describe("Target path relative to src/assets/ (e.g. 'images/logo.png', 'logo.svg')")
     },
     { readOnlyHint: false, destructiveHint: false },
-    async ({ deck, source_path, target_path, destination }) => {
+    async ({ deck, source_path, target_path }) => {
       let deckPath
       try {
         deckPath = resolveDeckPath(deckRoot, deck)
@@ -76,34 +87,31 @@ export function registerAssetTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: `Source file not found: ${source_path}` }) }] }
       }
 
-      const destDir = join(deckPath, destination)
-      const fullTarget = join(destDir, target_path)
+      const assetsDir = join(deckPath, "src", "assets")
+      const fullTarget = join(assetsDir, target_path)
 
-      // Security: prevent path traversal
-      if (!fullTarget.startsWith(destDir)) {
+      if (!fullTarget.startsWith(assetsDir)) {
         return { content: [{ type: "text", text: JSON.stringify({ error: "Path traversal not allowed" }) }] }
       }
 
-      // Create target directory
       mkdirSync(dirname(fullTarget), { recursive: true })
-
-      // Copy file
       copyFileSync(source_path, fullTarget)
       const stat = statSync(fullTarget)
 
-      const reference = destination === "public" ? `/${target_path}` : `asset://${target_path}`
+      const importPath = `@/assets/${target_path}`
+      const varName = toVarName(target_path)
 
       return {
         content: [{
           type: "text",
           text: JSON.stringify({
-            path: `${destination}/${target_path}`,
-            reference,
+            path: `src/assets/${target_path}`,
+            importPath,
+            importStatement: `import ${varName} from "${importPath}"`,
+            usage: `<img src={${varName}} />`,
             mimeType: getMimeType(target_path),
             size: stat.size,
-            message: destination === "public"
-              ? `Asset imported. Use src="${reference}" in your slides.`
-              : `Asset imported to assets/. Use src="asset://${target_path}" (local-only, not publishable).`
+            message: `Asset imported. Add this import to your slide/layout, then use src={${varName}}.`
           })
         }]
       }
@@ -113,17 +121,16 @@ export function registerAssetTools(server, context) {
   // ─── import_from_url ───
   server.tool(
     "import_from_url",
-    `Download a file from a URL and save it as a deck asset. The MCP server fetches the file — ` +
-    `no binary data flows through the conversation. Works for images, fonts, videos, or any file accessible via HTTP(S). ` +
-    `Use this when an agent has generated an image via an API and has the resulting URL.`,
+    `Download a file from a URL and save it to the deck's src/assets/ directory. ` +
+    `The MCP server fetches the file — no binary data flows through the conversation. ` +
+    `Returns a Vite import statement. Use this when an agent has generated an image via an API and has the resulting URL.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
       url: z.string().url().describe("HTTP(S) URL to download (e.g. 'https://example.com/photo.jpg')"),
-      target_path: z.string().describe("Target path relative to public/ (e.g. 'images/hero.png', 'fonts/custom.woff2')"),
-      destination: z.enum(["public", "assets"]).default("public").describe("Target directory: 'public' (browser-accessible) or 'assets' (local-only)")
+      target_path: z.string().describe("Target path relative to src/assets/ (e.g. 'images/hero.png', 'fonts/custom.woff2')")
     },
     { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-    async ({ deck, url, target_path, destination }) => {
+    async ({ deck, url, target_path }) => {
       let deckPath
       try {
         deckPath = resolveDeckPath(deckRoot, deck)
@@ -131,14 +138,13 @@ export function registerAssetTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const destDir = join(deckPath, destination)
-      const fullTarget = join(destDir, target_path)
+      const assetsDir = join(deckPath, "src", "assets")
+      const fullTarget = join(assetsDir, target_path)
 
-      if (!fullTarget.startsWith(destDir)) {
+      if (!fullTarget.startsWith(assetsDir)) {
         return { content: [{ type: "text", text: JSON.stringify({ error: "Path traversal not allowed" }) }] }
       }
 
-      // Download the file
       let response
       try {
         response = await fetch(url, {
@@ -160,18 +166,20 @@ export function registerAssetTools(server, context) {
       writeFileSync(fullTarget, buffer)
       const stat = statSync(fullTarget)
 
-      const reference = destination === "public" ? `/${target_path}` : `asset://${target_path}`
-      const contentType = response.headers.get("content-type") || getMimeType(target_path)
+      const importPath = `@/assets/${target_path}`
+      const varName = toVarName(target_path)
 
       return {
         content: [{
           type: "text",
           text: JSON.stringify({
-            path: `${destination}/${target_path}`,
-            reference,
-            mimeType: contentType,
+            path: `src/assets/${target_path}`,
+            importPath,
+            importStatement: `import ${varName} from "${importPath}"`,
+            usage: `<img src={${varName}} />`,
+            mimeType: response.headers.get("content-type") || getMimeType(target_path),
             size: stat.size,
-            message: `Downloaded and saved. Use src="${reference}" in your slides.`
+            message: `Downloaded and saved. Add this import to your slide/layout, then use src={${varName}}.`
           })
         }]
       }
@@ -181,7 +189,7 @@ export function registerAssetTools(server, context) {
   // ─── list_assets ───
   server.tool(
     "list_assets",
-    `List all assets in the deck. Scans both public/ (browser-accessible, publishable) and assets/ (local-only) directories.`,
+    `List all assets in the deck's src/assets/ directory.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)")
     },
@@ -194,28 +202,16 @@ export function registerAssetTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const publicFiles = walkDir(join(deckPath, "public")).map(f => ({
+      const files = walkDir(join(deckPath, "src", "assets")).map(f => ({
         ...f,
-        location: "public",
-        reference: `/${f.path}`,
-        publishable: true
-      }))
-
-      const assetFiles = walkDir(join(deckPath, "assets")).map(f => ({
-        ...f,
-        location: "assets",
-        reference: `asset://${f.path}`,
-        publishable: false
+        importPath: `@/assets/${f.path}`,
+        importStatement: `import ${toVarName(f.path)} from "@/assets/${f.path}"`
       }))
 
       return {
         content: [{
           type: "text",
-          text: JSON.stringify({
-            public: publicFiles,
-            assets: assetFiles,
-            total: publicFiles.length + assetFiles.length
-          }, null, 2)
+          text: JSON.stringify({ assets: files, total: files.length }, null, 2)
         }]
       }
     }
@@ -225,17 +221,15 @@ export function registerAssetTools(server, context) {
   server.tool(
     "publish_asset",
     `Publish a deck asset to the PromptSlide registry using presigned upload URLs. ` +
-    `Accepts either an existing public/ file path, or a local source_path (which is imported first). ` +
-    `Binary files (images, fonts) are uploaded directly to blob storage — no base64 in payloads. ` +
+    `Accepts a path relative to the deck root (e.g. 'src/assets/images/logo.png'). ` +
+    `Binary files are uploaded directly to blob storage — no base64 in payloads. ` +
     `Requires authentication (promptslide login).`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      path: z.string().optional().describe("Deck-relative path of an existing public/ asset (e.g. 'public/images/logo.png')"),
-      source_path: z.string().optional().describe("Local file path to import and publish in one step"),
-      target_path: z.string().optional().describe("Target path in public/ when using source_path (e.g. 'images/logo.png')")
+      path: z.string().describe("Deck-relative path of the asset (e.g. 'src/assets/images/logo.png')")
     },
     { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
-    async ({ deck, path: assetPath, source_path, target_path }) => {
+    async ({ deck, path: assetPath }) => {
       let deckPath
       try {
         deckPath = resolveDeckPath(deckRoot, deck)
@@ -243,44 +237,20 @@ export function registerAssetTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      // Resolve the deck slug from the deck path
       const deckSlug = basename(deckPath)
+      const fullPath = join(deckPath, assetPath)
 
-      // Determine the file to publish
-      let fullPath, relativePath
-
-      if (source_path) {
-        // Import first, then publish
-        if (!target_path) {
-          return { content: [{ type: "text", text: JSON.stringify({ error: "target_path is required when using source_path" }) }] }
-        }
-        if (!existsSync(source_path)) {
-          return { content: [{ type: "text", text: JSON.stringify({ error: `Source file not found: ${source_path}` }) }] }
-        }
-
-        const destDir = join(deckPath, "public")
-        fullPath = join(destDir, target_path)
-        if (!fullPath.startsWith(destDir)) {
-          return { content: [{ type: "text", text: JSON.stringify({ error: "Path traversal not allowed" }) }] }
-        }
-
-        mkdirSync(dirname(fullPath), { recursive: true })
-        copyFileSync(source_path, fullPath)
-        relativePath = target_path
-      } else if (assetPath) {
-        // Publish an existing file
-        const normalized = assetPath.replace(/^public\//, "")
-        fullPath = join(deckPath, "public", normalized)
-        relativePath = normalized
-
-        if (!existsSync(fullPath)) {
-          return { content: [{ type: "text", text: JSON.stringify({ error: `Asset not found: ${assetPath}. Import it first with import_asset.` }) }] }
-        }
-      } else {
-        return { content: [{ type: "text", text: JSON.stringify({ error: "Provide either 'path' (existing public/ asset) or 'source_path' + 'target_path' (import and publish)" }) }] }
+      if (!fullPath.startsWith(deckPath)) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: "Path traversal not allowed" }) }] }
       }
 
-      // Load auth
+      if (!existsSync(fullPath)) {
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Asset not found: ${assetPath}. Import it first with import_asset.` }) }] }
+      }
+
+      // Relative path within src/assets/ for slug generation
+      const relativePath = assetPath.replace(/^src\/assets\//, "")
+
       let auth
       try {
         const { loadAuth } = await import("../../utils/auth.mjs")
@@ -292,21 +262,18 @@ export function registerAssetTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: `Auth error: ${err.message}` }) }] }
       }
 
-      // Import registry functions
       const { publishToRegistry, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug } = await import("../../utils/registry.mjs")
 
       const assetSlug = assetFileToSlug(deckSlug, relativePath)
       const fileName = basename(fullPath)
-      const ext = extname(fullPath).toLowerCase()
       const contentType = getMimeType(fullPath)
       const dirPart = relativePath.includes("/")
-        ? "public/" + relativePath.substring(0, relativePath.lastIndexOf("/") + 1)
-        : "public/"
+        ? "src/assets/" + relativePath.substring(0, relativePath.lastIndexOf("/") + 1)
+        : "src/assets/"
 
       let files
 
       if (isBinary(fullPath)) {
-        // Binary: use presigned upload
         const buffer = readFileSync(fullPath)
         let tokens = []
         try {
@@ -325,14 +292,12 @@ export function registerAssetTools(server, context) {
             const blobUrl = await uploadBinaryToBlob(buffer, token.pathname, contentType, token.clientToken)
             files = [{ path: fileName, target: dirPart, storageUrl: blobUrl, contentType }]
           } catch {
-            // Fall back to inline data URI
             files = [{ path: fileName, target: dirPart, content: `data:${contentType};base64,${buffer.toString("base64")}` }]
           }
         } else {
           files = [{ path: fileName, target: dirPart, content: `data:${contentType};base64,${buffer.toString("base64")}` }]
         }
       } else {
-        // Text file: inline content
         const content = readFileSync(fullPath, "utf-8")
         files = [{ path: fileName, target: dirPart, content }]
       }
@@ -345,7 +310,7 @@ export function registerAssetTools(server, context) {
             text: JSON.stringify({
               slug: assetSlug,
               version: result.version,
-              reference: `/${relativePath}`,
+              importPath: `@/assets/${relativePath}`,
               message: `Asset published as ${assetSlug} (v${result.version})`
             })
           }]
@@ -381,7 +346,6 @@ export function registerAssetTools(server, context) {
 
       const deckSlug = basename(deckPath)
 
-      // Load auth
       let auth
       try {
         const { loadAuth } = await import("../../utils/auth.mjs")
@@ -395,7 +359,6 @@ export function registerAssetTools(server, context) {
 
       const { requestUploadTokens, assetFileToSlug } = await import("../../utils/registry.mjs")
 
-      // Generate a deterministic slug for this asset
       const assetSlug = assetFileToSlug(deckSlug, filename)
 
       let tokens
@@ -416,7 +379,6 @@ export function registerAssetTools(server, context) {
       const token = tokens[0]
       const uploadId = randomUUID()
 
-      // Store pending upload for confirm step
       pendingUploads.set(uploadId, {
         deckSlug,
         deckPath,
@@ -461,13 +423,13 @@ export function registerAssetTools(server, context) {
     "confirm_asset_upload",
     `Confirm a completed presigned upload and register the asset in the deck. ` +
     `Call this after successfully uploading binary data to the URL from request_asset_upload. ` +
-    `Optionally publishes the asset to the registry and/or saves it locally.`,
+    `Optionally publishes the asset to the registry and/or saves it locally to src/assets/.`,
     {
       upload_id: z.string().describe("Upload ID returned by request_asset_upload"),
       blob_url: z.string().describe("The blob URL returned by the storage service after the PUT upload (the 'url' field from the response)"),
-      target_path: z.string().describe("Target path in public/ (e.g. 'images/hero.png')"),
+      target_path: z.string().describe("Target path relative to src/assets/ (e.g. 'images/hero.png')"),
       publish: z.boolean().default(true).describe("Register the asset in the PromptSlide registry"),
-      save_locally: z.boolean().default(false).describe("Also download the file to the local deck's public/ directory for preview")
+      save_locally: z.boolean().default(false).describe("Also download the file to the local deck's src/assets/ directory")
     },
     { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     async ({ upload_id, blob_url, target_path, publish, save_locally }) => {
@@ -479,18 +441,19 @@ export function registerAssetTools(server, context) {
       pendingUploads.delete(upload_id)
 
       const { deckSlug, deckPath, assetSlug, filename, contentType } = pending
-      const reference = `/${target_path}`
+      const importPath = `@/assets/${target_path}`
+      const varName = toVarName(target_path)
 
       const dirPart = target_path.includes("/")
-        ? "public/" + target_path.substring(0, target_path.lastIndexOf("/") + 1)
-        : "public/"
+        ? "src/assets/" + target_path.substring(0, target_path.lastIndexOf("/") + 1)
+        : "src/assets/"
 
       // Optionally download to local deck
       if (save_locally) {
         try {
-          const destDir = join(deckPath, "public")
-          const fullTarget = join(destDir, target_path)
-          if (fullTarget.startsWith(destDir)) {
+          const assetsDir = join(deckPath, "src", "assets")
+          const fullTarget = join(assetsDir, target_path)
+          if (fullTarget.startsWith(assetsDir)) {
             mkdirSync(dirname(fullTarget), { recursive: true })
             const resp = await fetch(blob_url, { signal: AbortSignal.timeout(60_000) })
             if (resp.ok) {
@@ -527,8 +490,10 @@ export function registerAssetTools(server, context) {
                 slug: assetSlug,
                 version: result.version,
                 blob_url,
-                reference,
-                message: `Asset uploaded and published as ${assetSlug} (v${result.version}). Use src="${reference}" in slides.`
+                importPath,
+                importStatement: `import ${varName} from "${importPath}"`,
+                usage: `<img src={${varName}} />`,
+                message: `Asset uploaded and published as ${assetSlug} (v${result.version}). Import it in your slide to use.`
               })
             }]
           }
@@ -543,8 +508,10 @@ export function registerAssetTools(server, context) {
           type: "text",
           text: JSON.stringify({
             blob_url,
-            reference,
-            message: `Upload confirmed. Asset available at blob storage. Use src="${reference}" in slides.`
+            importPath,
+            importStatement: `import ${varName} from "${importPath}"`,
+            usage: `<img src={${varName}} />`,
+            message: `Upload confirmed. Import it in your slide to use.`
           })
         }]
       }
@@ -554,10 +521,10 @@ export function registerAssetTools(server, context) {
   // ─── delete_asset ───
   server.tool(
     "delete_asset",
-    `Remove an asset file from the deck. Accepts a path relative to the deck root (e.g. 'public/images/logo.png' or 'assets/logo.svg').`,
+    `Remove an asset file from the deck's src/assets/ directory.`,
     {
       deck: z.string().optional().describe("Deck slug (optional if only one deck exists)"),
-      path: z.string().describe("Asset path relative to deck root (e.g. 'public/images/logo.png', 'assets/logo.svg')")
+      path: z.string().describe("Path relative to src/assets/ (e.g. 'images/logo.png') or full deck-relative path (e.g. 'src/assets/images/logo.png')")
     },
     { readOnlyHint: false, destructiveHint: true },
     async ({ deck, path: assetPath }) => {
@@ -568,19 +535,20 @@ export function registerAssetTools(server, context) {
         return { content: [{ type: "text", text: JSON.stringify({ error: err.message }) }] }
       }
 
-      const fullPath = join(deckPath, assetPath)
+      // Normalize: accept both "images/logo.png" and "src/assets/images/logo.png"
+      const normalized = assetPath.replace(/^src\/assets\//, "")
+      const fullPath = join(deckPath, "src", "assets", normalized)
 
-      // Security: prevent path traversal
-      if (!fullPath.startsWith(deckPath)) {
+      if (!fullPath.startsWith(join(deckPath, "src", "assets"))) {
         return { content: [{ type: "text", text: JSON.stringify({ error: "Path traversal not allowed" }) }] }
       }
 
       if (!existsSync(fullPath)) {
-        return { content: [{ type: "text", text: JSON.stringify({ error: `Asset not found: ${assetPath}` }) }] }
+        return { content: [{ type: "text", text: JSON.stringify({ error: `Asset not found: src/assets/${normalized}` }) }] }
       }
 
       unlinkSync(fullPath)
-      return { content: [{ type: "text", text: JSON.stringify({ success: true, message: `Asset deleted: ${assetPath}` }) }] }
+      return { content: [{ type: "text", text: JSON.stringify({ success: true, message: `Asset deleted: src/assets/${normalized}` }) }] }
     }
   )
 }
