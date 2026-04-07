@@ -223,8 +223,8 @@ export async function clone(args) {
   console.log(`  ${bold("Next steps:")}`)
   console.log()
   console.log(`    cd ${dirName}`)
-  console.log(`    bun install`)
-  console.log(`    bun run dev`)
+  console.log(`    npm install`)
+  console.log(`    npm run dev`)
   console.log()
 
   closePrompts()

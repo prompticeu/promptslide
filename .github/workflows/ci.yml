@@ -17,11 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
-      - run: bun install --frozen-lockfile
+      - run: npm ci
 
-      - run: bun run lint
+      - run: npm run lint
 
-      - run: bun run build
+      - run: npm run build
         working-directory: packages/cli

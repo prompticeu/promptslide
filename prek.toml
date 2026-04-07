@@ -115,10 +115,10 @@ stages = ["commit-msg"]
 language = "system"
 
 [[repos.hooks]]
-id = "bun-install"
-name = "bun-install"
-description = "Automatically run 'bun install' after checkout, pull or rebase"
-entry = "bun install --frozen-lockfile"
+id = "npm-install"
+name = "npm-install"
+description = "Automatically run 'npm ci' after checkout, pull or rebase"
+entry = "npm ci"
 language = "system"
 always_run = true
 pass_filenames = false

@@ -62,10 +62,10 @@ Presets are starting points, not rigid templates. The user can change everything
 ### Step 3: Scaffold and start
 
 ```bash
-bun create slides my-deck -- --yes
+npm create slides my-deck -- --yes
 cd my-deck
-bun install
-bun run dev
+npm install
+npm run dev
 ```
 
 The `--yes` flag skips interactive prompts and uses sensible defaults. Replace `my-deck` with the user's desired name. The dev server starts at http://localhost:5173 with hot module replacement.
