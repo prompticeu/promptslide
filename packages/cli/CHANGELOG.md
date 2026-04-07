@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.14](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.13...promptslide-v0.3.14) (2026-04-01)
+
+
+### Features
+
+* add optional white glow PNG for slide backgrounds ([#94](https://github.com/prompticeu/promptslide/issues/94)) ([cbd500e](https://github.com/prompticeu/promptslide/commit/cbd500e8bdb1f3125bdbad6668d924394d6245a2))
+* add workflow hint to annotation sidebar ([#92](https://github.com/prompticeu/promptslide/issues/92)) ([0d898d6](https://github.com/prompticeu/promptslide/commit/0d898d66e90a767bf6187103d3fb7a24dfc7d828))
+
+
+### Bug Fixes
+
+* allow arrow key navigation in fullscreen when annotation mode is active ([#95](https://github.com/prompticeu/promptslide/issues/95)) ([b2f8d31](https://github.com/prompticeu/promptslide/commit/b2f8d3150d24b919303de8126f6460c0123bfd29))
+
 ## [0.3.13](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.12...promptslide-v0.3.13) (2026-03-29)
 
 

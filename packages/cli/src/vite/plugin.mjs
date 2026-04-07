@@ -241,12 +241,6 @@ function getThemeCssImport(root, deckJson) {
   return themeCssPath ? `import "${themeCssPath}"` : ""
 }
 
-function isLegacyHtmlDeck(deckJson) {
-  return Boolean(
-    deckJson?.slides?.some(entry => typeof entry.file === "string" && entry.file.endsWith(".html"))
-  )
-}
-
 function hasLegacyApp(root) {
   const appCandidates = ["src/App.tsx", "src/App.jsx", "src/App.ts", "src/App.js"]
   const globalsCandidates = ["src/globals.css", "src/globals.scss", "src/globals.sass"]

@@ -475,7 +475,7 @@ export function SlideDeck({
         return
       }
 
-      if (viewMode !== "slide" || isAnnotationMode) return
+      if (viewMode !== "slide" || (isAnnotationMode && !isPresentationMode)) return
 
       if (e.key === "ArrowRight" || e.key === " ") {
         e.preventDefault()
@@ -696,11 +696,6 @@ export function SlideDeck({
                   <span className="font-mono text-sm text-neutral-500">
                     {currentSlide + 1} / {slides.length}
                   </span>
-                  {slides[currentSlide]?.title && (
-                    <span className="mt-0.5 text-xs text-neutral-600">
-                      {slides[currentSlide].title}
-                    </span>
-                  )}
                 </div>
                 <button onClick={advance} style={navButtonStyle}>
                   <ChevronRight className="h-5 w-5" />
