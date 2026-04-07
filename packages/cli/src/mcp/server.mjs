@@ -127,12 +127,13 @@ async function handleAssetUpload(req, res, url, deckRoot) {
     message: `Asset saved. Add this import to your slide/layout, then use src={${varName}}.`
   }
 
+  console.log(`[MCP HTTP] Asset uploaded: ${targetPath} (${buffer.length} bytes) → ${fullTarget}`)
+
   // If this upload was triggered by request_user_upload, resolve the waiting tool call
   const uploadId = url.searchParams.get("uploadId")
   if (uploadId) {
     completeUserUpload(uploadId, result)
   }
-
   res.writeHead(200, { "Content-Type": "application/json" })
   res.end(JSON.stringify(result))
 }
