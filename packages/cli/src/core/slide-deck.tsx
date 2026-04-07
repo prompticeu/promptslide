@@ -1,14 +1,34 @@
-import { AnimatePresence, LayoutGroup, motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, Download, Grid3X3, Home, List, Loader2, Maximize, MessageCircle, Monitor } from "lucide-react"
-import { Fragment, type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { LayoutGroup } from "framer-motion"
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Grid3X3,
+  Home,
+  List,
+  Loader2,
+  Maximize,
+  MessageCircle,
+  Monitor
+} from "lucide-react"
+import {
+  Fragment,
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 
+import type { Annotation, AnnotationTarget } from "./annotations"
 import type { SlideTransitionType } from "./transitions"
 import type { SlideConfig } from "./types"
 
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
 import { AnnotationOverlay, AnnotationPanel, useAnnotations } from "./annotations"
-import type { Annotation, AnnotationTarget } from "./annotations"
 import { SlideErrorBoundary } from "./slide-error-boundary"
 import { SlideRenderer } from "./slide-renderer"
 import { useSlideNavigation } from "./use-slide-navigation"
@@ -47,7 +67,12 @@ interface SlideDeckProps {
   /** Annotation data to display. When provided (even empty array), annotation UI is enabled. When undefined, annotation UI is hidden. */
   annotations?: Annotation[]
   /** Called when the user creates an annotation */
-  onAnnotationAdd?: (slideIndex: number, slideTitle: string, target: AnnotationTarget, body: string) => void
+  onAnnotationAdd?: (
+    slideIndex: number,
+    slideTitle: string,
+    target: AnnotationTarget,
+    body: string
+  ) => void
   /** Called when the user deletes an annotation */
   onAnnotationDelete?: (id: string) => void
 }
@@ -64,7 +89,9 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      requestAnimationFrame(() => { setReady(true) })
+      requestAnimationFrame(() => {
+        setReady(true)
+      })
     })
     return () => cancelAnimationFrame(frame)
   }, [])
@@ -94,6 +121,57 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
 }
 
 // =============================================================================
+// PRINT VIEW (all slides, no chrome — used by Playwright PDF export)
+// =============================================================================
+
+function SlidePrintView({ slides }: { slides: SlideConfig[] }) {
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setReady(true)
+      })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
+  return (
+    <>
+      <style>{`html, body, #root { height: auto !important; overflow: visible !important; }`}</style>
+      <div data-print-ready={ready ? "true" : undefined} style={{ background: "black" }}>
+        {slides.map((slideConfig, index) => {
+          const SlideComponent = slideConfig.component
+          return (
+            <div
+              key={index}
+              style={{
+                width: SLIDE_DIMENSIONS.width,
+                height: SLIDE_DIMENSIONS.height,
+                overflow: "hidden",
+                position: "relative",
+                background: "black",
+                pageBreakAfter: "always"
+              }}
+            >
+              <AnimationProvider
+                currentStep={slideConfig.steps}
+                totalSteps={slideConfig.steps}
+                showAllAnimations={true}
+              >
+                <SlideErrorBoundary slideIndex={index} slideTitle={slideConfig.title}>
+                  <SlideComponent slideNumber={index + 1} totalSlides={slides.length} />
+                </SlideErrorBoundary>
+              </AnimationProvider>
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
+}
+
+// =============================================================================
 // GRID THUMBNAIL (renders slide at fixed 1280×720 and scales to fit card)
 // =============================================================================
 
@@ -101,7 +179,15 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
  * Renders children at fixed SLIDE_DIMENSIONS and scales to fit the outer container.
  * Used for grid thumbnails and the main slide view.
  */
-function ScaledSlideContainer({ children, className, innerRef }: { children: ReactNode; className?: string; innerRef?: React.Ref<HTMLDivElement> }) {
+function ScaledSlideContainer({
+  children,
+  className,
+  innerRef
+}: {
+  children: ReactNode
+  className?: string
+  innerRef?: React.Ref<HTMLDivElement>
+}) {
   const outerRef = useRef<HTMLDivElement>(null)
   const [containerScale, setContainerScale] = useState(1)
 
@@ -149,11 +235,7 @@ function ScaledSlideContainer({ children, className, innerRef }: { children: Rea
 }
 
 function GridSlideContainer({ children }: { children: ReactNode }) {
-  return (
-    <ScaledSlideContainer className="absolute inset-0">
-      {children}
-    </ScaledSlideContainer>
-  )
+  return <ScaledSlideContainer className="absolute inset-0">{children}</ScaledSlideContainer>
 }
 
 // =============================================================================
@@ -212,7 +294,14 @@ const navLabelStyle: CSSProperties = {
   alignItems: "center"
 }
 
-export function SlideDeck({ slides, transition, directionalTransition, annotations, onAnnotationAdd, onAnnotationDelete }: SlideDeckProps) {
+export function SlideDeck({
+  slides,
+  transition,
+  directionalTransition,
+  annotations,
+  onAnnotationAdd,
+  onAnnotationDelete
+}: SlideDeckProps) {
   // Check for export mode via URL params
   const [exportParams] = useState(() => {
     if (typeof window === "undefined") return null
@@ -220,6 +309,16 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
     if (params.get("export") !== "true") return null
     return { slideIndex: parseInt(params.get("slide") || "0", 10) }
   })
+
+  // Check for print mode (all slides, no chrome — used by Playwright PDF export)
+  const [isPrintMode] = useState(() => {
+    if (typeof window === "undefined") return false
+    return new URLSearchParams(window.location.search).get("print") === "true"
+  })
+
+  if (isPrintMode) {
+    return <SlidePrintView slides={slides} />
+  }
 
   if (exportParams) {
     return <SlideExportView slides={slides} slideIndex={exportParams.slideIndex} />
@@ -232,7 +331,10 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
   const effectiveAdd = isExternallyManaged ? onAnnotationAdd : internal.addAnnotation
   const effectiveDelete = isExternallyManaged ? onAnnotationDelete : internal.deleteAnnotation
 
-  const openCount = useMemo(() => effectiveAnnotations.filter(a => a.status === "open").length, [effectiveAnnotations])
+  const openCount = useMemo(
+    () => effectiveAnnotations.filter(a => a.status === "open").length,
+    [effectiveAnnotations]
+  )
   const getSlideAnnotations = useCallback(
     (slideIndex: number) => effectiveAnnotations.filter(a => a.slideIndex === slideIndex),
     [effectiveAnnotations]
@@ -314,41 +416,35 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
   }, [isPresentationMode])
 
   const handleExportPdf = async () => {
-    // Try API-based export first (no print dialog), fall back to window.print()
     const slug = window.location.pathname.replace(/^\//, "").split("/")[0]
-    if (slug) {
-      setIsExporting(true)
-      try {
-        const response = await fetch(`/api/export/${slug}.pdf`)
-        if (!response.ok) throw new Error("Export failed")
-        const blob = await response.blob()
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement("a")
-        link.href = url
-        link.download = `${slug}.pdf`
-        link.click()
-        URL.revokeObjectURL(url)
-      } catch {
-        // Fallback to print dialog on error
+    if (!slug) return
+
+    setIsExporting(true)
+    try {
+      const response = await fetch(`/api/export/${slug}.pdf`)
+      if (!response.ok) throw new Error("Export failed")
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${slug}.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // Fallback: switch to list view and use browser print
+      const previousMode = viewMode
+      setViewMode("list")
+      setTimeout(() => {
+        const handleAfterPrint = () => {
+          setViewMode(previousMode)
+          window.removeEventListener("afterprint", handleAfterPrint)
+        }
+        window.addEventListener("afterprint", handleAfterPrint)
         window.print()
-      } finally {
-        setIsExporting(false)
-      }
-      return
+      }, 300)
+    } finally {
+      setIsExporting(false)
     }
-
-    // Fallback: window.print()
-    const previousMode = viewMode
-    setViewMode("list")
-
-    setTimeout(() => {
-      const handleAfterPrint = () => {
-        setViewMode(previousMode)
-        window.removeEventListener("afterprint", handleAfterPrint)
-      }
-      window.addEventListener("afterprint", handleAfterPrint)
-      window.print()
-    }, 100)
   }
 
   // Keyboard navigation
@@ -370,6 +466,12 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
       // G for grid view toggle
       if (e.key === "g" || e.key === "G") {
         setViewMode(prev => (prev === "grid" ? "slide" : "grid"))
+        return
+      }
+
+      // L for list view toggle
+      if (e.key === "l" || e.key === "L") {
+        setViewMode(prev => (prev === "list" ? "slide" : "list"))
         return
       }
 
@@ -421,11 +523,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
           display: isPresentationMode ? "none" : "flex"
         }}
       >
-        <a
-          href="/"
-          style={toolbarButtonStyle}
-          title="All Decks"
-        >
+        <a href="/" style={toolbarButtonStyle} title="All Decks">
           <Home className="h-4 w-4" />
         </a>
 
@@ -506,11 +604,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
             <Download className="h-4 w-4" />
           )}
         </button>
-        <button
-          onClick={togglePresentationMode}
-          style={toolbarButtonStyle}
-          title="Present (F)"
-        >
+        <button onClick={togglePresentationMode} style={toolbarButtonStyle} title="Present (F)">
           <Maximize className="h-4 w-4" />
         </button>
       </div>
@@ -518,10 +612,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
       {/* Slide View */}
       {viewMode === "slide" && (
         <div
-          className={cn(
-            "flex h-screen w-full print:hidden",
-            isPresentationMode ? "bg-black" : ""
-          )}
+          className={cn("flex h-screen w-full print:hidden", isPresentationMode ? "bg-black" : "")}
         >
           <div
             ref={containerRef}
@@ -589,7 +680,6 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
                       onShowPanel={() => setShowAnnotationPanel(true)}
                       slideAnnotations={getSlideAnnotations(currentSlide)}
                       addAnnotation={effectiveAdd ?? (() => {})}
-
                     />
                   )}
                 </ScaledSlideContainer>
@@ -599,10 +689,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
             {/* Navigation Controls */}
             {!isPresentationMode && (
               <div className="mt-6 flex items-center gap-4">
-                <button
-                  onClick={goBack}
-                  style={navButtonStyle}
-                >
+                <button onClick={goBack} style={navButtonStyle}>
                   <ChevronLeft className="h-5 w-5" />
                 </button>
                 <div style={navLabelStyle}>
@@ -615,10 +702,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={advance}
-                  style={navButtonStyle}
-                >
+                <button onClick={advance} style={navButtonStyle}>
                   <ChevronRight className="h-5 w-5" />
                 </button>
               </div>

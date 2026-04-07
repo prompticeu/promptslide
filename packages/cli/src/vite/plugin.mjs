@@ -241,6 +241,12 @@ function getThemeCssImport(root, deckJson) {
   return themeCssPath ? `import "${themeCssPath}"` : ""
 }
 
+function isLegacyHtmlDeck(deckJson) {
+  return Boolean(
+    deckJson?.slides?.some(entry => typeof entry.file === "string" && entry.file.endsWith(".html"))
+  )
+}
+
 function hasLegacyApp(root) {
   const appCandidates = ["src/App.tsx", "src/App.jsx", "src/App.ts", "src/App.js"]
   const globalsCandidates = ["src/globals.css", "src/globals.scss", "src/globals.sass"]
@@ -1017,6 +1023,32 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         res.setHeader("Content-Type", "text/html")
         res.statusCode = 200
         res.end(html)
+      })
+
+      // Pre-middleware: PDF export API — generates PDF via Playwright (no print dialog)
+      server.middlewares.use(async (req, res, next) => {
+        const match = req.url?.match(/^\/api\/export\/(.+)\.pdf$/)
+        if (!match) return next()
+
+        const deckSlug = decodeURIComponent(match[1])
+        const port = server.httpServer.address()?.port
+        if (!port) {
+          res.writeHead(500, { "Content-Type": "application/json" })
+          res.end(JSON.stringify({ error: "Dev server port not available" }))
+          return
+        }
+
+        try {
+          const { exportPdfBuffer } = await import("../mcp/pdf-export.mjs")
+          const pdfBuffer = await exportPdfBuffer({ deckSlug, devServerPort: port })
+          res.setHeader("Content-Type", "application/pdf")
+          res.setHeader("Content-Disposition", `attachment; filename="${deckSlug}.pdf"`)
+          res.writeHead(200)
+          res.end(pdfBuffer)
+        } catch (err) {
+          res.writeHead(500, { "Content-Type": "application/json" })
+          res.end(JSON.stringify({ error: err.message }))
+        }
       })
 
       // Pre-middleware: intercept export URLs before Vite's SPA fallback rewrites them
