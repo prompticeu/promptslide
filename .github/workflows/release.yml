@@ -40,15 +40,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run build
+        working-directory: packages/cli
+
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
-
-      - run: npm ci
-
-      - run: npm run build
-        working-directory: packages/cli
 
       - name: Publish promptslide
         run: npm publish --provenance --access public

@@ -6,17 +6,17 @@ tasks:
   dev:
     desc: Start the development server
     cmds:
-      - npm run dev
+      - bun run dev
 
   build:
     desc: Build the project for production
     cmds:
-      - npm run build
+      - bun run build
 
   preview:
     desc: Preview the production build
     cmds:
-      - npm run preview
+      - bun run preview
 
   lint:
     desc: Run prek hooks on all files
@@ -40,11 +40,11 @@ tasks:
       - task: install-prek
 
   install-dependencies:
-    desc: Install project dependencies with npm
+    desc: Install project dependencies with bun
     run: once
     cmds:
       - echo "[promptslide] Install dependencies..."
-      - npm install
+      - bun install
 
   install-prek:
     desc: Set up prek git hooks
