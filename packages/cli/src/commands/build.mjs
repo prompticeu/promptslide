@@ -22,10 +22,15 @@ function getBuildHtml() {
 </html>`
 }
 
+function toImportPath(p) {
+  return p.split("\\").join("/")
+}
+
 function getBuildEntry(cwd) {
   // Use absolute paths since build root is .promptslide/ temp dir
-  const globals = join(cwd, "src", "globals.css")
-  const app = join(cwd, "src", "App")
+  // Normalize to forward slashes so imports work on Windows
+  const globals = toImportPath(join(cwd, "src", "globals.css"))
+  const app = toImportPath(join(cwd, "src", "App"))
   return `
 import { StrictMode, createElement } from "react"
 import { createRoot } from "react-dom/client"
