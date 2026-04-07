@@ -2,6 +2,11 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import { bold, dim } from "../utils/ansi.mjs"
 
+/** Normalize a path to forward slashes so it can be used in ES module import strings on Windows. */
+function toImportPath(p) {
+  return p.split("\\").join("/")
+}
+
 const VIRTUAL_ENTRY_ID = "virtual:promptslide-entry"
 const RESOLVED_VIRTUAL_ENTRY_ID = "\0" + VIRTUAL_ENTRY_ID
 const VIRTUAL_EXPORT_ID = "virtual:promptslide-export"
@@ -56,11 +61,12 @@ function getExportHtmlTemplate() {
 }
 
 function getEntryModule(root) {
+  const r = toImportPath(root)
   return `
 import { StrictMode, createElement } from "react"
 import { createRoot } from "react-dom/client"
-import "${root}/src/globals.css"
-import App from "${root}/src/App"
+import "${r}/src/globals.css"
+import App from "${r}/src/App"
 
 createRoot(document.getElementById("root")).render(
   createElement(StrictMode, null, createElement(App))
@@ -69,16 +75,17 @@ createRoot(document.getElementById("root")).render(
 }
 
 function getExportEntryModule(root, slidePath) {
+  const r = toImportPath(root)
   return `
 import { StrictMode, createElement, useState, useEffect } from "react"
 import { createRoot } from "react-dom/client"
 import { AnimationProvider, SlideErrorBoundary, SlideThemeProvider } from "promptslide"
-import "${root}/src/globals.css"
-import * as slideMod from "${root}/${slidePath}"
+import "${r}/src/globals.css"
+import * as slideMod from "${r}/${slidePath}"
 
 let theme = {}
 try {
-  const themeMod = await import("${root}/src/theme")
+  const themeMod = await import("${r}/src/theme")
   theme = themeMod.theme || themeMod.default || {}
 } catch {}
 
@@ -128,16 +135,17 @@ function getEmbedHtmlTemplate() {
 }
 
 function getEmbedEntryModule(root) {
+  const r = toImportPath(root)
   return `
 import { StrictMode, createElement } from "react"
 import { createRoot } from "react-dom/client"
 import { SlideEmbed, SlideThemeProvider } from "promptslide"
-import "${root}/src/globals.css"
-import { slides } from "${root}/src/deck-config"
+import "${r}/src/globals.css"
+import { slides } from "${r}/src/deck-config"
 
 let theme = {}
 try {
-  const themeMod = await import("${root}/src/theme")
+  const themeMod = await import("${r}/src/theme")
   theme = themeMod.theme || themeMod.default || {}
 } catch {}
 
