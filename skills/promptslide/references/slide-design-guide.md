@@ -58,6 +58,8 @@ Avoid these common mistakes that make slides look generic or "AI-generated":
 - Purple/indigo as the default accent on every deck — match the brand or pick a distinctive palette
 - Low-contrast muted colors everywhere — use at least one bold accent or contrast moment
 - Identical spacing on all slides — let some content breathe with generous whitespace, pack others tightly for energy
+- **Gray boxes on light backgrounds** — on light themes, `bg-card` with default dark-theme values looks like dull gray rectangles on white. Use `bg-primary/5`, `bg-primary/8`, tinted backgrounds, or `border-t-2 border-primary` accents instead of plain `bg-card` cards everywhere
+- **Monotone light slides** — a deck that's all white/light gray with small blue text is forgettable. Every light deck needs contrast moments: a bold `bg-primary text-primary-foreground` hero slide, a `bg-foreground text-background` dark breather, or oversized colored numbers
 
 **What to do instead:**
 - Mix at least 3 different visual treatments across a deck: full-bleed color, cards, typography-driven, data-heavy, asymmetric grid
@@ -95,6 +97,16 @@ You can't use gradients, blur, or box-shadow — but you can create depth and at
 - **Borders as structure** — colored top borders (`border-t-[3px] border-primary`) on cards create accent without shadows
 - **Image overlays at low opacity** — brand patterns or textures at 5–10% opacity add atmosphere without competing with content
 - **Asymmetric layouts** — a 60/40 split feels more designed than 50/50. Grid-breaking elements (a column that spans two rows, a stat that overlaps a section boundary) add visual interest.
+
+### Light themes need more design effort, not less
+
+Light backgrounds are unforgiving — every element is exposed, and "safe" defaults (gray borders, muted cards, small text) become boring fast. Light decks need deliberate contrast and color:
+
+- **Don't rely on `bg-card` for visual structure.** On light themes, `bg-card` is barely different from `bg-background`. Use `bg-primary/5`, `bg-primary/8`, or `bg-primary/10` tinted panels instead. Or skip cards entirely and use typography, whitespace, and horizontal rules.
+- **Create contrast through inversion.** Include 1–2 slides with `bg-foreground text-background` (dark on light) or `bg-primary text-primary-foreground` (brand color as full background). These "breather" slides break monotony and create rhythm.
+- **Make numbers and stats bold.** On light backgrounds, oversized colored numbers (`text-6xl font-bold text-primary`) are the strongest visual anchors. Use them.
+- **Borders need to earn their place.** A grid of bordered cards on white looks like a wireframe. If you use borders, make them purposeful: a thick `border-t-[3px] border-primary` accent bar, not `border border-border` on every card.
+- **Vary card treatments across slides.** Don't use the same card style twice in a row. Mix: tinted background (no border) → accent-top border → full primary background → no card (typography only).
 
 ### The "unforgettable" test
 

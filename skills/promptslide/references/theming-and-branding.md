@@ -44,6 +44,10 @@ Format: `oklch(lightness chroma hue)`
 
 ## All CSS Variables
 
+The default template ships with a **dark theme**. When building a light-themed deck, you **must replace the entire variable block** — not just `--background` and `--primary`. Leaving dark-theme card/muted/border values on a light background produces the dreaded "gray boxes on white" look.
+
+### Dark Theme (Default)
+
 ```css
 :root {
   --background: oklch(0.159 0 0); /* Near-black */
@@ -70,6 +74,82 @@ Format: `oklch(lightness chroma hue)`
   --border: oklch(0.269 0 0); /* Borders */
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+
+  --radius: 0.625rem;
+}
+```
+
+### Light Theme Base
+
+Copy this **complete** set when building any light-themed deck. Then change `--primary` to match the brand.
+
+```css
+:root {
+  --background: oklch(0.995 0 0); /* White */
+  --foreground: oklch(0.141 0 0); /* Near-black text */
+
+  --card: oklch(0.985 0 0); /* Very light gray — NOT dark gray */
+  --card-foreground: oklch(0.141 0 0);
+
+  --primary: oklch(0.5 0.2 250); /* Brand color — change this */
+  --primary-foreground: oklch(0.985 0 0); /* White text on primary bg */
+
+  --secondary: oklch(0.17 0 0); /* Dark for contrast */
+  --secondary-foreground: oklch(0.985 0 0);
+
+  --muted: oklch(0.955 0 0); /* Light gray backgrounds */
+  --muted-foreground: oklch(0.45 0 0); /* Medium-dark secondary text */
+
+  --accent: oklch(0.955 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+
+  --destructive: oklch(0.577 0.245 27);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --border: oklch(0.885 0 0); /* Subtle light border */
+  --input: oklch(0 0 0 / 10%);
+  --ring: oklch(0.556 0 0);
+
+  --radius: 0.625rem;
+}
+```
+
+**Critical light-theme rules:**
+- `--card` must be close to `--background` (light), never dark gray
+- `--muted-foreground` must be clearly readable (lightness ~0.4–0.5), not washed-out gray
+- `--border` should be subtle but visible (lightness ~0.85–0.90)
+- `--foreground` and `--card-foreground` must be dark (lightness ~0.14–0.20)
+
+### Warm Light Theme Base
+
+For editorial or warm-toned decks (e.g., Warm Editorial preset). Uses an off-white background with warm undertones.
+
+```css
+:root {
+  --background: oklch(0.98 0.005 80); /* Warm off-white */
+  --foreground: oklch(0.18 0.01 60); /* Warm near-black */
+
+  --card: oklch(0.96 0.005 80); /* Warm light gray */
+  --card-foreground: oklch(0.18 0.01 60);
+
+  --primary: oklch(0.55 0.15 30); /* Change to brand color */
+  --primary-foreground: oklch(0.985 0 0);
+
+  --secondary: oklch(0.2 0.01 60);
+  --secondary-foreground: oklch(0.985 0 0);
+
+  --muted: oklch(0.94 0.005 80); /* Warm muted bg */
+  --muted-foreground: oklch(0.42 0.01 60); /* Readable warm gray */
+
+  --accent: oklch(0.94 0.01 60);
+  --accent-foreground: oklch(0.22 0.01 60);
+
+  --destructive: oklch(0.577 0.245 27);
+  --destructive-foreground: oklch(0.985 0 0);
+
+  --border: oklch(0.88 0.008 80); /* Warm subtle border */
+  --input: oklch(0 0 0 / 8%);
+  --ring: oklch(0.5 0 0);
 
   --radius: 0.625rem;
 }

@@ -74,6 +74,8 @@ The `--yes` flag skips interactive prompts and uses sensible defaults. Replace `
 
 Edit `src/theme.ts` for brand name and logo, and `src/globals.css` for theme colors. See [references/theming-and-branding.md](references/theming-and-branding.md) for details.
 
+**If building a light theme:** Replace the **entire CSS variable block** in `globals.css` with the Light Theme Base (or Warm Light Theme Base) from the theming reference. The default template is dark — leaving dark-theme values for `--card`, `--muted`, `--border`, or `--foreground` on a light background creates ugly, low-contrast gray boxes. Always swap the full set.
+
 ### Step 5: Design Thinking
 
 Before writing any slide code, commit to a clear aesthetic direction and plan the deck holistically. Generic, template-looking slides are worse than no slides at all.
@@ -90,6 +92,9 @@ Choose a distinct visual personality — editorial, brutalist, luxury-minimal, b
 - **What makes this deck UNFORGETTABLE?** Ask this before coding. If the answer is "nothing" — the design direction isn't strong enough.
 
 Don't default to the first layout that comes to mind. Consider 2–3 options for each slide and pick the one that best serves the message.
+
+#### Avoid "safe" defaults
+The most common failure mode is playing it safe: gray bordered cards on a white background, uniform icon-title-description grids, everything centered, muted colors everywhere. This produces slides that look like wireframes, not presentations. Push for bold choices — an oversized number, a full-bleed primary-colored slide, an asymmetric layout, a single sentence with dramatic whitespace. A bold decision that commits is always better than a cautious design that hedges.
 
 **Share your design plan with the user before coding.** Briefly describe the visual direction, color strategy, and your layout approach for each slide (e.g., "slide 3: asymmetric two-column with oversized stat", "slide 7: dark hero slide — the most important in the deck"). Let them approve or adjust — don't just decide and start building.
 

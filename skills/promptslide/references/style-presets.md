@@ -52,6 +52,8 @@ Developer/hacker aesthetic. Monospace type, green-on-dark, terminal feel.
 
 ## Light Themes
 
+> **Important:** Light themes require replacing the **entire CSS variable block** in `globals.css` — not just `--primary` and `--background`. Start from the **Light Theme Base** or **Warm Light Theme Base** in [theming-and-branding.md](theming-and-branding.md), then adjust `--primary`. Leaving dark-theme values for `--card`, `--muted`, or `--border` on a light background produces ugly gray boxes.
+
 ### 4. Clean Corporate
 
 Minimal, professional white theme. No visual noise.
@@ -60,11 +62,13 @@ Minimal, professional white theme. No visual noise.
 
 | Property | Value |
 |----------|-------|
+| **CSS base** | Use the **Light Theme Base** from [theming-and-branding.md](theming-and-branding.md) |
 | **Primary** | `oklch(0.5 0.2 250)` (classic blue) |
-| **Background** | Pure white |
-| **Cards** | `border border-border bg-card`. |
+| **Background** | Pure white (`oklch(0.995 0 0)`) |
+| **Cards** | `border border-border bg-card` — cards should be barely distinguishable from background, not gray blocks. Use `bg-primary/5` or a thin `border-t-2 border-primary` accent for visual interest. |
+| **Contrast strategy** | Pair the mostly-white deck with 1–2 bold `bg-primary text-primary-foreground` full-bleed slides as chapter dividers. The contrast between restrained white slides and bold primary accents creates energy. |
 | **Animations** | `slide-up` — fast (0.3s). Professional, no-nonsense. |
-| **Signature** | Generous whitespace. Let typography and data carry the slide. |
+| **Signature** | Generous whitespace. Let typography and data carry the slide. Oversized numbers (`text-7xl font-bold text-primary`) as visual anchors on data slides. |
 
 ### 5. Warm Editorial
 
@@ -74,9 +78,11 @@ Magazine-inspired layout with warm neutrals and serif headings.
 
 | Property | Value |
 |----------|-------|
+| **CSS base** | Use the **Warm Light Theme Base** from [theming-and-branding.md](theming-and-branding.md) |
 | **Primary** | `oklch(0.55 0.15 30)` (warm terracotta) |
 | **Background** | Off-white (`oklch(0.98 0.005 80)`) |
-| **Cards** | No cards. Use horizontal rules (`border-t`), pull quotes, and typography hierarchy. |
+| **Cards** | No cards. Use horizontal rules (`border-t`), pull quotes, and typography hierarchy. When panels are needed, use `bg-primary/5` tinted areas — not gray `bg-card` boxes. |
+| **Contrast strategy** | Use a dark warm slide (`bg-foreground text-background`) for 1–2 key moments. Terracotta accents (`bg-primary`, `text-primary`) are reserved for emphasis, not decoration. |
 | **Animations** | `slide-up` and `fade` — medium (0.4s). Reading-order stagger. |
 | **Signature** | Large pull quotes. Asymmetric text layouts. Drop caps. |
 
@@ -88,9 +94,11 @@ Friendly, approachable light theme with soft pastels.
 
 | Property | Value |
 |----------|-------|
+| **CSS base** | Use the **Light Theme Base** from [theming-and-branding.md](theming-and-branding.md) |
 | **Primary** | `oklch(0.6 0.15 280)` (soft purple) |
 | **Background** | Light warm gray (`oklch(0.97 0.005 80)`) |
-| **Cards** | Rounded (`rounded-2xl`), tinted backgrounds (`bg-primary/5`, `bg-accent/5`). No borders. |
+| **Cards** | Rounded (`rounded-2xl`), **tinted colored backgrounds** (`bg-primary/5`, `bg-accent/5`, `bg-primary/8`) — never plain gray `bg-card`. Each card in a group should use a different tint for variety. No borders. |
+| **Contrast strategy** | Alternate between white slides and slides with large `bg-primary/5` or `bg-primary/10` tinted sections. Add 1 bold slide with `bg-primary text-primary-foreground` as a hero moment. |
 | **Animations** | `scale` and `slide-up` — medium (0.4s), tight stagger (0.08s). Playful. |
 | **Signature** | Colored card backgrounds that alternate between primary/accent tints |
 
