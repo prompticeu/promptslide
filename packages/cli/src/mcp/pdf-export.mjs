@@ -7,10 +7,11 @@
  */
 
 import { existsSync, mkdirSync } from "node:fs"
-import { join, basename, dirname } from "node:path"
-import { homedir } from "node:os"
-import { parseDeckManifest } from "../utils/deck-manifest.mjs"
 import { readFileSync } from "node:fs"
+import { homedir } from "node:os"
+import { join, basename, dirname } from "node:path"
+
+import { parseDeckManifest } from "../utils/deck-manifest.mjs"
 
 /** Default export directory */
 const EXPORTS_DIR = join(homedir(), ".promptslide", "exports")
@@ -25,7 +26,7 @@ async function getBrowser() {
   } catch (err) {
     throw new Error(
       `Playwright is required for PDF export. Install it with: bun add playwright && bunx playwright install chromium\n` +
-      `Original error: ${err.message}`
+        `Original error: ${err.message}`
     )
   }
 }
@@ -63,27 +64,20 @@ export async function exportPdf({ deckRoot, deckSlug, devServerPort, outputPath 
     })
 
     try {
-      // Navigate to deck
-      await page.goto(`http://localhost:${devServerPort}/${effectiveDeckSlug}`, {
+      // Navigate to print view — renders all slides without chrome
+      await page.goto(`http://localhost:${devServerPort}/${effectiveDeckSlug}?print=true`, {
         waitUntil: "networkidle",
         timeout: 15000
       })
-      await page.waitForTimeout(500)
 
-      // Switch to list view (keyboard shortcut 'l')
-      await page.keyboard.press("l")
-      await page.waitForTimeout(1000)
+      // Wait for React to render all slides
+      await page.waitForSelector("[data-print-ready='true']", { timeout: 10000 })
 
-      // Wait for all slides to render
-      await page.waitForTimeout(1000)
-
-      // Generate PDF with proper page sizing
-      // Each slide is 16:9 aspect ratio
+      // Generate PDF — each slide is 1280×720 with pageBreakAfter
       const pdfBuffer = await page.pdf({
         width: "1280px",
         height: "720px",
         printBackground: true,
-        preferCSSPageSize: true,
         margin: { top: 0, right: 0, bottom: 0, left: 0 }
       })
 
@@ -131,21 +125,19 @@ export async function exportPdfBuffer({ deckSlug, devServerPort }) {
     })
 
     try {
-      await page.goto(`http://localhost:${devServerPort}/${deckSlug}`, {
+      // Navigate to print view — renders all slides without chrome
+      await page.goto(`http://localhost:${devServerPort}/${deckSlug}?print=true`, {
         waitUntil: "networkidle",
         timeout: 15000
       })
-      await page.waitForTimeout(500)
 
-      // Switch to list view
-      await page.keyboard.press("l")
-      await page.waitForTimeout(1500)
+      // Wait for React to render all slides
+      await page.waitForSelector("[data-print-ready='true']", { timeout: 10000 })
 
       const pdfBuffer = await page.pdf({
         width: "1280px",
         height: "720px",
         printBackground: true,
-        preferCSSPageSize: true,
         margin: { top: 0, right: 0, bottom: 0, left: 0 }
       })
 
