@@ -5,8 +5,8 @@ A slide deck built with [PromptSlide](https://github.com/prompticeu/promptslide)
 ## Getting Started
 
 ```bash
-bun install
-bun run dev
+npm install
+npm run dev
 ```
 
 Then open your coding agent (Claude Code, Cursor, Windsurf, etc.) and say:

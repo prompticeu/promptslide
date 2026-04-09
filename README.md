@@ -28,10 +28,10 @@ This gives your coding agent everything it needs to create, edit, and publish sl
 ## Quick Start
 
 ```bash
-bun create slides my-deck
+npm create slides my-deck
 cd my-deck
-bun install
-bun run dev
+npm install
+npm run dev
 ```
 
 Then open your coding agent and say:

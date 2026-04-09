@@ -7,10 +7,10 @@ PromptSlide is a local-first slide framework built with React, Tailwind CSS, and
 ## Quick Start
 
 ```bash
-bun create slides my-deck
+npm create slides my-deck
 cd my-deck
-bun install
-bun run dev
+npm install
+npm run dev
 ```
 
 Then open your coding agent and say:
@@ -19,7 +19,7 @@ Then open your coding agent and say:
 
 ## CLI Commands
 
-All commands are run via `npx promptslide <command>` (or `bunx promptslide <command>`).
+All commands are run via `npx promptslide <command>`.
 
 | Command   | Description                              |
 | --------- | ---------------------------------------- |
