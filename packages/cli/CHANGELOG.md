@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.15](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.14...promptslide-v0.3.15) (2026-04-09)
+
+
+### Bug Fixes
+
+* normalize paths to forward slashes for Windows compatibility ([#99](https://github.com/prompticeu/promptslide/issues/99)) ([4148895](https://github.com/prompticeu/promptslide/commit/414889594e7839172a19c547e1cbb04127bfe55e))
+* remove slide title from navigation controls ([#97](https://github.com/prompticeu/promptslide/issues/97)) ([2e2c011](https://github.com/prompticeu/promptslide/commit/2e2c0115a8488c9bc6c903971998211283148692))
+
 ## [0.3.14](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.13...promptslide-v0.3.14) (2026-04-01)
 
 
