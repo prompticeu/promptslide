@@ -828,7 +828,33 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     },
 
     configureServer(server) {
-      // Pre-middleware: receive browser errors and log them to the terminal
+      // Error buffer keyed by deck slug ("_global" for unknown deck)
+      const MAX_ERRORS = 50
+      const errorBuffer = new Map() // slug → [{ message, filename, timestamp }]
+
+      function pushError(slug, entry) {
+        const key = slug || "_global"
+        if (!errorBuffer.has(key)) errorBuffer.set(key, [])
+        const buf = errorBuffer.get(key)
+        buf.push(entry)
+        while (buf.length > MAX_ERRORS) buf.shift()
+      }
+
+      function getErrors(slug) {
+        if (slug) return errorBuffer.get(slug) || []
+        // No slug → return all errors merged
+        return [...errorBuffer.values()].flat()
+      }
+
+      function clearErrors(slug) {
+        if (slug) {
+          errorBuffer.delete(slug)
+        } else {
+          errorBuffer.clear()
+        }
+      }
+
+      // Pre-middleware: receive browser errors, log + buffer them
       server.middlewares.use((req, res, next) => {
         if (req.method !== "POST" || req.url !== "/__promptslide_error") return next()
 
@@ -843,10 +869,38 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
             server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, {
               timestamp: true
             })
+
+            // Infer deck slug from the referer URL path (e.g. /my-deck → "my-deck")
+            const deckSlug = getDeckSlugFromReferer(req.headers.referer)
+            pushError(deckSlug, { message, filename: filename || null, timestamp: Date.now() })
           } catch {}
           res.statusCode = 204
           res.end()
         })
+      })
+
+      // Pre-middleware: GET/DELETE /__promptslide_errors?deck=<slug>
+      server.middlewares.use((req, res, next) => {
+        const parsed = new URL(req.url, "http://localhost")
+        if (parsed.pathname !== "/__promptslide_errors") return next()
+        const deckSlug = parsed.searchParams.get("deck") || null
+
+        if (req.method === "GET") {
+          const errors = getErrors(deckSlug)
+          res.setHeader("Content-Type", "application/json")
+          res.statusCode = 200
+          res.end(JSON.stringify({ errors }))
+          return
+        }
+
+        if (req.method === "DELETE") {
+          clearErrors(deckSlug)
+          res.statusCode = 204
+          res.end()
+          return
+        }
+
+        next()
       })
 
       // Pre-middleware: read annotations
@@ -905,7 +959,9 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         if (req.method !== "DELETE" || req.url !== "/__promptslide_deck") return next()
 
         let body = ""
-        req.on("data", chunk => { body += chunk })
+        req.on("data", chunk => {
+          body += chunk
+        })
         req.on("end", () => {
           try {
             const { slug } = JSON.parse(body)
