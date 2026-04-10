@@ -474,17 +474,74 @@ export async function captureSlideHtml({ deckRoot, deckSlug, slideId, devServerP
       throw new Error("Slide render timed out — the slide may have compile errors or unresolved dependencies")
     }
 
-    const html = await page.evaluate(() => {
+    const html = await page.evaluate(async () => {
+      // Convert a URL to a base64 data URI so the HTML is self-contained
+      async function urlToDataUri(url) {
+        try {
+          const resp = await fetch(url)
+          if (!resp.ok) return url
+          const blob = await resp.blob()
+          return new Promise((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result)
+            reader.onerror = () => resolve(url)
+            reader.readAsDataURL(blob)
+          })
+        } catch {
+          return url
+        }
+      }
+
+      // Inline all url() references in a CSS string (skip data: and # refs)
+      async function inlineCssUrls(css) {
+        const urlRe = /url\(["']?(?!data:|#)([^"')]+)["']?\)/g
+        const matches = [...css.matchAll(urlRe)]
+        if (matches.length === 0) return css
+        let result = css
+        for (const m of matches) {
+          const dataUri = await urlToDataUri(m[1])
+          if (dataUri !== m[1]) {
+            result = result.replace(m[0], `url("${dataUri}")`)
+          }
+        }
+        return result
+      }
+
+      const el = document.querySelector("[data-export-ready]")
+      if (!el) return null
+
+      // Inline <img> src attributes
+      await Promise.all([...el.querySelectorAll("img[src]")].map(async (img) => {
+        if (img.src && !img.src.startsWith("data:")) {
+          img.src = await urlToDataUri(img.src)
+        }
+      }))
+
+      // Inline background-image in inline styles
+      await Promise.all([...el.querySelectorAll("*")].map(async (e) => {
+        const bg = e.style?.backgroundImage
+        if (bg && bg.includes("url(") && !bg.includes("data:")) {
+          e.style.backgroundImage = await inlineCssUrls(bg)
+        }
+      }))
+
+      // Collect CSS rules and inline url() references in stylesheets
       const styles = []
       for (const sheet of document.styleSheets) {
         try {
           const rules = []
-          for (const rule of sheet.cssRules) rules.push(rule.cssText)
+          for (const rule of sheet.cssRules) {
+            const text = rule.cssText
+            if (text.includes("url(") && !/url\(["']?data:/.test(text)) {
+              rules.push(await inlineCssUrls(text))
+            } else {
+              rules.push(text)
+            }
+          }
           styles.push(rules.join("\n"))
         } catch {}
       }
-      const el = document.querySelector("[data-export-ready]")
-      if (!el) return null
+
       return `<!DOCTYPE html>
 <html lang="en" class="${document.documentElement.className}">
 <head><meta charset="UTF-8"><style>${styles.join("\n")}</style>

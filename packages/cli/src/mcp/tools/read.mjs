@@ -182,7 +182,7 @@ export function registerReadTools(server, context) {
       }))
 
       // List assets
-      const assetsDir = join(deckPath, "assets")
+      const assetsDir = join(deckPath, "src", "assets")
       const assets = existsSync(assetsDir)
         ? readdirSync(assetsDir).map(f => {
             const stat = statSync(join(assetsDir, f))
