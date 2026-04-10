@@ -163,7 +163,7 @@ export function registerPreviewTools(server, context) {
         resourceUri: RESOURCE_URI,
         csp: {
           connectDomains: ["http://localhost:*"],
-          resourceDomains: ["http://localhost:*"]
+          resourceDomains: ["http://localhost:*", "https:"]
         }
       } }
     },
