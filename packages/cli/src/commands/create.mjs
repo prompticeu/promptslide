@@ -9,6 +9,7 @@ import { hexToOklch, isValidHex } from "../utils/colors.mjs"
 import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
 import { fetchRegistryItem, resolveRegistryDependencies, writeLockfile } from "../utils/registry.mjs"
 import { toPascalCase, replaceDeckConfig } from "../utils/deck-config.mjs"
+import { collectRegistrySlideSlugs, partitionDeckSlides } from "../utils/deck-sync.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -221,7 +222,13 @@ export async function create(args) {
 
     // Reconstruct deck-config.ts from deckConfig metadata
     if (fromItem.meta?.slides) {
-      const slides = fromItem.meta.slides.map(s => ({
+      const registrySlideSlugs = collectRegistrySlideSlugs(resolved.items)
+      const { available, missing } = partitionDeckSlides(fromItem.meta.slides, registrySlideSlugs)
+      if (missing.length > 0) {
+        console.log(`  ${yellow("⚠")} Skipped ${missing.length} slide(s) listed in the deck but not included in this version:`)
+        console.log(`    ${dim(missing.map(s => s.slug).join(", "))}`)
+      }
+      const slides = available.map(s => ({
         componentName: s.componentName || toPascalCase(s.slug),
         importPath: `@/slides/${s.slug}`,
         steps: s.steps,

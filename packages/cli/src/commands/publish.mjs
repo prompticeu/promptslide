@@ -5,9 +5,10 @@ import { fileURLToPath } from "node:url"
 import { bold, green, cyan, red, yellow, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { captureSlideAsDataUri, isPlaywrightAvailable, createCaptureSession } from "../utils/export.mjs"
-import { publishToRegistry, registryItemExists, fetchRegistryItem, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, writeLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent, readDeckMeta, updateDeckMeta, readItemMeta, updateItemMeta } from "../utils/registry.mjs"
+import { publishToRegistry, registryItemExists, fetchRegistryItem, searchRegistry, updateLockfileItem, updateLockfilePublishConfig, readLockfile, writeLockfile, hashContent, detectPackageManager, requestUploadTokens, uploadBinaryToBlob, assetFileToSlug, detectAssetDepsInContent, readDeckMeta, updateDeckMeta, readItemMeta, updateItemMeta, pruneMissingLockfileItems } from "../utils/registry.mjs"
 import { prompt, confirm, select, closePrompts } from "../utils/prompts.mjs"
 import { parseDeckConfig } from "../utils/deck-config.mjs"
+import { selectSlidesForPublish } from "../utils/deck-sync.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const CLI_VERSION = JSON.parse(readFileSync(join(__dirname, "..", "..", "package.json"), "utf-8")).version
@@ -412,7 +413,7 @@ export async function publish(args) {
   console.log()
 
   if (args[0] === "--help" || args[0] === "-h") {
-    console.log(`  ${bold("Usage:")} promptslide publish ${dim("[file] [--type slide|layout|deck|theme]")}`)
+    console.log(`  ${bold("Usage:")} promptslide publish ${dim("[file] [--type slide|layout|deck|theme] [--all]")}`)
     console.log()
     console.log(`  Publish a slide, layout, or entire deck to the registry.`)
     console.log()
@@ -420,6 +421,9 @@ export async function publish(args) {
     console.log(`    promptslide publish src/slides/slide-hero.tsx`)
     console.log(`    promptslide publish --type layout`)
     console.log(`    promptslide publish --type deck`)
+    console.log()
+    console.log(`  ${bold("Options:")}`)
+    console.log(`    --all    Include slide files not referenced by deck-config.ts in a deck publish`)
     console.log()
     process.exit(0)
   }
@@ -433,6 +437,7 @@ export async function publish(args) {
 
   // Determine file to publish
   let typeOverride = null
+  const includeUnreferencedSlides = args.includes("--all")
   const typeIdx = args.indexOf("--type")
   if (typeIdx !== -1 && args[typeIdx + 1]) {
     typeOverride = args[typeIdx + 1]
@@ -538,9 +543,23 @@ export async function publish(args) {
       : []
 
     const slidesDir = join(cwd, "src", "slides")
-    const slideEntries = existsSync(slidesDir)
+    const slideFilesOnDisk = existsSync(slidesDir)
       ? readdirSync(slidesDir).filter(f => f.endsWith(".tsx") || f.endsWith(".ts"))
       : []
+    const slideSelection = selectSlidesForPublish(
+      slideFilesOnDisk,
+      deckConfig.slides,
+      includeUnreferencedSlides
+    )
+    if (slideSelection.missing.length > 0) {
+      console.error(`  ${red("Error:")} deck-config.ts references slide files that do not exist:`)
+      console.error(`    ${slideSelection.missing.join(", ")}`)
+      console.error(`  ${dim("Restore the files or remove their entries from deck-config.ts before publishing.")}`)
+      console.log()
+      closePrompts()
+      process.exit(1)
+    }
+    const slideEntries = slideSelection.selected
 
     // Discover shared source files (src/components/, src/lib/, etc.)
     const sharedSources = discoverSharedSources(cwd)
@@ -555,12 +574,14 @@ export async function publish(args) {
     console.log(`    Slides:  ${slideEntries.length}`)
     if (sharedSources.length) console.log(`    Shared:  ${sharedSources.length} ${dim("(bundled with deck)")}`)
     console.log(`    Total:   ${totalItems} items`)
-    // Info if there are slide files on disk not referenced in deck-config.ts
-    const deckConfigSlideCount = deckConfig.slides.length
-    if (deckConfigSlideCount !== slideEntries.length) {
+    if (slideSelection.unreferenced.length > 0) {
       console.log()
-      console.log(`  ${dim("ℹ")} deck-config.ts has ${deckConfigSlideCount} slides, ${slideEntries.length} slide files on disk`)
-      console.log(`    ${dim("All slides are published. Only deck-config slides appear in the deck preview.")}`)
+      if (includeUnreferencedSlides) {
+        console.log(`  ${yellow("!")} Including ${slideSelection.unreferenced.length} slide file(s) not referenced by deck-config.ts because --all was set:`)
+      } else {
+        console.log(`  ${dim("ℹ")} Skipping ${slideSelection.unreferenced.length} slide file(s) not referenced by deck-config.ts:`)
+      }
+      console.log(`    ${dim(slideSelection.unreferenced.join(", "))}`)
     }
     if (deckConfig.transition) {
       console.log(`    Transition: ${deckConfig.transition}${deckConfig.directionalTransition ? " (directional)" : ""}`)
@@ -612,6 +633,11 @@ export async function publish(args) {
 
     // Read lockfile for skip-if-unchanged
     const lock = readLockfile(cwd)
+    const prunedLockItems = pruneMissingLockfileItems(cwd, lock)
+    if (prunedLockItems.length > 0) {
+      writeLockfile(cwd, lock)
+      console.log(`  ${dim("Pruned missing files from lockfile:")} ${prunedLockItems.join(", ")}`)
+    }
     let published = 0
     let skipped = 0
     let failed = 0

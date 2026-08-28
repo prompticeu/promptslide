@@ -151,6 +151,29 @@ export function removeLockfileItem(cwd, slug) {
 }
 
 /**
+ * Remove lockfile entries whose tracked files have all disappeared locally.
+ * Entries with no files (such as the deck manifest) are retained.
+ *
+ * @param {string} cwd
+ * @param {{ items?: Record<string, { files?: Record<string, string> }> }} lock
+ * @returns {string[]} Removed item slugs
+ */
+export function pruneMissingLockfileItems(cwd, lock) {
+  const removed = []
+  lock.items ||= {}
+
+  for (const [slug, item] of Object.entries(lock.items)) {
+    const paths = Object.keys(item.files ?? {})
+    if (paths.length > 0 && paths.every(path => !existsSync(join(cwd, path)))) {
+      delete lock.items[slug]
+      removed.push(slug)
+    }
+  }
+
+  return removed
+}
+
+/**
  * Build common auth headers for registry API requests.
  * @param {{ token: string, organizationId?: string }} auth
  * @returns {Record<string, string>}
