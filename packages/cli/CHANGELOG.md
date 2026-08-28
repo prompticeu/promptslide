@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.16](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.15...promptslide-v0.3.16) (2026-08-28)
+
+
+### Bug Fixes
+
+* **cli:** guard deck sync against stale slides ([#103](https://github.com/prompticeu/promptslide/issues/103)) ([f8dddc9](https://github.com/prompticeu/promptslide/commit/f8dddc9fe4177c37dbae729d1efc8971aa46ed92))
+
 ## [0.3.15](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.14...promptslide-v0.3.15) (2026-04-09)
 
 
