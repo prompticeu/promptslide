@@ -21,6 +21,7 @@ import {
   addSlideToDeckConfig,
   replaceDeckConfig
 } from "../utils/deck-config.mjs"
+import { collectRegistrySlideSlugs, partitionDeckSlides } from "../utils/deck-sync.mjs"
 import { confirm, closePrompts } from "../utils/prompts.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -164,9 +165,15 @@ export async function add(args) {
       }
     }
   } else if (item.type === "deck" && item.meta?.slides) {
+    const registrySlideSlugs = collectRegistrySlideSlugs(resolved.items)
+    const { available, missing } = partitionDeckSlides(item.meta.slides, registrySlideSlugs)
+    if (missing.length > 0) {
+      console.log(`  ${yellow("⚠")} Skipped ${missing.length} slide(s) listed in the deck but not included in this version:`)
+      console.log(`    ${dim(missing.map(s => s.slug).join(", "))}`)
+    }
     const shouldReplace = await confirm("  Replace entire deck-config.ts with this deck?", true)
     if (shouldReplace) {
-      const slides = item.meta.slides.map(s => ({
+      const slides = available.map(s => ({
         componentName: s.componentName || toPascalCase(s.slug),
         importPath: `@/slides/${s.slug}`,
         steps: s.steps,
@@ -179,7 +186,7 @@ export async function add(args) {
       console.log(`  ${green("✓")} Replaced ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`)
     } else {
       // Append individual slides
-      for (const s of item.meta.slides) {
+      for (const s of available) {
         const componentName = s.componentName || toPascalCase(s.slug)
         const importPath = `@/slides/${s.slug}`
         const updated = addSlideToDeckConfig(cwd, { componentName, importPath, steps: s.steps })

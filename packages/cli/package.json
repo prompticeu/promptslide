@@ -24,6 +24,7 @@
   ],
   "scripts": {
     "build": "tsup",
+    "test": "node --test test/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
   "license": "MIT",
