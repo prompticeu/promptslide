@@ -39,7 +39,7 @@ export function SlideHowItWorks({ slideNumber, totalSlides }: SlideProps) {
           {steps.map((step, index) => {
             const isLeft = index % 2 === 0
             return (
-              <Animated key={step.title} step={index + 1} animation="fade">
+              <Animated key={step.title} step={index} animation="fade">
                 <div className="relative flex items-center">
                   {/* Dot on center line */}
                   <div className="absolute left-1/2 h-4 w-4 -translate-x-1/2 rounded-full bg-primary ring-4 ring-background" />

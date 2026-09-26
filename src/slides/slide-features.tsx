@@ -1,7 +1,7 @@
 import type { SlideProps } from "promptslide"
 
-import { Animated } from "promptslide"
 import { FileDown, Fullscreen, Palette, Sparkles, Blocks } from "lucide-react"
+import { Animated } from "promptslide"
 
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
@@ -15,7 +15,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
     >
       <div className="grid h-full grid-cols-4 grid-rows-2 gap-4">
         {/* Wide tile — top left, spans 2 cols */}
-        <Animated step={1} animation="slide-down" className="col-span-2">
+        <Animated step={0} animation="slide-down" className="col-span-2">
           <div className="flex h-full flex-col justify-center rounded-2xl bg-primary/10 p-8">
             <Sparkles className="mb-3 h-8 w-8 text-primary" />
             <h3 className="text-xl font-semibold text-foreground">Step Animations</h3>
@@ -27,7 +27,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
         </Animated>
 
         {/* Tall tile — Themeable, spans 2 rows */}
-        <Animated step={1} animation="slide-down" className="row-span-2">
+        <Animated step={0} animation="slide-down" className="row-span-2">
           <div className="flex h-full flex-col justify-between rounded-2xl border border-border bg-card p-6">
             <div>
               <Palette className="mb-3 h-8 w-8 text-primary" />
@@ -55,14 +55,14 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
         </Animated>
 
         {/* Tall tile — Agent Skill, spans 2 rows */}
-        <Animated step={1} animation="slide-down" className="row-span-2">
+        <Animated step={0} animation="slide-down" className="row-span-2">
           <div className="flex h-full flex-col justify-between rounded-2xl border border-primary/15 bg-primary/5 p-6">
             <div>
               <Blocks className="mb-3 h-8 w-8 text-primary" />
               <h3 className="font-semibold text-foreground">Agent Skill</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Ship a SKILL.md with your deck so any coding agent instantly knows how to add,
-                edit, and style slides.
+                Ship a SKILL.md with your deck so any coding agent instantly knows how to add, edit,
+                and style slides.
               </p>
             </div>
             <div className="space-y-2 text-sm">
@@ -83,7 +83,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
         </Animated>
 
         {/* Small tile — Presentation Mode */}
-        <Animated step={1} animation="slide-down">
+        <Animated step={0} animation="slide-down">
           <div className="flex h-full flex-col justify-center rounded-2xl bg-muted/30 p-6">
             <Fullscreen className="mb-3 h-7 w-7 text-primary" />
             <h3 className="font-semibold text-foreground">Presentation Mode</h3>
@@ -94,7 +94,7 @@ export function SlideFeatures({ slideNumber, totalSlides }: SlideProps) {
         </Animated>
 
         {/* Accent tile — PDF Export */}
-        <Animated step={1} animation="slide-down">
+        <Animated step={0} animation="slide-down">
           <div className="flex h-full flex-col justify-center rounded-2xl bg-primary p-6">
             <FileDown className="mb-3 h-7 w-7 text-primary-foreground" />
             <h3 className="font-semibold text-primary-foreground">PDF Export</h3>

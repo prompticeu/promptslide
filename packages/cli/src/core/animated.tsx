@@ -48,7 +48,7 @@ const animationVariants: Record<AnimationType, Variants> = {
 }
 
 interface AnimatedProps {
-  /** Which step reveals this content (1-indexed) */
+  /** Which step reveals this content (0 = visible from slide entry) */
   step: number
   /** Animation type */
   animation?: AnimationType
@@ -83,7 +83,7 @@ export function Animated({
 
   return (
     <motion.div
-      initial="hidden"
+      initial={isVisible ? false : "hidden"}
       animate={isVisible ? "visible" : "hidden"}
       variants={animationVariants[animation]}
       transition={{
@@ -138,7 +138,7 @@ export function AnimatedGroup({
 
   return (
     <motion.div
-      initial="hidden"
+      initial={isVisible ? false : "hidden"}
       animate={isVisible ? "visible" : "hidden"}
       variants={containerVariants}
       className={className}

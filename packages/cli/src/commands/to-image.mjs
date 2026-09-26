@@ -8,6 +8,8 @@ export async function toImage(args) {
   const slidePath = args[0]
   const outputIndex = args.indexOf("-o")
   const output = outputIndex !== -1 ? args[outputIndex + 1] : null
+  const portArg = args.find(arg => arg.startsWith("--port="))
+  const studioPort = portArg ? Number(portArg.slice(7)) : undefined
 
   if (!slidePath || slidePath === "--help" || slidePath === "-h") {
     console.log()
@@ -15,6 +17,7 @@ export async function toImage(args) {
     console.log()
     console.log(`  ${bold("Options:")}`)
     console.log(`    -o <file>  Output file path (default: <slide-name>.png)`)
+    console.log(`    --port=N   Studio port to reuse (default: auto-discover)`)
     console.log()
     console.log(`  ${bold("Examples:")}`)
     console.log(`    ${dim("promptslide to-image src/slides/slide-title.tsx")}`)
@@ -26,7 +29,9 @@ export async function toImage(args) {
   if (!(await isPlaywrightAvailable())) {
     console.error()
     console.error(`  ${red("Error:")} Playwright is required for image export.`)
-    console.error(`  Install it with: ${bold("npm install -D playwright && npx playwright install chromium")}`)
+    console.error(
+      `  Install it with: ${bold("npm install -D playwright && npx playwright install chromium")}`
+    )
     console.error()
     process.exit(1)
   }
@@ -36,10 +41,18 @@ export async function toImage(args) {
   console.log()
   console.log(`  ${dim("Capturing screenshot...")}`)
 
-  const buffer = await captureSlideScreenshot({
-    cwd: process.cwd(),
-    slidePath
-  })
+  let buffer
+  try {
+    buffer = await captureSlideScreenshot({
+      cwd: process.cwd(),
+      slidePath,
+      studioPort
+    })
+  } catch (error) {
+    console.error(`  ${red("Error:")} ${error.message}`)
+    process.exitCode = 1
+    return
+  }
 
   if (!buffer) {
     console.error(`  ${red("Error:")} Failed to capture screenshot.`)

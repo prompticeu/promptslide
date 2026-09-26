@@ -52,19 +52,28 @@ No server, no API, no sandbox. Just a local Vite project + your coding agent.
 
 ## Keyboard Shortcuts
 
-| Key           | Action                 |
-| ------------- | ---------------------- |
-| `→` / `Space` | Next step or slide     |
-| `←`           | Previous step or slide |
-| `F`           | Toggle fullscreen      |
-| `G`           | Toggle grid view       |
-| `Escape`      | Exit fullscreen        |
+| Key           | Action                  |
+| ------------- | ----------------------- |
+| `→` / `Space` | Next step or slide      |
+| `←`           | Previous step or slide  |
+| `F`           | Toggle fullscreen       |
+| `V`           | Presentation view       |
+| `G`           | Toggle grid view        |
+| `L`           | Toggle list view        |
+| `C`           | Toggle comments         |
+| `D`           | Download PDF            |
+| `T`           | Toggle slide thumbnails |
+| `Escape`      | Exit fullscreen         |
 
 ## View Modes
 
-- **Presentation**: Single slide with navigation controls
+- **Presentation**: Single slide with navigation controls and a resizable thumbnail rail that collapses in narrow windows
 - **Grid**: Thumbnail overview — click to jump
-- **List**: Vertical scroll — use browser print for PDF export
+- **List**: Vertical scroll through all slides
+
+Add a unique, stable `id` to each entry in `src/deck-config.ts` to keep links and annotations attached to the same slide when you reorder the deck. Existing decks without IDs still work and use numbered URL hashes. Studio remembers the current animation step across reloads in the same tab.
+
+Use `promptslide to-image src/slides/slide-title.tsx -o title.png` for a PNG or `promptslide to-pdf -o slides.pdf` for the full deck. These commands reuse the running Studio server when possible and otherwise start a temporary one. Studio's Download PDF button uses the same all-slides renderer.
 
 ## Tech Stack
 

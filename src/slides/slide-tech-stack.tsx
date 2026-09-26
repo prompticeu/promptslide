@@ -45,10 +45,10 @@ export function SlideTechStack({ slideNumber, totalSlides }: SlideProps) {
       eyebrow="TECH STACK"
       title="Built on Modern, Battle-Tested Tools"
     >
-      <Animated step={1} animation="fade">
+      <Animated step={0} animation="fade">
         <div className="flex h-full items-center">
           <div className="w-full divide-y divide-border">
-            {stack.map((item) => (
+            {stack.map(item => (
               <div key={item.name} className="grid grid-cols-5 items-baseline gap-8 py-5">
                 <div className="col-span-2 flex items-baseline gap-3">
                   <span className="text-2xl font-bold tracking-tight text-foreground">

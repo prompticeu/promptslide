@@ -5,10 +5,14 @@ import { fileURLToPath } from "node:url"
 import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { hexToOklch } from "../utils/colors.mjs"
-import { closePrompts } from "../utils/prompts.mjs"
-import { fetchRegistryItem, resolveRegistryDependencies, writeLockfile } from "../utils/registry.mjs"
 import { toPascalCase, replaceDeckConfig } from "../utils/deck-config.mjs"
 import { collectRegistrySlideSlugs, partitionDeckSlides } from "../utils/deck-sync.mjs"
+import { closePrompts } from "../utils/prompts.mjs"
+import {
+  fetchRegistryItem,
+  resolveRegistryDependencies,
+  writeLockfile
+} from "../utils/registry.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -63,7 +67,9 @@ export async function clone(args) {
   }
 
   if (item.type !== "deck") {
-    console.error(`  ${red("Error:")} "${slug}" is a ${item.type}, not a deck. Only decks can be cloned.`)
+    console.error(
+      `  ${red("Error:")} "${slug}" is a ${item.type}, not a deck. Only decks can be cloned.`
+    )
     process.exit(1)
   }
 
@@ -75,8 +81,12 @@ export async function clone(args) {
     const localParts = CLI_VERSION.match(/^(\d+)\.(\d+)/)
     if (pubParts && localParts && pubParts[2] !== localParts[2]) {
       console.log()
-      console.log(`  ${yellow("⚠")} This deck was published with promptslide ${bold(`v${item.promptslideVersion}`)}`)
-      console.log(`    You have ${bold(`v${CLI_VERSION}`)} installed — some slides may need updating.`)
+      console.log(
+        `  ${yellow("⚠")} This deck was published with promptslide ${bold(`v${item.promptslideVersion}`)}`
+      )
+      console.log(
+        `    You have ${bold(`v${CLI_VERSION}`)} installed — some slides may need updating.`
+      )
     }
   }
 
@@ -100,7 +110,11 @@ export async function clone(args) {
   const replacements = [
     {
       path: join(targetDir, "package.json"),
-      values: { "{{PROJECT_SLUG}}": dirName, "{{PROJECT_NAME}}": projectName, "{{PROMPTSLIDE_VERSION}}": `^${CLI_VERSION}` }
+      values: {
+        "{{PROJECT_SLUG}}": dirName,
+        "{{PROJECT_NAME}}": projectName,
+        "{{PROMPTSLIDE_VERSION}}": `^${CLI_VERSION}`
+      }
     },
     {
       path: join(targetDir, "src", "theme.ts"),
@@ -149,7 +163,10 @@ export async function clone(args) {
 
       const dataUriPrefix = file.content.match(/^data:[^;]+;base64,/)
       if (dataUriPrefix) {
-        writeFileSync(targetPath, Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64"))
+        writeFileSync(
+          targetPath,
+          Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64")
+        )
       } else {
         writeFileSync(targetPath, file.content, "utf-8")
       }
@@ -168,6 +185,7 @@ export async function clone(args) {
     const slides = available.map(s => ({
       componentName: s.componentName || toPascalCase(s.slug),
       importPath: `@/slides/${s.slug}`,
+      id: s.id,
       steps: s.steps,
       section: s.section
     }))
@@ -175,7 +193,9 @@ export async function clone(args) {
       transition: item.meta.transition,
       directionalTransition: item.meta.directionalTransition
     })
-    console.log(`  ${green("✓")} Generated ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`)
+    console.log(
+      `  ${green("✓")} Generated ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`
+    )
   }
 
   // 7. Add npm dependencies
@@ -195,24 +215,37 @@ export async function clone(args) {
   if (item.id) {
     try {
       const annotationsRes = await fetch(`${auth.registry}/api/items/${item.id}/annotations`, {
-        headers: { Authorization: `Bearer ${auth.token}`, ...(auth.organizationId ? { "X-Organization-Id": auth.organizationId } : {}) }
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          ...(auth.organizationId ? { "X-Organization-Id": auth.organizationId } : {})
+        }
       })
       if (annotationsRes.ok) {
         const data = await annotationsRes.json()
         const annotations = data.annotations ?? []
         if (annotations.length > 0) {
-          const annotationsFile = { version: 1, annotations: annotations.map(a => ({
-            id: a.id,
-            slideIndex: a.slideIndex,
-            slideTitle: a.slideTitle,
-            target: a.target,
-            body: a.body,
-            createdAt: a.createdAt,
-            status: a.status,
-            ...(a.resolution ? { resolution: a.resolution } : {})
-          })) }
-          writeFileSync(join(targetDir, "annotations.json"), JSON.stringify(annotationsFile, null, 2) + "\n", "utf-8")
-          console.log(`  ${green("✓")} Pulled ${cyan("annotations.json")} ${dim(`(${annotations.length} annotation${annotations.length === 1 ? "" : "s"})`)}`)
+          const annotationsFile = {
+            version: 1,
+            annotations: annotations.map(a => ({
+              id: a.id,
+              slideIndex: a.slideIndex,
+              ...(a.slideId ? { slideId: a.slideId } : {}),
+              slideTitle: a.slideTitle,
+              target: a.target,
+              body: a.body,
+              createdAt: a.createdAt,
+              status: a.status,
+              ...(a.resolution ? { resolution: a.resolution } : {})
+            }))
+          }
+          writeFileSync(
+            join(targetDir, "annotations.json"),
+            JSON.stringify(annotationsFile, null, 2) + "\n",
+            "utf-8"
+          )
+          console.log(
+            `  ${green("✓")} Pulled ${cyan("annotations.json")} ${dim(`(${annotations.length} annotation${annotations.length === 1 ? "" : "s"})`)}`
+          )
         }
       }
     } catch {

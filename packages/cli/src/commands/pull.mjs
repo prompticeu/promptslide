@@ -1,9 +1,11 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { execFileSync } from "node:child_process"
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { join, dirname, resolve, sep } from "node:path"
 
 import { bold, green, cyan, red, yellow, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
+import { toPascalCase, addSlideToDeckConfig, replaceDeckConfig } from "../utils/deck-config.mjs"
+import { confirm, closePrompts } from "../utils/prompts.mjs"
 import {
   fetchRegistryItem,
   resolveRegistryDependencies,
@@ -15,13 +17,7 @@ import {
   hashFile,
   isFileDirty
 } from "../utils/registry.mjs"
-import {
-  toPascalCase,
-  addSlideToDeckConfig,
-  replaceDeckConfig
-} from "../utils/deck-config.mjs"
 import { collectRegistrySlideSlugs, partitionDeckSlides } from "../utils/deck-sync.mjs"
-import { confirm, closePrompts } from "../utils/prompts.mjs"
 
 export async function pull(args) {
   const cwd = process.cwd()
@@ -51,7 +47,9 @@ export async function pull(args) {
 
   if (!deckSlug) {
     console.error(`  ${red("Error:")} No deck slug found in lockfile.`)
-    console.error(`  ${dim("Run")} ${cyan("promptslide publish --type deck")} ${dim("first to set it.")}`)
+    console.error(
+      `  ${dim("Run")} ${cyan("promptslide publish --type deck")} ${dim("first to set it.")}`
+    )
     console.log()
     process.exit(1)
   }
@@ -69,7 +67,9 @@ export async function pull(args) {
   }
 
   const versionTag = deckItem.version ? ` ${dim(`v${deckItem.version}`)}` : ""
-  console.log(`  Found ${bold(deckItem.title || deckItem.name)} ${dim(`(${deckItem.type})`)}${versionTag}`)
+  console.log(
+    `  Found ${bold(deckItem.title || deckItem.name)} ${dim(`(${deckItem.type})`)}${versionTag}`
+  )
 
   // Resolve all dependencies (slides, layouts, themes, assets)
   let resolved
@@ -138,7 +138,10 @@ export async function pull(args) {
             }
           } else if (!storedHash) {
             // File exists but not in lockfile (first pull or untracked)
-            const overwrite = await confirm(`  Overwrite ${relativePath}? ${dim("(local changes will be lost)")}`, false)
+            const overwrite = await confirm(
+              `  Overwrite ${relativePath}? ${dim("(local changes will be lost)")}`,
+              false
+            )
             if (!overwrite) {
               console.log(`  ${dim("Skipped")} ${relativePath}`)
               continue
@@ -151,7 +154,10 @@ export async function pull(args) {
       mkdirSync(targetDir, { recursive: true })
       const dataUriPrefix = file.content.match(/^data:[^;]+;base64,/)
       if (dataUriPrefix) {
-        writeFileSync(targetPath, Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64"))
+        writeFileSync(
+          targetPath,
+          Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64")
+        )
       } else {
         writeFileSync(targetPath, file.content, "utf-8")
       }
@@ -186,6 +192,7 @@ export async function pull(args) {
       const slides = available.map(s => ({
         componentName: s.componentName || toPascalCase(s.slug),
         importPath: `@/slides/${s.slug}`,
+        id: s.id,
         steps: s.steps,
         section: s.section
       }))
@@ -193,13 +200,21 @@ export async function pull(args) {
         transition: deckItem.meta.transition,
         directionalTransition: deckItem.meta.directionalTransition
       })
-      console.log(`  ${green("+")} Replaced ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`)
+      console.log(
+        `  ${green("+")} Replaced ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`
+      )
     } else {
       // Append individual slides
       for (const s of available) {
         const componentName = s.componentName || toPascalCase(s.slug)
         const importPath = `@/slides/${s.slug}`
-        const updated = addSlideToDeckConfig(cwd, { componentName, importPath, steps: s.steps, section: s.section })
+        const updated = addSlideToDeckConfig(cwd, {
+          componentName,
+          importPath,
+          steps: s.steps,
+          id: s.id,
+          section: s.section
+        })
         if (updated) {
           console.log(`  ${green("+")} Added ${componentName} to ${cyan("deck-config.ts")}`)
         }
@@ -227,24 +242,37 @@ export async function pull(args) {
   if (deckItem.id) {
     try {
       const annotationsRes = await fetch(`${auth.registry}/api/items/${deckItem.id}/annotations`, {
-        headers: { Authorization: `Bearer ${auth.token}`, ...(auth.organizationId ? { "X-Organization-Id": auth.organizationId } : {}) }
+        headers: {
+          Authorization: `Bearer ${auth.token}`,
+          ...(auth.organizationId ? { "X-Organization-Id": auth.organizationId } : {})
+        }
       })
       if (annotationsRes.ok) {
         const data = await annotationsRes.json()
         const annotations = data.annotations ?? []
         if (annotations.length > 0) {
-          const annotationsFile = { version: 1, annotations: annotations.map(a => ({
-            id: a.id,
-            slideIndex: a.slideIndex,
-            slideTitle: a.slideTitle,
-            target: a.target,
-            body: a.body,
-            createdAt: a.createdAt,
-            status: a.status,
-            ...(a.resolution ? { resolution: a.resolution } : {})
-          })) }
-          writeFileSync(join(cwd, "annotations.json"), JSON.stringify(annotationsFile, null, 2) + "\n", "utf-8")
-          console.log(`  ${green("+")} ${cyan("annotations.json")} ${dim(`(${annotations.length} annotation${annotations.length === 1 ? "" : 's'})`)}`)
+          const annotationsFile = {
+            version: 1,
+            annotations: annotations.map(a => ({
+              id: a.id,
+              slideIndex: a.slideIndex,
+              ...(a.slideId ? { slideId: a.slideId } : {}),
+              slideTitle: a.slideTitle,
+              target: a.target,
+              body: a.body,
+              createdAt: a.createdAt,
+              status: a.status,
+              ...(a.resolution ? { resolution: a.resolution } : {})
+            }))
+          }
+          writeFileSync(
+            join(cwd, "annotations.json"),
+            JSON.stringify(annotationsFile, null, 2) + "\n",
+            "utf-8"
+          )
+          console.log(
+            `  ${green("+")} ${cyan("annotations.json")} ${dim(`(${annotations.length} annotation${annotations.length === 1 ? "" : "s"})`)}`
+          )
         }
       }
     } catch {
@@ -257,7 +285,9 @@ export async function pull(args) {
   if (written.length === 0) {
     console.log(`  ${green("+")} Everything is up to date.`)
   } else {
-    console.log(`  ${green("+")} Pulled ${bold(String(written.length))} file(s) from ${bold(deckSlug)}`)
+    console.log(
+      `  ${green("+")} Pulled ${bold(String(written.length))} file(s) from ${bold(deckSlug)}`
+    )
   }
   console.log()
   closePrompts()

@@ -3,6 +3,6 @@ import { SlideTitle } from "@/slides/slide-title";
 import { SlideExample } from "@/slides/slide-example";
 
 export const slides: SlideConfig[] = [
-  { component: SlideTitle, steps: 0 },
-  { component: SlideExample, steps: 2 },
+  { id: "title", component: SlideTitle, steps: 0 },
+  { id: "example", component: SlideExample, steps: 2 },
 ];
