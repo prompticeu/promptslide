@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.17](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.16...promptslide-v0.3.17) (2026-09-26)
+
+
+### Features
+
+* improve slide navigation, previews, and comments ([#105](https://github.com/prompticeu/promptslide/issues/105)) ([193a6f4](https://github.com/prompticeu/promptslide/commit/193a6f40e16d7fd3b6f6761e76378ede37693309))
+
 ## [0.3.16](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.15...promptslide-v0.3.16) (2026-08-28)
 
 
