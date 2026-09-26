@@ -1,7 +1,7 @@
 import type { SlideProps } from "promptslide"
 
-import { Animated } from "promptslide"
 import { Check, X } from "lucide-react"
+import { Animated } from "promptslide"
 
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
@@ -30,7 +30,7 @@ export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
       <div className="relative flex h-full items-center">
         <div className="grid w-full grid-cols-2 gap-8">
           {/* Left — the old way */}
-          <Animated step={1} animation="slide-right">
+          <Animated step={0} animation="slide-right">
             <div className="rounded-2xl border border-border bg-muted/30 p-8">
               <div className="mb-6 flex items-center gap-3">
                 <X className="h-6 w-6 text-muted-foreground" />
@@ -50,7 +50,7 @@ export function SlideProblem({ slideNumber, totalSlides }: SlideProps) {
           </Animated>
 
           {/* Right — the new way */}
-          <Animated step={2} animation="slide-left">
+          <Animated step={1} animation="slide-left">
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
               <div className="mb-6 flex items-center gap-3">
                 <Check className="h-6 w-6 text-primary" />

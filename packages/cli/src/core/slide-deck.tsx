@@ -1,14 +1,23 @@
 import { LayoutGroup } from "framer-motion"
-import { ChevronLeft, ChevronRight, Download, Grid3X3, List, Maximize, MessageCircle, Monitor } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Grid3X3,
+  List,
+  Maximize,
+  MessageCircle,
+  Monitor
+} from "lucide-react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
+import type { Annotation, AnnotationTarget } from "./annotations"
 import type { SlideTransitionType } from "./transitions"
 import type { SlideConfig } from "./types"
 
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
 import { AnnotationOverlay, AnnotationPanel, useAnnotations } from "./annotations"
-import type { Annotation, AnnotationTarget } from "./annotations"
 import { SlideErrorBoundary } from "./slide-error-boundary"
 import { SlideRenderer } from "./slide-renderer"
 import { useSlideNavigation } from "./use-slide-navigation"
@@ -27,7 +36,12 @@ interface SlideDeckProps {
   /** Annotation data to display. When provided (even empty array), annotation UI is enabled. When undefined, annotation UI is hidden. */
   annotations?: Annotation[]
   /** Called when the user creates an annotation */
-  onAnnotationAdd?: (slideIndex: number, slideTitle: string, target: AnnotationTarget, body: string) => void
+  onAnnotationAdd?: (
+    slideIndex: number,
+    slideTitle: string,
+    target: AnnotationTarget,
+    body: string
+  ) => void
   /** Called when the user deletes an annotation */
   onAnnotationDelete?: (id: string) => void
 }
@@ -74,7 +88,14 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
 // COMPONENT
 // =============================================================================
 
-export function SlideDeck({ slides, transition, directionalTransition, annotations, onAnnotationAdd, onAnnotationDelete }: SlideDeckProps) {
+export function SlideDeck({
+  slides,
+  transition,
+  directionalTransition,
+  annotations,
+  onAnnotationAdd,
+  onAnnotationDelete
+}: SlideDeckProps) {
   // Check for export mode via URL params
   const [exportParams] = useState(() => {
     if (typeof window === "undefined") return null
@@ -94,7 +115,10 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
   const effectiveAdd = isExternallyManaged ? onAnnotationAdd : internal.addAnnotation
   const effectiveDelete = isExternallyManaged ? onAnnotationDelete : internal.deleteAnnotation
 
-  const openCount = useMemo(() => effectiveAnnotations.filter(a => a.status === "open").length, [effectiveAnnotations])
+  const openCount = useMemo(
+    () => effectiveAnnotations.filter(a => a.status === "open").length,
+    [effectiveAnnotations]
+  )
   const getSlideAnnotations = useCallback(
     (slideIndex: number) => effectiveAnnotations.filter(a => a.slideIndex === slideIndex),
     [effectiveAnnotations]
@@ -108,6 +132,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
   const [scale, setScale] = useState(1)
   const containerRef = useRef<HTMLDivElement>(null)
   const slideContainerRef = useRef<HTMLDivElement>(null)
+  const previewViewportRef = useRef<HTMLDivElement>(null)
 
   const {
     currentSlide,
@@ -158,6 +183,24 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
     window.addEventListener("resize", calculateScale)
     return () => window.removeEventListener("resize", calculateScale)
   }, [isPresentationMode])
+
+  // Keep slide layout at its design size; only scale the rendered canvas.
+  useLayoutEffect(() => {
+    const viewport = previewViewportRef.current
+    const canvas = slideContainerRef.current
+    if (!viewport || !canvas) return
+    const resize = (width: number, height: number) => {
+      const fitScale = Math.min(width / SLIDE_DIMENSIONS.width, height / SLIDE_DIMENSIONS.height)
+      canvas.style.transform = `scale(${fitScale})`
+    }
+    resize(viewport.clientWidth, viewport.clientHeight)
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
+      resize(entry.contentRect.width, entry.contentRect.height)
+    })
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [viewMode, isPresentationMode])
 
   const handleExportPdf = () => {
     const previousMode = viewMode
@@ -311,10 +354,7 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
       {/* Slide View */}
       {viewMode === "slide" && (
         <div
-          className={cn(
-            "flex h-screen w-full print:hidden",
-            isPresentationMode ? "bg-black" : ""
-          )}
+          className={cn("flex h-screen w-full print:hidden", isPresentationMode ? "bg-black" : "")}
         >
           <div
             ref={containerRef}
@@ -357,31 +397,43 @@ export function SlideDeck({ slides, transition, directionalTransition, annotatio
                   />
                 </div>
               ) : (
-                <div ref={slideContainerRef} className="relative aspect-video w-full max-w-7xl overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-2xl">
-                  <SlideRenderer
-                    slides={slides}
-                    currentSlide={currentSlide}
-                    animationStep={animationStep}
-                    totalSteps={totalSteps}
-                    direction={direction}
-                    showAllAnimations={showAllAnimations}
-                    transition={transition}
-                    directionalTransition={directionalTransition}
-                    onTransitionComplete={onTransitionComplete}
-                  />
-                  {isAnnotationMode && (
-                    <AnnotationOverlay
+                <div
+                  ref={previewViewportRef}
+                  className="relative aspect-video w-full max-w-7xl overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-2xl"
+                >
+                  <div
+                    ref={slideContainerRef}
+                    className="absolute top-0 left-0 overflow-hidden"
+                    style={{
+                      width: SLIDE_DIMENSIONS.width,
+                      height: SLIDE_DIMENSIONS.height,
+                      transformOrigin: "top left"
+                    }}
+                  >
+                    <SlideRenderer
                       slides={slides}
                       currentSlide={currentSlide}
-                      slideContainerRef={slideContainerRef}
-                      selectedId={selectedAnnotationId}
-                      onSelectId={setSelectedAnnotationId}
-                      onShowPanel={() => setShowAnnotationPanel(true)}
-                      slideAnnotations={getSlideAnnotations(currentSlide)}
-                      addAnnotation={effectiveAdd ?? (() => {})}
-
+                      animationStep={animationStep}
+                      totalSteps={totalSteps}
+                      direction={direction}
+                      showAllAnimations={showAllAnimations}
+                      transition={transition}
+                      directionalTransition={directionalTransition}
+                      onTransitionComplete={onTransitionComplete}
                     />
-                  )}
+                    {isAnnotationMode && (
+                      <AnnotationOverlay
+                        slides={slides}
+                        currentSlide={currentSlide}
+                        slideContainerRef={slideContainerRef}
+                        selectedId={selectedAnnotationId}
+                        onSelectId={setSelectedAnnotationId}
+                        onShowPanel={() => setShowAnnotationPanel(true)}
+                        slideAnnotations={getSlideAnnotations(currentSlide)}
+                        addAnnotation={effectiveAdd ?? (() => {})}
+                      />
+                    )}
+                  </div>
                 </div>
               )}
             </LayoutGroup>

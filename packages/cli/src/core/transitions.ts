@@ -42,9 +42,11 @@ export interface SlideTransitionConfig {
 // =============================================================================
 
 const fadeVariants: Variants = {
-  enter: { opacity: 0 },
-  center: { opacity: 1 },
-  exit: { opacity: 0 }
+  // Render the next slide fully beneath the current one, then fade the
+  // outgoing slide away. This keeps the frame opaque throughout the change.
+  enter: { opacity: 1, zIndex: 0 },
+  center: { opacity: 1, zIndex: 0 },
+  exit: { opacity: 0, zIndex: 1 }
 }
 
 const slideLeftVariants: Variants = {

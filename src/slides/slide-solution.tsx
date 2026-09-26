@@ -1,7 +1,7 @@
 import type { SlideProps } from "promptslide"
 
-import { Animated } from "promptslide"
 import { MessageSquare, Eye, Presentation, ChevronRight } from "lucide-react"
+import { Animated } from "promptslide"
 
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
@@ -9,18 +9,18 @@ const steps = [
   {
     icon: MessageSquare,
     label: "Describe it",
-    description: "Tell your coding agent what slides you need in plain language.",
+    description: "Tell your coding agent what slides you need in plain language."
   },
   {
     icon: Eye,
     label: "See it",
-    description: "Watch components appear in real-time with hot reload.",
+    description: "Watch components appear in real-time with hot reload."
   },
   {
     icon: Presentation,
     label: "Present it",
-    description: "Go fullscreen and present — no export step required.",
-  },
+    description: "Go fullscreen and present — no export step required."
+  }
 ]
 
 export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
@@ -33,7 +33,7 @@ export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
     >
       <div className="flex h-full flex-col justify-center gap-10">
         {/* Three-step flow */}
-        <Animated step={1} animation="slide-up">
+        <Animated step={0} animation="slide-up">
           <div className="flex items-stretch gap-3">
             {steps.map((step, i) => (
               <div key={step.label} className="flex flex-1 items-stretch gap-3">
@@ -64,7 +64,7 @@ export function SlideSolution({ slideNumber, totalSlides }: SlideProps) {
         </Animated>
 
         {/* Terminal demo */}
-        <Animated step={2} animation="slide-up">
+        <Animated step={1} animation="slide-up">
           <div className="w-full rounded-xl border border-border bg-card p-6">
             <div className="mb-3 flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-red-500/60" />
