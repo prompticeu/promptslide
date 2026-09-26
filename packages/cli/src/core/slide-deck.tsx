@@ -5,11 +5,11 @@ import {
   Download,
   Grid3X3,
   List,
-  Maximize,
   MessageCircle,
   Monitor,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Play
 } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
@@ -133,6 +133,7 @@ interface SlideDeckProps {
   ) => void
   /** Called when the user deletes an annotation */
   onAnnotationDelete?: (id: string) => void
+  onAnnotationUpdate?: (id: string, patch: Partial<Pick<Annotation, "body" | "status">>) => void
 }
 
 // =============================================================================
@@ -196,7 +197,8 @@ export function SlideDeck({
   directionalTransition,
   annotations,
   onAnnotationAdd,
-  onAnnotationDelete
+  onAnnotationDelete,
+  onAnnotationUpdate
 }: SlideDeckProps) {
   // Check for export mode via URL params
   const [exportParams] = useState(() => {
@@ -216,6 +218,7 @@ export function SlideDeck({
   const effectiveAnnotations = isExternallyManaged ? annotations : internal.annotations
   const effectiveAdd = isExternallyManaged ? onAnnotationAdd : internal.addAnnotation
   const effectiveDelete = isExternallyManaged ? onAnnotationDelete : internal.deleteAnnotation
+  const effectiveUpdate = isExternallyManaged ? onAnnotationUpdate : internal.updateAnnotation
 
   const openCount = useMemo(
     () => effectiveAnnotations.filter(a => a.status === "open").length,
@@ -252,6 +255,7 @@ export function SlideDeck({
   const [isAnnotationMode, setIsAnnotationMode] = useState(false)
   const [showAnnotationPanel, setShowAnnotationPanel] = useState(false)
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
+  const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null)
   const [isResizingThumbnails, setIsResizingThumbnails] = useState(false)
   const [isDragCollapsed, setIsDragCollapsed] = useState(false)
   const [isAnimatingDragBoundary, setIsAnimatingDragBoundary] = useState(false)
@@ -293,6 +297,11 @@ export function SlideDeck({
   useEffect(() => {
     if (isNarrowViewport !== wasNarrowViewportRef.current) {
       setShowThumbnailRail(isNarrowViewport ? false : preferredRailOpenRef.current)
+      if (isNarrowViewport) {
+        setIsAnnotationMode(false)
+        setShowAnnotationPanel(false)
+        setSelectedAnnotationId(null)
+      }
       wasNarrowViewportRef.current = isNarrowViewport
     }
   }, [isNarrowViewport])
@@ -456,7 +465,17 @@ export function SlideDeck({
     return () => observer.disconnect()
   }, [viewMode, isPresentationMode])
 
-  const handleExportPdf = async () => {
+  const toggleCommentMode = useCallback(() => {
+    const next = !isAnnotationMode
+    setIsAnnotationMode(next)
+    setShowAnnotationPanel(next)
+    if (!next) {
+      setSelectedAnnotationId(null)
+      setHoveredAnnotationId(null)
+    }
+  }, [isAnnotationMode])
+
+  const handleExportPdf = useCallback(async () => {
     try {
       const response = await fetch("/__promptslide_pdf")
       if (response.ok && response.headers.get("content-type")?.includes("application/pdf")) {
@@ -483,30 +502,55 @@ export function SlideDeck({
       window.addEventListener("afterprint", handleAfterPrint)
       window.print()
     }, 100)
-  }
+  }, [viewMode])
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       if (target?.closest("input, textarea, [contenteditable='true']")) return
-      if (e.key === "f" || e.key === "F") {
-        togglePresentationMode()
+      if (e.altKey || e.ctrlKey || e.metaKey) return
+      const key = e.key.toLowerCase()
+      if (e.repeat && "fvglcdt".includes(key)) return
+
+      if (key === "f") {
+        e.preventDefault()
+        void togglePresentationMode()
         return
       }
 
-      // G for grid view toggle
-      if (e.key === "g" || e.key === "G") {
+      if (key === "v" && !isPresentationMode) {
+        e.preventDefault()
+        setViewMode("slide")
+        return
+      }
+
+      if (key === "g") {
+        e.preventDefault()
         setViewMode(prev => (prev === "grid" ? "slide" : "grid"))
         return
       }
 
-      if (e.key === "l" || e.key === "L") {
+      if (key === "l") {
+        e.preventDefault()
         setViewMode(prev => (prev === "list" ? "slide" : "list"))
         return
       }
 
-      if (viewMode === "slide" && !isPresentationMode && (e.key === "t" || e.key === "T")) {
+      if (key === "c" && !isPresentationMode) {
+        e.preventDefault()
+        toggleCommentMode()
+        return
+      }
+
+      if (key === "d" && !isPresentationMode) {
+        e.preventDefault()
+        void handleExportPdf()
+        return
+      }
+
+      if (viewMode === "slide" && !isPresentationMode && key === "t") {
+        e.preventDefault()
         setThumbnailRailOpen(!showThumbnailRail)
         return
       }
@@ -532,7 +576,9 @@ export function SlideDeck({
     isAnnotationMode,
     isPresentationMode,
     setThumbnailRailOpen,
-    showThumbnailRail
+    showThumbnailRail,
+    toggleCommentMode,
+    handleExportPdf
   ])
 
   return (
@@ -565,9 +611,10 @@ export function SlideDeck({
       {/* Toolbar */}
       <div
         className={cn(
-          "fixed top-4 z-50 flex gap-1 rounded-lg border border-neutral-800 bg-neutral-950/90 p-1 backdrop-blur-sm transition-[right] print:hidden",
-          isPresentationMode && "hidden",
-          isAnnotationMode && showAnnotationPanel ? "right-[19.5rem]" : "right-4"
+          "fixed top-4 z-50 flex gap-1 rounded-lg border border-neutral-800 bg-neutral-950/90 p-1 backdrop-blur-sm transition-[right] duration-200 ease-out print:hidden",
+          (isPresentationMode || (isNarrowViewport && isAnnotationMode && showAnnotationPanel)) &&
+            "hidden",
+          isAnnotationMode && showAnnotationPanel ? "right-[21rem]" : "right-4"
         )}
       >
         <button
@@ -576,7 +623,7 @@ export function SlideDeck({
             "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
             viewMode === "slide" && "bg-neutral-800 text-white"
           )}
-          title="Presentation View"
+          title="Presentation View (V)"
         >
           <Monitor className="h-4 w-4" />
         </button>
@@ -586,7 +633,7 @@ export function SlideDeck({
             "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
             viewMode === "list" && "bg-neutral-800 text-white"
           )}
-          title="List View"
+          title="List View (L)"
         >
           <List className="h-4 w-4" />
         </button>
@@ -596,7 +643,7 @@ export function SlideDeck({
             "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
             viewMode === "grid" && "bg-neutral-800 text-white"
           )}
-          title="Grid View"
+          title="Grid View (G)"
         >
           <Grid3X3 className="h-4 w-4" />
         </button>
@@ -604,19 +651,14 @@ export function SlideDeck({
         <div className="mx-1 w-px bg-neutral-800" />
 
         <button
-          onClick={() => {
-            setIsAnnotationMode(prev => {
-              const next = !prev
-              setShowAnnotationPanel(next)
-              if (!next) setSelectedAnnotationId(null)
-              return next
-            })
-          }}
+          onClick={toggleCommentMode}
           className={cn(
-            "relative rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-            isAnnotationMode && "bg-[#FF6B35] text-white hover:bg-[#FF7A4A]"
+            "relative inline-flex h-8 items-center justify-center rounded-md transition-colors",
+            isAnnotationMode
+              ? "border border-[#FF6B35]/50 bg-[#FF6B35]/15 p-[7px] text-[#FF6B35] hover:border-[#FF6B35] hover:bg-[#FF6B35]/25"
+              : "p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white"
           )}
-          title="Annotate slides"
+          title="Comment (C)"
         >
           <MessageCircle className="h-4 w-4" />
           {openCount > 0 && (
@@ -631,16 +673,17 @@ export function SlideDeck({
         <button
           onClick={handleExportPdf}
           className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
-          title="Download PDF"
+          title="Download PDF (D)"
         >
           <Download className="h-4 w-4" />
         </button>
         <button
           onClick={togglePresentationMode}
-          className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
+          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-[#FF6B35]/50 bg-[#FF6B35]/15 px-3 text-sm font-semibold text-[#FF6B35] transition-colors hover:border-[#FF6B35] hover:bg-[#FF6B35]/25"
           title="Present (F)"
         >
-          <Maximize className="h-4 w-4" />
+          <Play className="h-3.5 w-3.5 fill-current" />
+          <span>Present</span>
         </button>
       </div>
 
@@ -697,9 +740,9 @@ export function SlideDeck({
                           aria-label={`Go to slide ${index + 1}${slideConfig.title ? `: ${slideConfig.title}` : ""}`}
                           aria-current={index === currentSlide ? "page" : undefined}
                           className={cn(
-                            "block w-full rounded-lg border p-1.5 text-left transition-colors",
+                            "block w-full rounded-lg border p-1.5 text-left transition-colors focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FF6B35]",
                             index === currentSlide
-                              ? "border-primary bg-primary/15 ring-1 ring-primary"
+                              ? "border-[#FF6B35] bg-[#FF6B35]/15 ring-1 ring-[#FF6B35]"
                               : "border-transparent hover:border-neutral-600 hover:bg-neutral-800"
                           )}
                         >
@@ -735,8 +778,8 @@ export function SlideDeck({
                     aria-valuenow={visibleThumbnailWidth}
                     tabIndex={0}
                     className={cn(
-                      "absolute inset-y-0 -right-1 w-2 cursor-col-resize touch-none focus-visible:outline-none after:pointer-events-none after:absolute after:inset-y-0 after:right-1 after:w-0.5 after:bg-transparent after:content-[''] after:transition-colors hover:after:bg-primary/50 focus-visible:after:bg-primary/50",
-                      isResizingThumbnails && "after:bg-primary/60"
+                      "absolute inset-y-0 -right-1 w-2 cursor-col-resize touch-none focus-visible:outline-none after:pointer-events-none after:absolute after:inset-y-0 after:right-1 after:w-0.5 after:bg-transparent after:content-[''] after:transition-colors hover:after:bg-[#FF6B35]/50 focus-visible:after:bg-[#FF6B35]/50",
+                      isResizingThumbnails && "after:bg-[#FF6B35]/60"
                     )}
                     onPointerDown={event => {
                       if (event.button !== 0) return
@@ -864,6 +907,7 @@ export function SlideDeck({
                         currentSlide={currentSlide}
                         slideContainerRef={slideContainerRef}
                         selectedId={selectedAnnotationId}
+                        hoveredId={hoveredAnnotationId}
                         onSelectId={setSelectedAnnotationId}
                         onShowPanel={() => setShowAnnotationPanel(true)}
                         slideAnnotations={getSlideAnnotations(currentSlide)}
@@ -881,6 +925,7 @@ export function SlideDeck({
                 <button
                   onClick={goBack}
                   className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
+                  title="Previous step or slide (←)"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -892,6 +937,7 @@ export function SlideDeck({
                 <button
                   onClick={advance}
                   className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
+                  title="Next step or slide (→ / Space)"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
@@ -900,18 +946,51 @@ export function SlideDeck({
           </div>
 
           {/* Annotation Panel — beside the slide */}
-          {isAnnotationMode && showAnnotationPanel && !isPresentationMode && (
-            <AnnotationPanel
-              annotations={getSlideAnnotations(currentSlide)}
-              unlinkedAnnotations={unlinkedAnnotations}
-              selectedId={selectedAnnotationId}
-              onSelect={setSelectedAnnotationId}
-              onDelete={effectiveDelete ?? (() => {})}
-              onClose={() => {
-                setShowAnnotationPanel(false)
-                setSelectedAnnotationId(null)
+          {!isPresentationMode && (
+            <div
+              aria-hidden={!isAnnotationMode || !showAnnotationPanel}
+              inert={!isAnnotationMode || !showAnnotationPanel}
+              className={cn(
+                "h-full shrink-0 overflow-hidden transition-[width,transform] duration-200 ease-out motion-reduce:transition-none",
+                isNarrowViewport && "fixed inset-y-0 right-0 z-50 shadow-xl",
+                isNarrowViewport &&
+                  (!isAnnotationMode || !showAnnotationPanel) &&
+                  "translate-x-full"
+              )}
+              style={{
+                width:
+                  isAnnotationMode && showAnnotationPanel
+                    ? isNarrowViewport
+                      ? "min(20rem, 90vw)"
+                      : "20rem"
+                    : 0
               }}
-            />
+            >
+              <div
+                className={cn(
+                  "h-full transition-opacity motion-reduce:transition-none",
+                  isAnnotationMode && showAnnotationPanel
+                    ? "opacity-100 delay-100 duration-100"
+                    : "opacity-0 duration-75"
+                )}
+              >
+                <AnnotationPanel
+                  annotations={getSlideAnnotations(currentSlide)}
+                  unlinkedAnnotations={unlinkedAnnotations}
+                  selectedId={selectedAnnotationId}
+                  onSelect={setSelectedAnnotationId}
+                  onHover={setHoveredAnnotationId}
+                  onDelete={effectiveDelete ?? (() => {})}
+                  onUpdate={effectiveUpdate ?? (() => {})}
+                  onClose={() => {
+                    setIsAnnotationMode(false)
+                    setShowAnnotationPanel(false)
+                    setSelectedAnnotationId(null)
+                    setHoveredAnnotationId(null)
+                  }}
+                />
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -936,7 +1015,7 @@ export function SlideDeck({
                       goToSlide(index)
                       setViewMode("slide")
                     }}
-                    className="group relative aspect-video w-full overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-sm transition-all hover:border-primary hover:shadow-lg hover:shadow-primary/10"
+                    className="group relative aspect-video w-full overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-sm transition-all hover:border-[#FF6B35] hover:shadow-lg hover:shadow-[#FF6B35]/10"
                   >
                     <GridThumbnail slide={slideConfig} index={index} total={slides.length} />
                     <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />

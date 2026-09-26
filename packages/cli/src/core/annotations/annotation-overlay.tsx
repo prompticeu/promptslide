@@ -13,6 +13,7 @@ interface AnnotationOverlayProps {
   /** Ref to the slide container element (the div wrapping SlideRenderer) */
   slideContainerRef: React.RefObject<HTMLDivElement | null>
   selectedId: string | null
+  hoveredId: string | null
   onSelectId: (id: string | null) => void
   onShowPanel: () => void
   slideAnnotations: Annotation[]
@@ -36,6 +37,7 @@ export function AnnotationOverlay({
   currentSlide,
   slideContainerRef,
   selectedId,
+  hoveredId,
   onSelectId,
   onShowPanel,
   slideAnnotations,
@@ -209,21 +211,23 @@ export function AnnotationOverlay({
       />
 
       {/* Annotation pins */}
-      {resolvedAnnotations.map(({ annotation, xPercent, yPercent, number }) => (
-        <AnnotationPin
-          key={annotation.id}
-          number={number}
-          status={annotation.status}
-          xPercent={xPercent}
-          yPercent={yPercent}
-          isSelected={annotation.id === selectedId}
-          onClick={() => {
-            onSelectId(annotation.id === selectedId ? null : annotation.id)
-            onShowPanel()
-            setPending(null)
-          }}
-        />
-      ))}
+      {resolvedAnnotations
+        .filter(({ annotation }) => annotation.status === "open" || annotation.id === hoveredId)
+        .map(({ annotation, xPercent, yPercent, number }) => (
+          <AnnotationPin
+            key={annotation.id}
+            number={number}
+            status={annotation.status}
+            xPercent={xPercent}
+            yPercent={yPercent}
+            isSelected={annotation.id === selectedId}
+            onClick={() => {
+              onSelectId(annotation.id === selectedId ? null : annotation.id)
+              onShowPanel()
+              setPending(null)
+            }}
+          />
+        ))}
 
       {/* New annotation form */}
       {pending && (

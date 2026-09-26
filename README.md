@@ -57,8 +57,11 @@ No server, no API, no sandbox. Just a local Vite project + your coding agent.
 | `→` / `Space` | Next step or slide      |
 | `←`           | Previous step or slide  |
 | `F`           | Toggle fullscreen       |
+| `V`           | Presentation view       |
 | `G`           | Toggle grid view        |
 | `L`           | Toggle list view        |
+| `C`           | Toggle comments         |
+| `D`           | Download PDF            |
 | `T`           | Toggle slide thumbnails |
 | `Escape`      | Exit fullscreen         |
 

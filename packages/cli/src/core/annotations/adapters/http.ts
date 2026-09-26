@@ -39,6 +39,10 @@ export function createHttpAdapter(): AnnotationStorageAdapter {
       cache = cache.filter(a => a.id !== id)
       await saveAll(cache)
     },
+    async update(id, patch) {
+      cache = cache.map(a => (a.id === id ? { ...a, ...patch } : a))
+      await saveAll(cache)
+    },
     async replaceAll(annotations) {
       cache = annotations
       await saveAll(cache)

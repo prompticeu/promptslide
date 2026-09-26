@@ -44,6 +44,7 @@ export interface AnnotationStorageAdapter {
   load(): Promise<Annotation[]>
   add(annotation: Annotation): Promise<void>
   remove(id: string): Promise<void>
+  update?(id: string, patch: Pick<Annotation, "body" | "status">): Promise<void>
   /** Persist a migration of legacy index-based annotations. */
   replaceAll?(annotations: Annotation[]): Promise<void>
   /** Optional: subscribe to external state updates (e.g. postMessage from parent) */

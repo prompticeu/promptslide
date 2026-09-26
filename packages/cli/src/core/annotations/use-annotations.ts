@@ -62,6 +62,17 @@ export function useAnnotations(
     adapterRef.current.remove(id)
   }, [])
 
+  const updateAnnotation = useCallback(
+    (id: string, patch: Partial<Pick<Annotation, "body" | "status">>) => {
+      const current = annotations.find(a => a.id === id)
+      if (!current) return
+      const updated = { body: patch.body ?? current.body, status: patch.status ?? current.status }
+      setAnnotations(prev => prev.map(a => (a.id === id ? { ...a, ...updated } : a)))
+      void adapterRef.current.update?.(id, updated)
+    },
+    [annotations]
+  )
+
   const getSlideAnnotations = useCallback(
     (slideIndex: number) => annotations.filter(a => a.slideIndex === slideIndex),
     [annotations]
@@ -81,6 +92,7 @@ export function useAnnotations(
     annotations,
     addAnnotation,
     deleteAnnotation,
+    updateAnnotation,
     getSlideAnnotations,
     openCount,
     updateAnnotations
