@@ -7,7 +7,9 @@ import {
   List,
   Maximize,
   MessageCircle,
-  Monitor
+  Monitor,
+  PanelLeftClose,
+  PanelLeftOpen
 } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
@@ -28,6 +30,92 @@ import { cn } from "./utils"
 // =============================================================================
 
 type ViewMode = "slide" | "list" | "grid"
+const NARROW_VIEWPORT_WIDTH = 768
+const DEFAULT_THUMBNAIL_WIDTH = 240
+const MIN_THUMBNAIL_WIDTH = 176
+const MAX_THUMBNAIL_WIDTH = 480
+const THUMBNAIL_WIDTH_STORAGE_KEY = "promptslide:thumbnail-width"
+
+function GridThumbnail({
+  slide,
+  index,
+  total
+}: {
+  slide: SlideConfig
+  index: number
+  total: number
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const SlideComponent = slide.component
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current
+    const canvas = canvasRef.current
+    if (!viewport || !canvas) return
+    const resize = () => {
+      canvas.style.transform = `scale(${viewport.clientWidth / SLIDE_DIMENSIONS.width})`
+    }
+    resize()
+    const observer = new ResizeObserver(resize)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={viewportRef} className="absolute inset-0 overflow-hidden">
+      <div
+        ref={canvasRef}
+        className="absolute top-0 left-0 origin-top-left"
+        style={{ width: SLIDE_DIMENSIONS.width, height: SLIDE_DIMENSIONS.height }}
+      >
+        <AnimationProvider currentStep={slide.steps} totalSteps={slide.steps} showAllAnimations>
+          <SlideErrorBoundary slideIndex={index} slideTitle={slide.title}>
+            <SlideComponent slideNumber={index + 1} totalSlides={total} />
+          </SlideErrorBoundary>
+        </AnimationProvider>
+      </div>
+    </div>
+  )
+}
+
+function ListSlide({ slide, index, total }: { slide: SlideConfig; index: number; total: number }) {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const SlideComponent = slide.component
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current
+    const canvas = canvasRef.current
+    if (!viewport || !canvas) return
+    const resize = () => {
+      canvas.style.transform = `scale(${viewport.clientWidth / SLIDE_DIMENSIONS.width})`
+    }
+    resize()
+    const observer = new ResizeObserver(resize)
+    observer.observe(viewport)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div
+      ref={viewportRef}
+      className="relative aspect-video w-full overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-sm print:m-0 print:h-[1080px] print:w-[1920px] print:break-after-page print:rounded-none print:border-0 print:shadow-none"
+    >
+      <div
+        ref={canvasRef}
+        className="list-slide-canvas absolute top-0 left-0 origin-top-left"
+        style={{ width: SLIDE_DIMENSIONS.width, height: SLIDE_DIMENSIONS.height }}
+      >
+        <AnimationProvider currentStep={slide.steps} totalSteps={slide.steps} showAllAnimations>
+          <SlideErrorBoundary slideIndex={index} slideTitle={slide.title}>
+            <SlideComponent slideNumber={index + 1} totalSlides={total} />
+          </SlideErrorBoundary>
+        </AnimationProvider>
+      </div>
+    </div>
+  )
+}
 
 interface SlideDeckProps {
   slides: SlideConfig[]
@@ -40,7 +128,8 @@ interface SlideDeckProps {
     slideIndex: number,
     slideTitle: string,
     target: AnnotationTarget,
-    body: string
+    body: string,
+    slideId?: string
   ) => void
   /** Called when the user deletes an annotation */
   onAnnotationDelete?: (id: string) => void
@@ -57,7 +146,20 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
   const SlideComponent = slideConfig.component
 
   useEffect(() => {
-    setReady(true)
+    let cancelled = false
+    const markReady = async () => {
+      await document.fonts.ready
+      await Promise.all(Array.from(document.images, image => image.decode().catch(() => {})))
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (!cancelled) setReady(true)
+        })
+      )
+    }
+    void markReady()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return (
@@ -109,7 +211,7 @@ export function SlideDeck({
   }
 
   // Use internal useAnnotations as fallback when no external annotations prop is provided
-  const internal = useAnnotations()
+  const internal = useAnnotations(slides)
   const isExternallyManaged = annotations !== undefined
   const effectiveAnnotations = isExternallyManaged ? annotations : internal.annotations
   const effectiveAdd = isExternallyManaged ? onAnnotationAdd : internal.addAnnotation
@@ -120,19 +222,165 @@ export function SlideDeck({
     [effectiveAnnotations]
   )
   const getSlideAnnotations = useCallback(
-    (slideIndex: number) => effectiveAnnotations.filter(a => a.slideIndex === slideIndex),
-    [effectiveAnnotations]
+    (slideIndex: number) =>
+      effectiveAnnotations.filter(a =>
+        a.slideId ? a.slideId === slides[slideIndex]?.id : a.slideIndex === slideIndex
+      ),
+    [effectiveAnnotations, slides]
+  )
+  const unlinkedAnnotations = useMemo(
+    () =>
+      effectiveAnnotations.filter(a => a.slideId && !slides.some(slide => slide.id === a.slideId)),
+    [effectiveAnnotations, slides]
   )
 
   const [viewMode, setViewMode] = useState<ViewMode>("slide")
   const [isPresentationMode, setIsPresentationMode] = useState(false)
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === "undefined" ? 1280 : window.innerWidth
+  )
+  const [showThumbnailRail, setShowThumbnailRail] = useState(() =>
+    typeof window === "undefined" ? true : window.innerWidth >= NARROW_VIEWPORT_WIDTH
+  )
+  const [thumbnailWidth, setThumbnailWidth] = useState(() => {
+    if (typeof window === "undefined") return DEFAULT_THUMBNAIL_WIDTH
+    const savedWidth = Number(window.localStorage.getItem(THUMBNAIL_WIDTH_STORAGE_KEY))
+    return Number.isFinite(savedWidth) && savedWidth >= MIN_THUMBNAIL_WIDTH
+      ? Math.min(savedWidth, MAX_THUMBNAIL_WIDTH)
+      : DEFAULT_THUMBNAIL_WIDTH
+  })
   const [isAnnotationMode, setIsAnnotationMode] = useState(false)
   const [showAnnotationPanel, setShowAnnotationPanel] = useState(false)
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
+  const [isResizingThumbnails, setIsResizingThumbnails] = useState(false)
+  const [isDragCollapsed, setIsDragCollapsed] = useState(false)
+  const [isAnimatingDragBoundary, setIsAnimatingDragBoundary] = useState(false)
   const [scale, setScale] = useState(1)
   const containerRef = useRef<HTMLDivElement>(null)
   const slideContainerRef = useRef<HTMLDivElement>(null)
   const previewViewportRef = useRef<HTMLDivElement>(null)
+  const activeThumbnailRef = useRef<HTMLButtonElement>(null)
+  const preferredRailOpenRef = useRef(true)
+  const wasNarrowViewportRef = useRef(viewportWidth < NARROW_VIEWPORT_WIDTH)
+  const resizeStartRef = useRef<{
+    pointerId: number
+    pointerX: number
+    width: number
+  } | null>(null)
+  const previousUserSelectRef = useRef("")
+  const previousCursorRef = useRef("")
+  const dragCollapsedRef = useRef(false)
+  const dragAnimationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isNarrowViewport = viewportWidth < NARROW_VIEWPORT_WIDTH
+  const maxThumbnailWidth = isNarrowViewport
+    ? Math.max(120, Math.floor(viewportWidth * 0.8))
+    : Math.min(MAX_THUMBNAIL_WIDTH, viewportWidth - 360)
+  const minThumbnailWidth = Math.min(MIN_THUMBNAIL_WIDTH, maxThumbnailWidth)
+  const visibleThumbnailWidth = Math.min(thumbnailWidth, maxThumbnailWidth)
+  const isThumbnailRailVisible = showThumbnailRail && !isDragCollapsed
+
+  const setThumbnailRailOpen = useCallback((open: boolean) => {
+    preferredRailOpenRef.current = open
+    setShowThumbnailRail(open)
+  }, [])
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth)
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
+  useEffect(() => {
+    if (isNarrowViewport !== wasNarrowViewportRef.current) {
+      setShowThumbnailRail(isNarrowViewport ? false : preferredRailOpenRef.current)
+      wasNarrowViewportRef.current = isNarrowViewport
+    }
+  }, [isNarrowViewport])
+
+  useEffect(() => {
+    window.localStorage.setItem(THUMBNAIL_WIDTH_STORAGE_KEY, String(thumbnailWidth))
+  }, [thumbnailWidth])
+
+  useEffect(
+    () => () => {
+      if (resizeStartRef.current) {
+        document.body.style.userSelect = previousUserSelectRef.current
+        document.body.style.cursor = previousCursorRef.current
+      }
+      if (dragAnimationTimerRef.current) clearTimeout(dragAnimationTimerRef.current)
+    },
+    []
+  )
+
+  useEffect(() => {
+    if (
+      (!showThumbnailRail || isPresentationMode || viewMode !== "slide") &&
+      resizeStartRef.current
+    ) {
+      resizeStartRef.current = null
+      dragCollapsedRef.current = false
+      setIsResizingThumbnails(false)
+      setIsDragCollapsed(false)
+      setIsAnimatingDragBoundary(false)
+      if (dragAnimationTimerRef.current) clearTimeout(dragAnimationTimerRef.current)
+      document.body.style.userSelect = previousUserSelectRef.current
+      document.body.style.cursor = previousCursorRef.current
+    }
+  }, [showThumbnailRail, isPresentationMode, viewMode])
+
+  useEffect(() => {
+    if (!isResizingThumbnails) return
+
+    const getDraggedWidth = (clientX: number) => {
+      const start = resizeStartRef.current
+      return start ? start.width + clientX - start.pointerX : null
+    }
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== resizeStartRef.current?.pointerId) return
+      const nextWidth = getDraggedWidth(event.clientX)
+      if (nextWidth === null) return
+      const collapsed = nextWidth < minThumbnailWidth
+      if (collapsed !== dragCollapsedRef.current) {
+        dragCollapsedRef.current = collapsed
+        setIsDragCollapsed(collapsed)
+        setIsAnimatingDragBoundary(true)
+        if (dragAnimationTimerRef.current) clearTimeout(dragAnimationTimerRef.current)
+        dragAnimationTimerRef.current = setTimeout(() => {
+          setIsAnimatingDragBoundary(false)
+          dragAnimationTimerRef.current = null
+        }, 200)
+      }
+      if (!collapsed) setThumbnailWidth(Math.min(maxThumbnailWidth, nextWidth))
+    }
+    const stopResize = (event?: PointerEvent) => {
+      if (event && event.pointerId !== resizeStartRef.current?.pointerId) return
+      const nextWidth = event ? getDraggedWidth(event.clientX) : null
+      const collapsed =
+        event?.type === "pointerup" && nextWidth !== null && nextWidth < minThumbnailWidth
+      resizeStartRef.current = null
+      dragCollapsedRef.current = false
+      document.body.style.userSelect = previousUserSelectRef.current
+      document.body.style.cursor = previousCursorRef.current
+      setIsResizingThumbnails(false)
+      setIsDragCollapsed(false)
+      if (collapsed) setThumbnailRailOpen(false)
+      else if (nextWidth !== null) {
+        setThumbnailWidth(Math.max(minThumbnailWidth, Math.min(maxThumbnailWidth, nextWidth)))
+      }
+    }
+    const handleBlur = () => stopResize()
+
+    window.addEventListener("pointermove", handlePointerMove)
+    window.addEventListener("pointerup", stopResize)
+    window.addEventListener("pointercancel", stopResize)
+    window.addEventListener("blur", handleBlur)
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove)
+      window.removeEventListener("pointerup", stopResize)
+      window.removeEventListener("pointercancel", stopResize)
+      window.removeEventListener("blur", handleBlur)
+    }
+  }, [isResizingThumbnails, minThumbnailWidth, maxThumbnailWidth, setThumbnailRailOpen])
 
   const {
     currentSlide,
@@ -165,6 +413,12 @@ export function SlideDeck({
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
   }, [])
 
+  useEffect(() => {
+    if (viewMode === "slide" && !isPresentationMode && showThumbnailRail) {
+      activeThumbnailRef.current?.scrollIntoView({ block: "nearest" })
+    }
+  }, [currentSlide, isPresentationMode, showThumbnailRail, viewMode])
+
   // Calculate scale factor for presentation mode
   useEffect(() => {
     const calculateScale = () => {
@@ -172,9 +426,9 @@ export function SlideDeck({
         setScale(1)
         return
       }
-      const viewportWidth = window.innerWidth
+      const availableWidth = window.innerWidth
       const viewportHeight = window.innerHeight
-      const scaleX = viewportWidth / SLIDE_DIMENSIONS.width
+      const scaleX = availableWidth / SLIDE_DIMENSIONS.width
       const scaleY = viewportHeight / SLIDE_DIMENSIONS.height
       setScale(Math.min(scaleX, scaleY))
     }
@@ -202,7 +456,22 @@ export function SlideDeck({
     return () => observer.disconnect()
   }, [viewMode, isPresentationMode])
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
+    try {
+      const response = await fetch("/__promptslide_pdf")
+      if (response.ok && response.headers.get("content-type")?.includes("application/pdf")) {
+        const blob = await response.blob()
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = "slides.pdf"
+        link.click()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+        return
+      }
+    } catch {
+      /* Static builds use the browser print fallback. */
+    }
     const previousMode = viewMode
     setViewMode("list")
 
@@ -219,6 +488,8 @@ export function SlideDeck({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest("input, textarea, [contenteditable='true']")) return
       if (e.key === "f" || e.key === "F") {
         togglePresentationMode()
         return
@@ -227,6 +498,16 @@ export function SlideDeck({
       // G for grid view toggle
       if (e.key === "g" || e.key === "G") {
         setViewMode(prev => (prev === "grid" ? "slide" : "grid"))
+        return
+      }
+
+      if (e.key === "l" || e.key === "L") {
+        setViewMode(prev => (prev === "list" ? "slide" : "list"))
+        return
+      }
+
+      if (viewMode === "slide" && !isPresentationMode && (e.key === "t" || e.key === "T")) {
+        setThumbnailRailOpen(!showThumbnailRail)
         return
       }
 
@@ -243,12 +524,24 @@ export function SlideDeck({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [advance, goBack, viewMode, togglePresentationMode, isAnnotationMode, isPresentationMode])
+  }, [
+    advance,
+    goBack,
+    viewMode,
+    togglePresentationMode,
+    isAnnotationMode,
+    isPresentationMode,
+    setThumbnailRailOpen,
+    showThumbnailRail
+  ])
 
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-foreground">
       <style>{`
         @media print {
+          .list-slide-canvas {
+            transform: scale(1.5) !important;
+          }
           @page {
             size: 1920px 1080px;
             margin: 0;
@@ -356,12 +649,156 @@ export function SlideDeck({
         <div
           className={cn("flex h-screen w-full print:hidden", isPresentationMode ? "bg-black" : "")}
         >
+          {!isPresentationMode && (
+            <>
+              <div
+                className={cn(
+                  "relative z-10 h-screen shrink-0",
+                  isNarrowViewport && "fixed inset-y-0 left-0",
+                  isResizingThumbnails && !isAnimatingDragBoundary
+                    ? "transition-none"
+                    : "transition-[width] duration-200 ease-out motion-reduce:transition-none"
+                )}
+                style={{ width: isThumbnailRailVisible ? visibleThumbnailWidth : 0 }}
+              >
+                <div className="h-full w-full overflow-hidden">
+                  <aside
+                    id="presentation-thumbnails"
+                    aria-label="Slide thumbnails"
+                    aria-hidden={!isThumbnailRailVisible}
+                    inert={!isThumbnailRailVisible}
+                    className={cn(
+                      "flex h-screen shrink-0 flex-col border-r border-neutral-800 bg-neutral-950 text-white transition-opacity motion-reduce:transition-none",
+                      isThumbnailRailVisible
+                        ? "opacity-100 delay-100 duration-100"
+                        : "opacity-0 duration-75"
+                    )}
+                    style={{ width: visibleThumbnailWidth }}
+                  >
+                    <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
+                      <span className="text-sm font-semibold">Slides ({slides.length})</span>
+                      <button
+                        type="button"
+                        onClick={() => setThumbnailRailOpen(false)}
+                        className="rounded p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+                        aria-label="Hide slide thumbnails"
+                        title="Hide thumbnails (T)"
+                      >
+                        <PanelLeftClose className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+                      {slides.map((slideConfig, index) => (
+                        <button
+                          key={slideConfig.id ?? index}
+                          ref={index === currentSlide ? activeThumbnailRef : undefined}
+                          type="button"
+                          onClick={() => goToSlide(index)}
+                          aria-label={`Go to slide ${index + 1}${slideConfig.title ? `: ${slideConfig.title}` : ""}`}
+                          aria-current={index === currentSlide ? "page" : undefined}
+                          className={cn(
+                            "block w-full rounded-lg border p-1.5 text-left transition-colors",
+                            index === currentSlide
+                              ? "border-primary bg-primary/15 ring-1 ring-primary"
+                              : "border-transparent hover:border-neutral-600 hover:bg-neutral-800"
+                          )}
+                        >
+                          <div className="relative aspect-video w-full overflow-hidden rounded bg-black">
+                            <GridThumbnail
+                              slide={slideConfig}
+                              index={index}
+                              total={slides.length}
+                            />
+                          </div>
+                          <div className="mt-1.5 flex items-baseline gap-2 px-0.5 text-xs">
+                            {slideConfig.title ? (
+                              <>
+                                <span className="font-mono text-neutral-400">{index + 1}</span>
+                                <span className="truncate">{slideConfig.title}</span>
+                              </>
+                            ) : (
+                              <span>Slide {index + 1}</span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </aside>
+                </div>
+                {isThumbnailRailVisible && (
+                  <div
+                    role="separator"
+                    aria-label="Resize slide thumbnails"
+                    aria-orientation="vertical"
+                    aria-valuemin={minThumbnailWidth}
+                    aria-valuemax={maxThumbnailWidth}
+                    aria-valuenow={visibleThumbnailWidth}
+                    tabIndex={0}
+                    className={cn(
+                      "absolute inset-y-0 -right-1 w-2 cursor-col-resize touch-none focus-visible:outline-none after:pointer-events-none after:absolute after:inset-y-0 after:right-1 after:w-0.5 after:bg-transparent after:content-[''] after:transition-colors hover:after:bg-primary/50 focus-visible:after:bg-primary/50",
+                      isResizingThumbnails && "after:bg-primary/60"
+                    )}
+                    onPointerDown={event => {
+                      if (event.button !== 0) return
+                      event.preventDefault()
+                      resizeStartRef.current = {
+                        pointerId: event.pointerId,
+                        pointerX: event.clientX,
+                        width: visibleThumbnailWidth
+                      }
+                      dragCollapsedRef.current = false
+                      setIsAnimatingDragBoundary(false)
+                      if (dragAnimationTimerRef.current) clearTimeout(dragAnimationTimerRef.current)
+                      setIsResizingThumbnails(true)
+                      previousUserSelectRef.current = document.body.style.userSelect
+                      previousCursorRef.current = document.body.style.cursor
+                      document.body.style.userSelect = "none"
+                      document.body.style.cursor = "col-resize"
+                    }}
+                    onKeyDown={event => {
+                      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        const amount = event.key === "ArrowRight" ? 16 : -16
+                        setThumbnailWidth(
+                          Math.max(
+                            minThumbnailWidth,
+                            Math.min(maxThumbnailWidth, visibleThumbnailWidth + amount)
+                          )
+                        )
+                      }
+                    }}
+                  />
+                )}
+              </div>
+              <div
+                aria-hidden={isThumbnailRailVisible || isResizingThumbnails}
+                inert={isThumbnailRailVisible || isResizingThumbnails}
+                className={cn(
+                  "fixed top-4 left-4 z-50 rounded-lg border border-neutral-800 bg-neutral-950/90 backdrop-blur-sm transition-opacity duration-150 motion-reduce:transition-none",
+                  isThumbnailRailVisible || isResizingThumbnails
+                    ? "pointer-events-none opacity-0"
+                    : "opacity-100 delay-200"
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => setThumbnailRailOpen(true)}
+                  className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
+                  aria-label="Show slide thumbnails"
+                  title="Show thumbnails (T)"
+                >
+                  <PanelLeftOpen className="h-4 w-4" />
+                </button>
+              </div>
+            </>
+          )}
           <div
             ref={containerRef}
             role="presentation"
             tabIndex={isPresentationMode ? 0 : undefined}
             className={cn(
-              "flex flex-1 flex-col items-center justify-center overflow-hidden",
+              "flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden",
               isPresentationMode ? "bg-black p-0" : "p-4 md:p-8"
             )}
             onClick={isPresentationMode ? advance : undefined}
@@ -466,6 +903,7 @@ export function SlideDeck({
           {isAnnotationMode && showAnnotationPanel && !isPresentationMode && (
             <AnnotationPanel
               annotations={getSlideAnnotations(currentSlide)}
+              unlinkedAnnotations={unlinkedAnnotations}
               selectedId={selectedAnnotationId}
               onSelect={setSelectedAnnotationId}
               onDelete={effectiveDelete ?? (() => {})}
@@ -483,14 +921,13 @@ export function SlideDeck({
         <div className="mx-auto max-w-7xl p-8 pt-16 print:hidden">
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
             {slides.map((slideConfig, index) => {
-              const SlideComponent = slideConfig.component
               const prevSection = index > 0 ? slides[index - 1]?.section : undefined
               const showSectionHeader = slideConfig.section && slideConfig.section !== prevSection
 
               return (
-                <div key={index} className={showSectionHeader ? "col-span-full" : undefined}>
+                <div key={slideConfig.id ?? index} className="contents">
                   {showSectionHeader && (
-                    <h3 className="mt-4 mb-3 text-xs font-bold tracking-[0.2em] text-neutral-500 uppercase first:mt-0">
+                    <h3 className="col-span-full mt-4 mb-0 text-xs font-bold tracking-[0.2em] text-neutral-500 uppercase first:mt-0">
                       {slideConfig.section}
                     </h3>
                   )}
@@ -501,20 +938,7 @@ export function SlideDeck({
                     }}
                     className="group relative aspect-video w-full overflow-hidden rounded-lg border border-neutral-800 bg-black shadow-sm transition-all hover:border-primary hover:shadow-lg hover:shadow-primary/10"
                   >
-                    <div
-                      className="h-full w-full origin-top-left scale-[0.25]"
-                      style={{ width: "400%", height: "400%" }}
-                    >
-                      <AnimationProvider
-                        currentStep={slideConfig.steps}
-                        totalSteps={slideConfig.steps}
-                        showAllAnimations={true}
-                      >
-                        <SlideErrorBoundary slideIndex={index} slideTitle={slideConfig.title}>
-                          <SlideComponent slideNumber={index + 1} totalSlides={slides.length} />
-                        </SlideErrorBoundary>
-                      </AnimationProvider>
-                    </div>
+                    <GridThumbnail slide={slideConfig} index={index} total={slides.length} />
                     <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
                     <div className="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white">
                       {slideConfig.title ? `${index + 1}. ${slideConfig.title}` : index + 1}
@@ -536,27 +960,14 @@ export function SlideDeck({
         )}
       >
         <div className="grid grid-cols-1 gap-8 print:block">
-          {slides.map((slideConfig, index) => {
-            const SlideComponent = slideConfig.component
-            return (
-              <div
-                key={index}
-                className="aspect-video w-full overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-sm print:relative print:m-0 print:h-[1080px] print:w-[1920px] print:break-after-page print:overflow-hidden print:rounded-none print:border-0 print:shadow-none"
-              >
-                <div className="h-full w-full print:h-[720px] print:w-[1280px] print:origin-top-left print:scale-[1.5]">
-                  <AnimationProvider
-                    currentStep={slideConfig.steps}
-                    totalSteps={slideConfig.steps}
-                    showAllAnimations={true}
-                  >
-                    <SlideErrorBoundary slideIndex={index} slideTitle={slideConfig.title}>
-                      <SlideComponent slideNumber={index + 1} totalSlides={slides.length} />
-                    </SlideErrorBoundary>
-                  </AnimationProvider>
-                </div>
-              </div>
-            )
-          })}
+          {slides.map((slideConfig, index) => (
+            <ListSlide
+              key={slideConfig.id ?? index}
+              slide={slideConfig}
+              index={index}
+              total={slides.length}
+            />
+          ))}
         </div>
       </div>
     </div>

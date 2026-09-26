@@ -1,6 +1,7 @@
 import { createServer } from "vite"
 
 import { bold, dim } from "../utils/ansi.mjs"
+import { registerStudioServer } from "../utils/studio-discovery.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 import { createViteConfig } from "../vite/config.mjs"
 
@@ -29,6 +30,8 @@ export async function studio(args) {
   })
 
   await server.listen()
+  const baseUrl = server.resolvedUrls?.local[0]
+  if (baseUrl) registerStudioServer(cwd, baseUrl)
   server.printUrls()
   server.bindCLIShortcuts({ print: true })
 }

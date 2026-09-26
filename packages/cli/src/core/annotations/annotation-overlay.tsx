@@ -20,7 +20,8 @@ interface AnnotationOverlayProps {
     slideIndex: number,
     slideTitle: string,
     target: AnnotationTarget,
-    body: string
+    body: string,
+    slideId?: string
   ) => void
 }
 
@@ -122,11 +123,11 @@ export function AnnotationOverlay({
   const handleSubmit = useCallback(
     (text: string) => {
       if (!pending) return
-      addAnnotation(currentSlide, slideTitle, pending.target, text)
+      addAnnotation(currentSlide, slideTitle, pending.target, text, slides[currentSlide]?.id)
       setPending(null)
       onShowPanel()
     },
-    [pending, currentSlide, slideTitle, addAnnotation, onShowPanel]
+    [pending, currentSlide, slideTitle, slides, addAnnotation, onShowPanel]
   )
 
   // Track hover for element highlighting

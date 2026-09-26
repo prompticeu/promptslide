@@ -1,15 +1,24 @@
 import { MessageCircle, Trash2, X } from "lucide-react"
+
 import type { Annotation } from "./types"
 
 interface AnnotationPanelProps {
   annotations: Annotation[]
+  unlinkedAnnotations?: Annotation[]
   selectedId: string | null
   onSelect: (id: string) => void
   onDelete: (id: string) => void
   onClose: () => void
 }
 
-export function AnnotationPanel({ annotations, selectedId, onSelect, onDelete, onClose }: AnnotationPanelProps) {
+export function AnnotationPanel({
+  annotations,
+  unlinkedAnnotations = [],
+  selectedId,
+  onSelect,
+  onDelete,
+  onClose
+}: AnnotationPanelProps) {
   const open = annotations.filter(a => a.status === "open")
   const resolved = annotations.filter(a => a.status === "resolved")
 
@@ -38,7 +47,7 @@ export function AnnotationPanel({ annotations, selectedId, onSelect, onDelete, o
       <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
 
       <div className="flex-1 overflow-y-auto p-2">
-        {annotations.length === 0 && (
+        {annotations.length === 0 && unlinkedAnnotations.length === 0 && (
           <div className="flex flex-col gap-4 px-3 py-6">
             <WorkflowHint />
           </div>
@@ -79,9 +88,28 @@ export function AnnotationPanel({ annotations, selectedId, onSelect, onDelete, o
             ))}
           </div>
         )}
+        {unlinkedAnnotations.length > 0 && (
+          <div className="mt-3">
+            <div className="mb-1.5 px-2 pt-1 text-[11px] font-medium tracking-wider text-neutral-500 uppercase">
+              Removed slides
+            </div>
+            {unlinkedAnnotations.map((a, i) => (
+              <div key={a.id}>
+                <p className="px-2 text-[11px] text-neutral-500">{a.slideTitle || a.slideId}</p>
+                <AnnotationItem
+                  annotation={a}
+                  number={i + 1}
+                  isSelected={a.id === selectedId}
+                  onSelect={() => onSelect(a.id)}
+                  onDelete={() => onDelete(a.id)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {annotations.length > 0 && (
+      {annotations.length + unlinkedAnnotations.length > 0 && (
         <>
           <div className="h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
           <div className="px-3 py-3">
@@ -98,15 +126,23 @@ function WorkflowHint() {
     <div className="flex flex-col gap-2">
       <p className="text-[11px] font-medium tracking-wider text-neutral-500 uppercase">Workflow</p>
       <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/15 text-[10px] font-semibold text-[#FF6B35]">1</div>
-        <p className="text-[12px] leading-snug text-neutral-400">Annotate everything you want to fix</p>
+        <div className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/15 text-[10px] font-semibold text-[#FF6B35]">
+          1
+        </div>
+        <p className="text-[12px] leading-snug text-neutral-400">
+          Annotate everything you want to fix
+        </p>
       </div>
       <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/15 text-[10px] font-semibold text-[#FF6B35]">2</div>
+        <div className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/15 text-[10px] font-semibold text-[#FF6B35]">
+          2
+        </div>
         <p className="text-[12px] leading-snug text-neutral-400">Switch to your coding agent</p>
       </div>
       <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/15 text-[10px] font-semibold text-[#FF6B35]">3</div>
+        <div className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B35]/15 text-[10px] font-semibold text-[#FF6B35]">
+          3
+        </div>
         <p className="text-[12px] leading-snug text-neutral-400">"Fix open annotations"</p>
       </div>
     </div>
@@ -131,11 +167,11 @@ function AnnotationItem({
       role="button"
       tabIndex={0}
       onClick={onSelect}
-      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onSelect() }}
+      onKeyDown={e => {
+        if (e.key === "Enter" || e.key === " ") onSelect()
+      }}
       className={`group relative mb-0.5 cursor-pointer rounded-xl p-2.5 transition-all duration-150 ${
-        isSelected
-          ? "bg-[#FF6B35]/10 ring-1 ring-[#FF6B35]/20"
-          : "hover:bg-white/[0.04]"
+        isSelected ? "bg-[#FF6B35]/10 ring-1 ring-[#FF6B35]/20" : "hover:bg-white/[0.04]"
       }`}
     >
       <button
@@ -165,9 +201,7 @@ function AnnotationItem({
             </p>
           )}
           {annotation.resolution && (
-            <p className="mt-1.5 text-[11px] text-emerald-400/80 italic">
-              {annotation.resolution}
-            </p>
+            <p className="mt-1.5 text-[11px] text-emerald-400/80 italic">{annotation.resolution}</p>
           )}
         </div>
       </div>

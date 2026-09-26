@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { NavigationDirection, SlideConfig } from "./types"
 
@@ -13,6 +13,42 @@ type QueuedAction = "advance" | "goBack" | null
 interface NavigationState {
   status: NavigationStatus
   direction: NavigationDirection
+}
+
+const POSITION_KEY = "promptslide:position"
+
+function slideKey(slides: SlideConfig[], index: number): string {
+  return slides[index]?.id || String(index + 1)
+}
+
+function slideFromHash(slides: SlideConfig[]): number | null {
+  if (typeof window === "undefined" || !window.location.hash) return null
+  let hash: string
+  try {
+    hash = decodeURIComponent(window.location.hash.slice(1))
+  } catch {
+    return null
+  }
+  const byId = slides.findIndex(slide => slide.id === hash)
+  if (byId >= 0) return byId
+  if (/^[1-9]\d*$/.test(hash)) {
+    const index = Number(hash) - 1
+    if (index < slides.length) return index
+  }
+  return null
+}
+
+function savedStep(slides: SlideConfig[], index: number): number {
+  if (typeof window === "undefined") return 0
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(POSITION_KEY) || "null")
+    if (saved?.slide === slideKey(slides, index) && Number.isInteger(saved.step)) {
+      return Math.max(0, Math.min(saved.step, slides[index]?.steps ?? 0))
+    }
+  } catch {
+    /* Storage may be unavailable. */
+  }
+  return 0
 }
 
 export interface UseSlideNavigationOptions {
@@ -43,8 +79,12 @@ export function useSlideNavigation({
   initialSlide = 0,
   onSlideChange
 }: UseSlideNavigationOptions): UseSlideNavigationReturn {
-  const [currentSlide, setCurrentSlide] = useState(initialSlide)
-  const [animationStep, setAnimationStep] = useState(0)
+  const [currentSlide, setCurrentSlide] = useState(() => slideFromHash(slides) ?? initialSlide)
+  const [animationStep, setAnimationStep] = useState(() =>
+    savedStep(slides, slideFromHash(slides) ?? initialSlide)
+  )
+  const slidesRef = useRef(slides)
+  const activeKeyRef = useRef(slideKey(slides, slideFromHash(slides) ?? initialSlide))
 
   const [navState, setNavState] = useState<NavigationState>({
     status: "idle",
@@ -54,6 +94,56 @@ export function useSlideNavigation({
   const [queuedAction, setQueuedAction] = useState<QueuedAction>(null)
 
   const totalSteps = slides[currentSlide]?.steps ?? 0
+
+  useEffect(() => {
+    if (typeof window === "undefined" || slides.length === 0) return
+    if (slidesRef.current !== slides) {
+      slidesRef.current = slides
+      const previousKey = activeKeyRef.current
+      const movedIndex = slides.findIndex(slide => slide.id && slide.id === previousKey)
+      if (movedIndex >= 0 && movedIndex !== currentSlide) {
+        setCurrentSlide(movedIndex)
+        return
+      }
+      if (movedIndex < 0 && !/^[1-9]\d*$/.test(previousKey) && currentSlide !== 0) {
+        setAnimationStep(0)
+        setCurrentSlide(0)
+        return
+      }
+    }
+    if (!slides[currentSlide]) {
+      setCurrentSlide(0)
+      setAnimationStep(0)
+      return
+    }
+    const key = slideKey(slides, currentSlide)
+    activeKeyRef.current = key
+    const hash = `#${encodeURIComponent(key)}`
+    if (window.location.hash !== hash) {
+      window.history.replaceState(window.history.state, "", hash)
+    }
+    try {
+      window.sessionStorage.setItem(
+        POSITION_KEY,
+        JSON.stringify({ slide: key, step: animationStep })
+      )
+    } catch {
+      /* Storage may be unavailable. */
+    }
+  }, [slides, currentSlide, animationStep])
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const index = slideFromHash(slides) ?? 0
+      if (index === currentSlide) return
+      setNavState({ status: "transitioning", direction: index > currentSlide ? 1 : -1 })
+      setAnimationStep(0)
+      setCurrentSlide(index)
+      onSlideChange?.(index)
+    }
+    window.addEventListener("hashchange", handleHashChange)
+    return () => window.removeEventListener("hashchange", handleHashChange)
+  }, [slides, currentSlide, onSlideChange])
 
   const onTransitionComplete = useCallback(() => {
     setNavState(prev => {

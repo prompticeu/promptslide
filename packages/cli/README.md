@@ -21,18 +21,22 @@ Then open your coding agent and say:
 
 All commands are run via `npx promptslide <command>`.
 
-| Command   | Description                              |
-| --------- | ---------------------------------------- |
-| `create`  | Scaffold a new slide deck project        |
-| `studio`  | Start the dev server with hot reload     |
-| `build`   | Build the deck for production            |
-| `preview` | Preview the production build             |
-| `add`     | Add a slide to the current deck          |
-| `remove`  | Remove a slide from the current deck     |
-| `list`    | List all slides in the current deck      |
-| `publish` | Publish the deck to PromptSlide registry |
-| `search`  | Search published decks                   |
-| `pull`    | Pull a published deck                    |
+| Command    | Description                              |
+| ---------- | ---------------------------------------- |
+| `create`   | Scaffold a new slide deck project        |
+| `studio`   | Start the dev server with hot reload     |
+| `build`    | Build the deck for production            |
+| `preview`  | Preview the production build             |
+| `add`      | Add a slide to the current deck          |
+| `remove`   | Remove a slide from the current deck     |
+| `list`     | List all slides in the current deck      |
+| `publish`  | Publish the deck to PromptSlide registry |
+| `search`   | Search published decks                   |
+| `pull`     | Pull a published deck                    |
+| `to-image` | Export a slide as a PNG image            |
+| `to-pdf`   | Export all slides as a PDF               |
+
+Use optional, unique slide IDs in `src/deck-config.ts` for stable URL links and annotations. Existing numbered slide links and decks without IDs continue to work.
 
 ## How It Works
 

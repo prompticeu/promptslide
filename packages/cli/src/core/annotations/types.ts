@@ -18,6 +18,8 @@ export interface Annotation {
   id: string
   /** Slide index (0-based, matching deck-config order) */
   slideIndex: number
+  /** Stable slide identity, when available. Takes precedence over slideIndex. */
+  slideId?: string
   /** Slide title from SlideConfig (informational, for agent readability) */
   slideTitle: string
   /** Target element identification */
@@ -42,6 +44,8 @@ export interface AnnotationStorageAdapter {
   load(): Promise<Annotation[]>
   add(annotation: Annotation): Promise<void>
   remove(id: string): Promise<void>
+  /** Persist a migration of legacy index-based annotations. */
+  replaceAll?(annotations: Annotation[]): Promise<void>
   /** Optional: subscribe to external state updates (e.g. postMessage from parent) */
   subscribe?(onUpdate: (annotations: Annotation[]) => void): () => void
 }

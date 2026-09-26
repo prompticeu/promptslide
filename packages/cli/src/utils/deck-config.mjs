@@ -33,9 +33,9 @@ export function deriveImportPath(target, filePath) {
  * Uses string manipulation to preserve existing content.
  *
  * @param {string} cwd - Project root directory
- * @param {{ componentName: string, importPath: string, steps: number }} opts
+ * @param {{ componentName: string, importPath: string, steps: number, id?: string }} opts
  */
-export function addSlideToDeckConfig(cwd, { componentName, importPath, steps }) {
+export function addSlideToDeckConfig(cwd, { componentName, importPath, steps, id }) {
   const configPath = join(cwd, DECK_CONFIG_PATH)
   if (!existsSync(configPath)) {
     console.warn(`  Warning: ${DECK_CONFIG_PATH} not found. Skipping deck-config update.`)
@@ -51,7 +51,13 @@ export function addSlideToDeckConfig(cwd, { componentName, importPath, steps }) 
 
   // Build import and slide entry strings
   const importLine = `import { ${componentName} } from "${importPath}"`
-  const slideEntry = `  { component: ${componentName}, steps: ${steps} },`
+  const slideId =
+    id ||
+    importPath
+      .split("/")
+      .pop()
+      .replace(/^slide-/, "")
+  const slideEntry = `  { id: ${JSON.stringify(slideId)}, component: ${componentName}, steps: ${steps} },`
 
   // Find insertion point for import:
   // Look for the last import from "@/slides/" or "@/layouts/"
@@ -70,11 +76,12 @@ export function addSlideToDeckConfig(cwd, { componentName, importPath, steps }) 
   }
 
   // Insert import after last slide import, or after last import, or at top
-  const importInsertIdx = lastSlideImportIdx >= 0
-    ? lastSlideImportIdx + 1
-    : lastAnyImportIdx >= 0
-      ? lastAnyImportIdx + 1
-      : 0
+  const importInsertIdx =
+    lastSlideImportIdx >= 0
+      ? lastSlideImportIdx + 1
+      : lastAnyImportIdx >= 0
+        ? lastAnyImportIdx + 1
+        : 0
 
   importLines.splice(importInsertIdx, 0, importLine)
   content = importLines.join("\n")
@@ -169,7 +176,7 @@ export function removeSlideFromDeckConfig(cwd, componentName) {
  * Replace the entire deck-config.ts with a new slide manifest (for deck type).
  *
  * @param {string} cwd - Project root directory
- * @param {{ componentName: string, importPath: string, steps: number, section?: string }[]} slides
+ * @param {{ componentName: string, importPath: string, steps: number, id?: string, section?: string }[]} slides
  * @param {{ transition?: string, directionalTransition?: boolean }} opts
  */
 export function replaceDeckConfig(cwd, slides, opts = {}) {
@@ -182,7 +189,17 @@ export function replaceDeckConfig(cwd, slides, opts = {}) {
 
   const slideEntries = slides
     .map(s => {
-      const parts = [`component: ${s.componentName}`, `steps: ${s.steps}`]
+      const id =
+        s.id ||
+        s.importPath
+          .split("/")
+          .pop()
+          .replace(/^slide-/, "")
+      const parts = [
+        `id: ${JSON.stringify(id)}`,
+        `component: ${s.componentName}`,
+        `steps: ${s.steps}`
+      ]
       if (s.section) parts.push(`section: "${s.section}"`)
       return `  { ${parts.join(", ")} },`
     })
@@ -213,7 +230,7 @@ export function replaceDeckConfig(cwd, slides, opts = {}) {
 /**
  * Parse deck-config.ts and extract the deckConfig structure for publishing.
  * Returns { transition?, directionalTransition?, slides } where slides is
- * an array of { slug, steps, section? }.
+ * an array of { slug, id?, steps, section? }.
  *
  * @param {string} cwd - Project root directory
  * @returns {{ transition?: string, directionalTransition?: boolean, slides: { slug: string, steps: number, section?: string }[] } | null}
@@ -280,6 +297,8 @@ export function parseDeckConfig(cwd) {
       if (!slug) continue // layout or unknown import — skip
       const stepsMatch = body.match(/steps:\s*(\d+)/)
       const entry = { slug, steps: stepsMatch ? parseInt(stepsMatch[1], 10) : 0 }
+      const idMatch = body.match(/\bid:\s*["']([^"']+)["']/)
+      if (idMatch) entry.id = idMatch[1]
       // Preserve original component name so pull can reconstruct the correct export
       if (slugToComponent[slug]) entry.componentName = slugToComponent[slug]
       const sectionMatch = body.match(/section:\s*["']([^"']+)["']/)

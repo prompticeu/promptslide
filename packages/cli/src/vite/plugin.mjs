@@ -1,10 +1,24 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
-import { join } from "node:path"
+import { join, resolve, sep, extname } from "node:path"
+
 import { bold, dim } from "../utils/ansi.mjs"
+import { projectIdentity } from "../utils/studio-discovery.mjs"
 
 /** Normalize a path to forward slashes so it can be used in ES module import strings on Windows. */
 function toImportPath(p) {
   return p.split("\\").join("/")
+}
+
+function validateSlidePath(root, slidePath) {
+  const absolute = resolve(root, slidePath)
+  if (
+    !absolute.startsWith(resolve(root) + sep) ||
+    ![".tsx", ".jsx", ".ts", ".js"].includes(extname(absolute)) ||
+    !existsSync(absolute)
+  ) {
+    throw new Error(`Invalid slide path: ${slidePath}`)
+  }
+  return absolute
 }
 
 const VIRTUAL_ENTRY_ID = "virtual:promptslide-entry"
@@ -13,6 +27,8 @@ const VIRTUAL_EXPORT_ID = "virtual:promptslide-export"
 const RESOLVED_VIRTUAL_EXPORT_ID = "\0" + VIRTUAL_EXPORT_ID
 const VIRTUAL_EMBED_ID = "virtual:promptslide-embed"
 const RESOLVED_VIRTUAL_EMBED_ID = "\0" + VIRTUAL_EMBED_ID
+const VIRTUAL_PDF_ID = "virtual:promptslide-pdf"
+const RESOLVED_VIRTUAL_PDF_ID = "\0" + VIRTUAL_PDF_ID
 
 // Inline script that catches module load errors (e.g. missing named exports)
 // and forwards them to the Vite dev server so they appear in terminal logs.
@@ -45,7 +61,8 @@ function getHtmlTemplate() {
 </html>`
 }
 
-function getExportHtmlTemplate() {
+function getExportHtmlTemplate(slidePath) {
+  const entry = `${VIRTUAL_EXPORT_ID}?slidePath=${encodeURIComponent(slidePath)}`
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -55,7 +72,7 @@ function getExportHtmlTemplate() {
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/@id/${VIRTUAL_EXPORT_ID}"></script>
+    <script type="module" src="/@id/${entry}"></script>
   </body>
 </html>`
 }
@@ -76,12 +93,13 @@ createRoot(document.getElementById("root")).render(
 
 function getExportEntryModule(root, slidePath) {
   const r = toImportPath(root)
+  const slideImport = JSON.stringify(toImportPath(validateSlidePath(root, slidePath)))
   return `
 import { StrictMode, createElement, useState, useEffect } from "react"
 import { createRoot } from "react-dom/client"
 import { AnimationProvider, SlideErrorBoundary, SlideThemeProvider } from "promptslide"
 import "${r}/src/globals.css"
-import * as slideMod from "${r}/${slidePath}"
+import * as slideMod from ${slideImport}
 
 let theme = {}
 try {
@@ -93,7 +111,18 @@ const SlideComponent = slideMod.default || Object.values(slideMod).find(v => typ
 
 function ExportView() {
   const [ready, setReady] = useState(false)
-  useEffect(() => { setReady(true) }, [])
+  useEffect(() => {
+    let cancelled = false
+    const markReady = async () => {
+      await document.fonts.ready
+      await Promise.all(Array.from(document.images, image => image.decode().catch(() => {})))
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (!cancelled) setReady(true)
+      }))
+    }
+    void markReady()
+    return () => { cancelled = true }
+  }, [])
   return createElement("div", {
     "data-export-ready": ready ? "true" : undefined,
     style: { width: 1280, height: 720, overflow: "hidden", position: "relative", background: "black" }
@@ -134,6 +163,63 @@ function getEmbedHtmlTemplate() {
 </html>`
 }
 
+function getPdfHtmlTemplate() {
+  return `<!doctype html><html><head><meta charset="UTF-8" /><title>PromptSlide PDF</title></head>
+<body><div id="root"></div><script type="module" src="/@id/${VIRTUAL_PDF_ID}"></script></body></html>`
+}
+
+function getPdfEntryModule(root) {
+  const r = toImportPath(root)
+  return `
+import { StrictMode, createElement, useEffect, useState } from "react"
+import { createRoot } from "react-dom/client"
+import { AnimationProvider, SlideErrorBoundary, SlideThemeProvider } from "promptslide"
+import "${r}/src/globals.css"
+import { slides } from "${r}/src/deck-config"
+
+let theme = {}
+try {
+  const themeMod = await import("${r}/src/theme")
+  theme = themeMod.theme || themeMod.default || {}
+} catch {}
+
+const style = document.createElement("style")
+style.textContent = "@page{size:1280px 720px;margin:0}html,body,#root{margin:0;padding:0;width:1280px;background:#000}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.pdf-slide{width:1280px;height:720px;overflow:hidden;break-after:page;page-break-after:always}.pdf-slide:last-child{break-after:auto}"
+document.head.appendChild(style)
+
+function PdfView() {
+  const [ready, setReady] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    const markReady = async () => {
+      await document.fonts.ready
+      await Promise.all(Array.from(document.images, image => image.decode().catch(() => {})))
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (!cancelled) setReady(true)
+      }))
+    }
+    void markReady()
+    return () => { cancelled = true }
+  }, [])
+  return createElement("div", { "data-pdf-ready": ready ? "true" : undefined },
+    slides.map((slide, index) => createElement("div", { className: "pdf-slide", key: slide.id || index },
+      createElement(AnimationProvider, { currentStep: slide.steps, totalSteps: slide.steps, showAllAnimations: true },
+        createElement(SlideErrorBoundary, { slideIndex: index, slideTitle: slide.title },
+          createElement(slide.component, { slideNumber: index + 1, totalSlides: slides.length })
+        )
+      )
+    ))
+  )
+}
+
+createRoot(document.getElementById("root")).render(
+  createElement(StrictMode, null,
+    createElement(SlideThemeProvider, { theme }, createElement(PdfView))
+  )
+)
+`
+}
+
 function getEmbedEntryModule(root) {
   const r = toImportPath(root)
   return `
@@ -161,7 +247,6 @@ createRoot(document.getElementById("root")).render(
 
 export function promptslidePlugin({ root: initialRoot } = {}) {
   let root = initialRoot
-  let exportSlidePath = null
 
   return {
     name: "promptslide",
@@ -183,28 +268,57 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
 
     resolveId(id) {
       if (id === VIRTUAL_ENTRY_ID) return RESOLVED_VIRTUAL_ENTRY_ID
-      if (id === VIRTUAL_EXPORT_ID) return RESOLVED_VIRTUAL_EXPORT_ID
+      if (id.startsWith(`${VIRTUAL_EXPORT_ID}?`)) return "\0" + id
       if (id === VIRTUAL_EMBED_ID) return RESOLVED_VIRTUAL_EMBED_ID
+      if (id === VIRTUAL_PDF_ID) return RESOLVED_VIRTUAL_PDF_ID
     },
 
     load(id) {
       if (id === RESOLVED_VIRTUAL_ENTRY_ID) return getEntryModule(root)
-      if (id === RESOLVED_VIRTUAL_EXPORT_ID) return getExportEntryModule(root, exportSlidePath || "src/slides/slide-title.tsx")
+      if (id.startsWith(`${RESOLVED_VIRTUAL_EXPORT_ID}?`)) {
+        const params = new URLSearchParams(id.slice(id.indexOf("?") + 1))
+        return getExportEntryModule(root, params.get("slidePath") || "src/slides/slide-title.tsx")
+      }
       if (id === RESOLVED_VIRTUAL_EMBED_ID) return getEmbedEntryModule(root)
+      if (id === RESOLVED_VIRTUAL_PDF_ID) return getPdfEntryModule(root)
     },
 
     configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (req.method !== "GET" || req.url !== "/__promptslide_pdf") return next()
+        try {
+          const { captureDeckPdfFromServer } = await import("../utils/export.mjs")
+          const address = server.httpServer.address()
+          const port = typeof address === "object" ? address.port : 0
+          const pdf = await captureDeckPdfFromServer(`http://127.0.0.1:${port}`)
+          res.setHeader("Content-Type", "application/pdf")
+          res.setHeader("Content-Disposition", 'attachment; filename="slides.pdf"')
+          res.end(pdf)
+        } catch (error) {
+          res.statusCode = 500
+          res.end(String(error.message || error))
+        }
+      })
+      server.middlewares.use((req, res, next) => {
+        if (req.method !== "GET" || req.url !== "/__promptslide_info") return next()
+        res.setHeader("Content-Type", "application/json")
+        res.end(JSON.stringify({ projectId: projectIdentity(root) }))
+      })
       // Pre-middleware: receive browser errors and log them to the terminal
       server.middlewares.use((req, res, next) => {
         if (req.method !== "POST" || req.url !== "/__promptslide_error") return next()
 
         let body = ""
-        req.on("data", chunk => { body += chunk })
+        req.on("data", chunk => {
+          body += chunk
+        })
         req.on("end", () => {
           try {
             const { message, filename } = JSON.parse(body)
             const location = filename ? ` ${dim(`(${filename})`)}` : ""
-            server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, { timestamp: true })
+            server.config.logger.error(`${bold("Browser error:")} ${message}${location}`, {
+              timestamp: true
+            })
           } catch {}
           res.statusCode = 204
           res.end()
@@ -238,7 +352,9 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         if (req.method !== "POST" || req.url !== "/__promptslide_annotations") return next()
 
         let body = ""
-        req.on("data", chunk => { body += chunk })
+        req.on("data", chunk => {
+          body += chunk
+        })
         req.on("end", () => {
           try {
             const data = JSON.parse(body)
@@ -267,13 +383,27 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
       // Pre-middleware: intercept export URLs before Vite's SPA fallback rewrites them
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, "http://localhost")
+        if (url.searchParams.get("pdf") === "true") {
+          const html = await server.transformIndexHtml("/index.html", getPdfHtmlTemplate())
+          res.setHeader("Content-Type", "text/html")
+          res.statusCode = 200
+          res.end(html)
+          return
+        }
         if (url.searchParams.get("export") !== "true") return next()
 
-        exportSlidePath = url.searchParams.get("slidePath") || "src/slides/slide-title.tsx"
-        // Invalidate cached export module so it regenerates with the new slidePath
-        const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_EXPORT_ID)
-        if (mod) server.moduleGraph.invalidateModule(mod)
-        const html = await server.transformIndexHtml("/index.html", getExportHtmlTemplate())
+        const slidePath = url.searchParams.get("slidePath") || "src/slides/slide-title.tsx"
+        try {
+          validateSlidePath(root, slidePath)
+        } catch (error) {
+          res.statusCode = 400
+          res.end(error.message)
+          return
+        }
+        const html = await server.transformIndexHtml(
+          "/index.html",
+          getExportHtmlTemplate(slidePath)
+        )
         res.setHeader("Content-Type", "text/html")
         res.statusCode = 200
         res.end(html)

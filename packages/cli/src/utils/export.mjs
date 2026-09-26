@@ -4,8 +4,9 @@ import { fileURLToPath } from "node:url"
 
 import { createServer } from "vite"
 
-import { ensureTsConfig } from "./tsconfig.mjs"
 import { createViteConfig } from "../vite/config.mjs"
+import { projectIdentity, readStudioServer } from "./studio-discovery.mjs"
+import { ensureTsConfig } from "./tsconfig.mjs"
 
 /**
  * Check if Playwright is available.
@@ -40,12 +41,88 @@ async function ensureChromium(chromium) {
   }
 }
 
+/** Find a Studio process serving this project; other projects must not be reused. */
+async function findStudioServer(cwd, preferredPort) {
+  const candidates = preferredPort
+    ? [`http://127.0.0.1:${preferredPort}`, `http://localhost:${preferredPort}`]
+    : [
+        readStudioServer(cwd),
+        ...Array.from({ length: 11 }, (_, i) => `http://127.0.0.1:${5173 + i}`)
+      ]
+  const results = await Promise.all(
+    candidates.filter(Boolean).map(async baseUrl => {
+      try {
+        const response = await fetch(`${baseUrl}/__promptslide_info`, {
+          signal: AbortSignal.timeout(350)
+        })
+        if (!response.ok) return null
+        const info = await response.json()
+        return info.projectId === projectIdentity(cwd) ? baseUrl : null
+      } catch {
+        return null
+      }
+    })
+  )
+  return results.find(Boolean) || null
+}
+
+async function getCaptureServer(cwd, preferredPort) {
+  const studio = await findStudioServer(cwd, preferredPort)
+  if (studio) return { baseUrl: studio, close: async () => {} }
+
+  ensureTsConfig(cwd)
+  const config = createViteConfig({ cwd, mode: "development" })
+  const server = await createServer({
+    ...config,
+    server: { port: 0, strictPort: true },
+    logLevel: "silent"
+  })
+  await server.listen()
+  const address = server.httpServer.address()
+  const port = typeof address === "object" ? address.port : 0
+  return { baseUrl: `http://127.0.0.1:${port}`, close: () => server.close() }
+}
+
+async function waitForExport(page, errors) {
+  try {
+    const handle = await page.waitForFunction(
+      () => {
+        const overlay = document.querySelector("vite-error-overlay")
+        if (overlay) {
+          const root = overlay.shadowRoot
+          return {
+            error:
+              root?.querySelector(".message-body")?.textContent ||
+              root?.textContent ||
+              "Vite compilation failed"
+          }
+        }
+        if (document.querySelector("[data-export-ready='true']")) return { ready: true }
+        return false
+      },
+      null,
+      { timeout: 15000 }
+    )
+    const result = await handle.jsonValue()
+    if (result.error) throw new Error(`Slide compile error: ${result.error.trim()}`)
+  } catch (err) {
+    if (errors.length) throw new Error(`${err.message}\nBrowser errors:\n  ${errors.join("\n  ")}`)
+    throw err
+  }
+}
+
 /**
  * Capture a screenshot of a specific slide.
  * @param {{ cwd: string, slidePath: string, width?: number, height?: number }} opts
  * @returns {Promise<Buffer | null>} PNG buffer, or null if Playwright is not installed
  */
-export async function captureSlideScreenshot({ cwd, slidePath, width = 1280, height = 720 }) {
+export async function captureSlideScreenshot({
+  cwd,
+  slidePath,
+  width = 1280,
+  height = 720,
+  studioPort
+}) {
   let chromium
   try {
     const pw = await import("playwright")
@@ -56,19 +133,8 @@ export async function captureSlideScreenshot({ cwd, slidePath, width = 1280, hei
 
   await ensureChromium(chromium)
 
-  ensureTsConfig(cwd)
-
-  const config = createViteConfig({ cwd, mode: "development" })
-  const server = await createServer({
-    ...config,
-    server: { port: 0, strictPort: false },
-    logLevel: "silent"
-  })
-  await server.listen()
-
-  const address = server.httpServer.address()
-  const port = typeof address === "object" ? address.port : 0
-  const url = `http://localhost:${port}/?export=true&slidePath=${encodeURIComponent(slidePath)}`
+  const server = await getCaptureServer(cwd, studioPort)
+  const url = `${server.baseUrl}/?export=true&slidePath=${encodeURIComponent(slidePath)}`
 
   let browser
   try {
@@ -78,14 +144,10 @@ export async function captureSlideScreenshot({ cwd, slidePath, width = 1280, hei
     const errors = []
     page.on("pageerror", err => errors.push(err.message))
 
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 })
-    await page.waitForSelector("[data-export-ready='true']", { timeout: 15000 }).catch(err => {
-      if (errors.length) {
-        throw new Error(`${err.message}\n  Browser errors:\n    ${errors.join("\n    ")}`)
-      }
-      throw err
-    })
-    await page.waitForTimeout(200)
+    const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 })
+    if (!response?.ok())
+      throw new Error(`Slide export failed: ${response?.status()} ${await response?.text()}`)
+    await waitForExport(page, errors)
 
     const element = await page.$("[data-export-ready='true']")
     const screenshot = await element.screenshot({ type: "png" })
@@ -105,7 +167,7 @@ export async function captureSlideScreenshot({ cwd, slidePath, width = 1280, hei
  * @returns {Promise<{ capture: (slidePath: string) => Promise<string | null>, close: () => Promise<void> } | null>}
  *   null if Playwright is not available
  */
-export async function createCaptureSession({ cwd, width = 1280, height = 720 }) {
+export async function createCaptureSession({ cwd, width = 1280, height = 720, studioPort }) {
   let chromium
   try {
     const pw = await import("playwright")
@@ -115,36 +177,21 @@ export async function createCaptureSession({ cwd, width = 1280, height = 720 }) 
   }
 
   await ensureChromium(chromium)
-  ensureTsConfig(cwd)
-
-  const config = createViteConfig({ cwd, mode: "development" })
-  const server = await createServer({
-    ...config,
-    server: { port: 0, strictPort: false },
-    logLevel: "silent"
-  })
-  await server.listen()
-
-  const address = server.httpServer.address()
-  const port = typeof address === "object" ? address.port : 0
-
+  const server = await getCaptureServer(cwd, studioPort)
   const browser = await chromium.launch({ headless: true })
+  const page = await browser.newPage({ viewport: { width, height } })
+  let pending = Promise.resolve()
 
-  async function capture(slidePath) {
-    const url = `http://localhost:${port}/?export=true&slidePath=${encodeURIComponent(slidePath)}`
-    const page = await browser.newPage({ viewport: { width, height } })
+  async function captureOne(slidePath) {
+    const url = `${server.baseUrl}/?export=true&slidePath=${encodeURIComponent(slidePath)}`
+    const errors = []
+    const onPageError = err => errors.push(err.message)
+    page.on("pageerror", onPageError)
     try {
-      const errors = []
-      page.on("pageerror", err => errors.push(err.message))
-
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 })
-      await page.waitForSelector("[data-export-ready='true']", { timeout: 15000 }).catch(err => {
-        if (errors.length) {
-          throw new Error(`${err.message}\n  Browser errors:\n    ${errors.join("\n    ")}`)
-        }
-        throw err
-      })
-      await page.waitForTimeout(200)
+      const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 })
+      if (!response?.ok())
+        throw new Error(`Slide export failed: ${response?.status()} ${await response?.text()}`)
+      await waitForExport(page, errors)
 
       const element = await page.$("[data-export-ready='true']")
       const screenshot = await element.screenshot({ type: "png" })
@@ -153,11 +200,22 @@ export async function createCaptureSession({ cwd, width = 1280, height = 720 }) 
       console.error(`  Screenshot error: ${err.message}`)
       return null
     } finally {
-      await page.close().catch(() => {})
+      page.off("pageerror", onPageError)
     }
   }
 
+  function capture(slidePath) {
+    const result = pending.then(() => captureOne(slidePath))
+    pending = result.then(
+      () => {},
+      () => {}
+    )
+    return result
+  }
+
   async function close() {
+    await pending
+    await page.close().catch(() => {})
     await browser.close().catch(() => {})
     await server.close()
   }
@@ -179,5 +237,46 @@ export async function captureSlideAsDataUri({ cwd, slidePath }) {
   } catch (err) {
     console.error(`  Screenshot error: ${err.message}`)
     return null
+  }
+}
+
+/** Render the whole deck at its design size through an existing Studio server. */
+export async function captureDeckPdfFromServer(baseUrl) {
+  const { chromium } = await import("playwright")
+  await ensureChromium(chromium)
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+    const errors = []
+    page.on("pageerror", error => errors.push(error.message))
+    const response = await page.goto(`${baseUrl}/?pdf=true`, {
+      waitUntil: "domcontentloaded",
+      timeout: 15000
+    })
+    if (!response?.ok()) throw new Error(`Deck PDF export failed: ${response?.status()}`)
+    try {
+      await page.waitForSelector("[data-pdf-ready='true']", { timeout: 15000 })
+    } catch (error) {
+      if (errors.length)
+        throw new Error(`${error.message}\nBrowser errors:\n  ${errors.join("\n  ")}`)
+      throw error
+    }
+    return await page.pdf({
+      width: "1280px",
+      height: "720px",
+      printBackground: true,
+      preferCSSPageSize: true
+    })
+  } finally {
+    await browser.close()
+  }
+}
+
+export async function captureDeckPdf({ cwd, studioPort }) {
+  const server = await getCaptureServer(cwd, studioPort)
+  try {
+    return await captureDeckPdfFromServer(server.baseUrl)
+  } finally {
+    await server.close()
   }
 }

@@ -27,6 +27,8 @@ export type SlideComponent = React.ComponentType<SlideProps>
  * eliminating the need for runtime step discovery.
  */
 export interface SlideConfig {
+  /** Stable identifier for links and annotations. Keep unchanged when reordering slides. */
+  id?: string
   /** The slide component to render */
   component: SlideComponent
   /** Number of animation steps (0 = no animations). This is the max step number used in <Animated step={N}> */

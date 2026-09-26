@@ -47,8 +47,8 @@ promptslide (npm package)          # CLI + slide engine
 
 ```tsx
 // src/slides/slide-market.tsx
-import type { SlideProps } from "promptslide";
-import { SlideLayoutCentered } from "@/layouts/slide-layout-centered";
+import type { SlideProps } from "promptslide"
+import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
 export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
   return (
@@ -62,20 +62,20 @@ export function SlideMarket({ slideNumber, totalSlides }: SlideProps) {
         <p className="text-muted-foreground text-lg">Your content here</p>
       </div>
     </SlideLayoutCentered>
-  );
+  )
 }
 ```
 
 ```ts
 // src/deck-config.ts
-import type { SlideConfig } from "promptslide";
-import { SlideTitle } from "@/slides/slide-title";
-import { SlideMarket } from "@/slides/slide-market";
+import type { SlideConfig } from "promptslide"
+import { SlideTitle } from "@/slides/slide-title"
+import { SlideMarket } from "@/slides/slide-market"
 
 export const slides: SlideConfig[] = [
-  { component: SlideTitle, steps: 0 },
-  { component: SlideMarket, steps: 0 },
-];
+  { id: "title", component: SlideTitle, steps: 0 },
+  { id: "market", component: SlideMarket, steps: 0 }
+]
 ```
 
 Layouts in `src/layouts/` and theme colors in `src/globals.css` are yours to customize freely — create new layouts, modify existing ones, and adjust CSS variables to make the deck look unique.
@@ -85,6 +85,7 @@ Layouts in `src/layouts/` and theme colors in `src/globals.css` are yours to cus
 ## Key Constraints
 
 - **Slide dimensions**: 1280×720 (16:9). Content scales automatically in presentation mode.
+- **Slide IDs**: Give each slide a unique, stable `id` in `deck-config.ts` so links and annotations survive reordering. Existing decks without IDs remain supported.
 - **Semantic colors**: Use `text-foreground`, `text-muted-foreground`, `text-primary`, `bg-background`, `bg-card`, `border-border`.
 - **Icons**: Import from `lucide-react` (e.g., `import { ArrowRight } from "lucide-react"`).
 - **Animations**: Use `<Animated step={n}>` for click-to-reveal. The `steps` value in `deck-config.ts` must equal the highest step number used. Available: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`.

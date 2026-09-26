@@ -38,6 +38,10 @@ export function createHttpAdapter(): AnnotationStorageAdapter {
     async remove(id) {
       cache = cache.filter(a => a.id !== id)
       await saveAll(cache)
+    },
+    async replaceAll(annotations) {
+      cache = annotations
+      await saveAll(cache)
     }
   }
 }
