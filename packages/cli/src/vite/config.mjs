@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/postcss"
 import react from "@vitejs/plugin-react"
 
+import { editorPlugin } from "../editor/plugin.mjs"
 import { promptslidePlugin } from "./plugin.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -22,14 +23,34 @@ export function createViteConfig({ cwd, mode = "development" }) {
     configFile: false,
     root: cwd,
     mode,
-    plugins: [react(), promptslidePlugin({ root: cwd })],
+    plugins: [
+      ...(mode === "development" ? [editorPlugin({ root: cwd })] : []),
+      react(),
+      promptslidePlugin({ root: cwd })
+    ],
     resolve: {
+      // The CLI's core/editor and the deck must share one React dispatcher,
+      // including when the CLI is installed or linked outside the deck root.
+      dedupe: ["react", "react-dom"],
       alias: {
         "@": resolve(cwd, "src"),
         promptslide: promptslidePath,
         // CSS @import "tailwindcss" → resolved from CLI package
         tailwindcss: tailwindPath
       }
+    },
+    // These imports live in virtual entry modules, which dependency scanning
+    // cannot discover before the first page loads. Optimize them together so
+    // the viewer and editor never start with different dependency generations.
+    optimizeDeps: {
+      include: [
+        "react",
+        "react-dom/client",
+        "lucide-react",
+        "framer-motion",
+        "clsx",
+        "tailwind-merge"
+      ]
     },
     css: {
       postcss: {

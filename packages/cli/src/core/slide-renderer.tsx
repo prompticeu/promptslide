@@ -58,6 +58,7 @@ export function SlideRenderer({
     <AnimatePresence initial={false}>
       <motion.div
         key={currentSlide}
+        data-slide-render-index={currentSlide}
         variants={slideVariants}
         initial="enter"
         animate="center"
@@ -75,14 +76,8 @@ export function SlideRenderer({
           totalSteps={totalSteps}
           showAllAnimations={showAllAnimations}
         >
-          <SlideErrorBoundary
-            slideIndex={currentSlide}
-            slideTitle={slides[currentSlide]?.title}
-          >
-            <CurrentSlideComponent
-              slideNumber={currentSlide + 1}
-              totalSlides={slides.length}
-            />
+          <SlideErrorBoundary slideIndex={currentSlide} slideTitle={slides[currentSlide]?.title}>
+            <CurrentSlideComponent slideNumber={currentSlide + 1} totalSlides={slides.length} />
           </SlideErrorBoundary>
         </AnimationProvider>
       </motion.div>
