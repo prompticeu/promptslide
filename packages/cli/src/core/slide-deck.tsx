@@ -238,6 +238,26 @@ export function SlideDeck({
   )
 
   const [viewMode, setViewMode] = useState<ViewMode>("slide")
+  const [isEditorOpen, setIsEditorOpen] = useState(false)
+  const [editorRevision, setEditorRevision] = useState(0)
+  useEffect(() => {
+    const onEditorState = (event: Event) => {
+      const open = Boolean((event as CustomEvent).detail?.open)
+      setIsEditorOpen(open)
+      if (open) {
+        setViewMode("slide")
+        setIsAnnotationMode(false)
+        setShowAnnotationPanel(false)
+      }
+    }
+    const refreshEditor = () => setEditorRevision(value => value + 1)
+    window.addEventListener("promptslide:editor-state", onEditorState)
+    window.addEventListener("promptslide:editor-refresh", refreshEditor)
+    return () => {
+      window.removeEventListener("promptslide:editor-state", onEditorState)
+      window.removeEventListener("promptslide:editor-refresh", refreshEditor)
+    }
+  }, [])
   const [isPresentationMode, setIsPresentationMode] = useState(false)
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1280 : window.innerWidth
@@ -584,6 +604,28 @@ export function SlideDeck({
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-foreground">
       <style>{`
+        .slide-thumbnail-scroll-area {
+          scrollbar-width: thin;
+          scrollbar-color: #404040 transparent;
+        }
+        .slide-thumbnail-scroll-area::-webkit-scrollbar {
+          width: 10px;
+        }
+        .slide-thumbnail-scroll-area::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .slide-thumbnail-scroll-area::-webkit-scrollbar-thumb {
+          background-color: #404040;
+          border: 3px solid transparent;
+          border-radius: 9999px;
+          background-clip: padding-box;
+        }
+        .slide-thumbnail-scroll-area::-webkit-scrollbar-thumb:hover {
+          background-color: #525252;
+        }
+        .slide-thumbnail-scroll-area::-webkit-scrollbar-corner {
+          background: transparent;
+        }
         @media print {
           .list-slide-canvas {
             transform: scale(1.5) !important;
@@ -610,11 +652,12 @@ export function SlideDeck({
 
       {/* Toolbar */}
       <div
+        data-ps-viewer-toolbar
         className={cn(
           "fixed top-4 z-50 flex gap-1 rounded-lg border border-neutral-800 bg-neutral-950/90 p-1 backdrop-blur-sm transition-[right] duration-200 ease-out print:hidden",
           (isPresentationMode || (isNarrowViewport && isAnnotationMode && showAnnotationPanel)) &&
             "hidden",
-          isAnnotationMode && showAnnotationPanel ? "right-[21rem]" : "right-4"
+          isEditorOpen || (isAnnotationMode && showAnnotationPanel) ? "right-[21rem]" : "right-4"
         )}
       >
         <button
@@ -623,6 +666,7 @@ export function SlideDeck({
             "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
             viewMode === "slide" && "bg-neutral-800 text-white"
           )}
+          disabled={isEditorOpen}
           title="Presentation View (V)"
         >
           <Monitor className="h-4 w-4" />
@@ -633,6 +677,7 @@ export function SlideDeck({
             "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
             viewMode === "list" && "bg-neutral-800 text-white"
           )}
+          disabled={isEditorOpen}
           title="List View (L)"
         >
           <List className="h-4 w-4" />
@@ -643,6 +688,7 @@ export function SlideDeck({
             "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
             viewMode === "grid" && "bg-neutral-800 text-white"
           )}
+          disabled={isEditorOpen}
           title="Grid View (G)"
         >
           <Grid3X3 className="h-4 w-4" />
@@ -653,14 +699,18 @@ export function SlideDeck({
         <button
           onClick={toggleCommentMode}
           className={cn(
-            "relative inline-flex h-8 items-center justify-center rounded-md transition-colors",
+            "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-md font-[family-name:system-ui] text-[13px] leading-none font-medium transition-colors",
             isAnnotationMode
               ? "border border-[#FF6B35]/50 bg-[#FF6B35]/15 p-[7px] text-[#FF6B35] hover:border-[#FF6B35] hover:bg-[#FF6B35]/25"
-              : "p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+              : "px-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-white"
           )}
+          disabled={isEditorOpen}
+          aria-label="Comment"
+          aria-pressed={isAnnotationMode}
           title="Comment (C)"
         >
-          <MessageCircle className="h-4 w-4" />
+          <MessageCircle className="h-[15px] w-[15px] shrink-0" />
+          {!isAnnotationMode && <span>Comment</span>}
           {openCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#FF6B35] text-[10px] font-bold text-white">
               {openCount}
@@ -668,11 +718,14 @@ export function SlideDeck({
           )}
         </button>
 
+        <span data-ps-editor-toolbar className="contents" />
+
         <div className="mx-1 w-px bg-neutral-800" />
 
         <button
           onClick={handleExportPdf}
           className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
+          disabled={isEditorOpen}
           title="Download PDF (D)"
         >
           <Download className="h-4 w-4" />
@@ -680,6 +733,7 @@ export function SlideDeck({
         <button
           onClick={togglePresentationMode}
           className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-[#FF6B35]/50 bg-[#FF6B35]/15 px-3 text-sm font-semibold text-[#FF6B35] transition-colors hover:border-[#FF6B35] hover:bg-[#FF6B35]/25"
+          disabled={isEditorOpen}
           title="Present (F)"
         >
           <Play className="h-3.5 w-3.5 fill-current" />
@@ -730,7 +784,7 @@ export function SlideDeck({
                         <PanelLeftClose className="h-4 w-4" />
                       </button>
                     </div>
-                    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+                    <div className="slide-thumbnail-scroll-area min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
                       {slides.map((slideConfig, index) => (
                         <button
                           key={slideConfig.id ?? index}
@@ -883,7 +937,10 @@ export function SlideDeck({
                 >
                   <div
                     ref={slideContainerRef}
-                    className="absolute top-0 left-0 overflow-hidden"
+                    data-ps-editor-canvas
+                    tabIndex={-1}
+                    data-slide-index={currentSlide}
+                    className="absolute top-0 left-0 overflow-hidden outline-none"
                     style={{
                       width: SLIDE_DIMENSIONS.width,
                       height: SLIDE_DIMENSIONS.height,
@@ -891,6 +948,7 @@ export function SlideDeck({
                     }}
                   >
                     <SlideRenderer
+                      key={editorRevision}
                       slides={slides}
                       currentSlide={currentSlide}
                       animationStep={animationStep}
@@ -915,6 +973,10 @@ export function SlideDeck({
                       />
                     )}
                   </div>
+                  <div
+                    data-ps-editor-overlay
+                    className="pointer-events-none absolute inset-0 z-20"
+                  />
                 </div>
               )}
             </LayoutGroup>
@@ -944,6 +1006,15 @@ export function SlideDeck({
               </div>
             )}
           </div>
+
+          <div
+            data-ps-editor-panel
+            data-open={isEditorOpen}
+            aria-hidden={!isEditorOpen}
+            inert={!isEditorOpen}
+            className="h-full shrink-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none"
+            style={{ width: isEditorOpen ? (viewportWidth <= 850 ? 280 : 320) : 0 }}
+          />
 
           {/* Annotation Panel — beside the slide */}
           {!isPresentationMode && (
