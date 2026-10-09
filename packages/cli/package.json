@@ -1,6 +1,6 @@
 {
   "name": "promptslide",
-  "version": "0.3.16",
+  "version": "0.3.17",
   "description": "CLI and slide engine for PromptSlide presentations",
   "keywords": [
     "cli",
