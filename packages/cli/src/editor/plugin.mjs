@@ -53,6 +53,9 @@ if (import.meta.hot) {
 }`
     },
     transformIndexHtml(html, ctx) {
+      const url = new URL(ctx.originalUrl ?? ctx.path, "http://localhost")
+      if (url.searchParams.get("pdf") === "true" || url.searchParams.get("export") === "true")
+        return
       if (ctx.path !== "/" && ctx.path !== "/index.html") return
       return {
         html,

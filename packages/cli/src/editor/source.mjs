@@ -56,6 +56,25 @@ function textTarget(node) {
 }
 // Only direct local array.map(item => JSX) with literal object fields is supported.
 // Ambiguous bindings, spreads, computed expressions and imported data remain read-only.
+const checkers = new WeakMap()
+function localDeclaration(identifier) {
+  const file = identifier.getSourceFile()
+  let checker = checkers.get(file)
+  if (!checker) {
+    // Bind just this in-memory file. No imports or library files are needed to
+    // distinguish local variables from shadowing parameters and other bindings.
+    const options = { noLib: true, noResolve: true, jsx: ts.JsxEmit.Preserve }
+    const host = ts.createCompilerHost(options)
+    host.getSourceFile = name => (name === file.fileName ? file : undefined)
+    const program = ts.createProgram([file.fileName], options, host)
+    checker = program.getTypeChecker()
+    checkers.set(file, checker)
+  }
+  const declarations = checker.getSymbolAtLocation(identifier)?.declarations
+  return declarations?.length === 1 && ts.isVariableDeclaration(declarations[0])
+    ? declarations[0]
+    : null
+}
 function arrayText(node) {
   if (!ts.isJsxElement(node)) return null
   const children = node.children.filter(c => !ts.isJsxText(c) || c.text.trim())
@@ -75,20 +94,14 @@ function arrayText(node) {
   )
     return null
   const name = call.expression.expression.text
-  const declarations = []
-  function visit(n) {
-    if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name)
-      declarations.push(n)
-    ts.forEachChild(n, visit)
-  }
-  visit(node.getSourceFile())
+  const declaration = localDeclaration(call.expression.expression)
   if (
-    declarations.length !== 1 ||
-    !declarations[0].initializer ||
-    !ts.isArrayLiteralExpression(declarations[0].initializer)
+    !declaration ||
+    !declaration.initializer ||
+    !ts.isArrayLiteralExpression(declaration.initializer)
   )
     return null
-  const items = declarations[0].initializer.elements.map((item, index) => {
+  const items = declaration.initializer.elements.map((item, index) => {
     if (!ts.isObjectLiteralExpression(item) || item.properties.some(p => ts.isSpreadAssignment(p)))
       return null
     const props = item.properties.filter(
@@ -228,6 +241,13 @@ export function editSource(text, edits) {
   for (const edit of edits) {
     const node = all.find(n => n.getStart() === edit.start)
     if (!node) throw new Error("Source element no longer exists")
+    // Deletion supersedes the draft changes accumulated on this element.
+    if (edit.action === "delete") {
+      if (!ts.isJsxElement(node.parent) && !ts.isJsxFragment(node.parent))
+        throw new Error("Only direct JSX children can be deleted or duplicated")
+      patches.push({ start: node.getStart(), end: node.end, value: "" })
+      continue
+    }
     const open = opening(node)
     if (edit.props && Object.hasOwn(edit.props, "style"))
       throw new Error("Use the structured style operation")
@@ -279,10 +299,9 @@ export function editSource(text, edits) {
         )
       if (edit.item !== undefined && edit.richText)
         throw new Error("Range formatting requires a literal JSX text node")
+      const pendingText = String(edit.text ?? target.value)
       let value =
-        edit.item !== undefined
-          ? JSON.stringify(String(edit.text ?? target.value))
-          : `{${JSON.stringify(String(edit.text ?? target.value))}}`
+        edit.item !== undefined ? JSON.stringify(pendingText) : `{${JSON.stringify(pendingText)}}`
       if (edit.richText) {
         const { from, to, style } = edit.richText
         if (
@@ -290,29 +309,26 @@ export function editSource(text, edits) {
           !Number.isInteger(to) ||
           from < 0 ||
           to <= from ||
-          to > target.value.length
+          to > pendingText.length
         )
           throw new Error("Select a valid text range")
-        value = `{${JSON.stringify(target.value.slice(0, from))}}<span style={{${styleCode(style)}}}>{${JSON.stringify(target.value.slice(from, to))}}</span>{${JSON.stringify(target.value.slice(to))}}`
+        value = `{${JSON.stringify(pendingText.slice(0, from))}}<span style={{${styleCode(style)}}}>{${JSON.stringify(pendingText.slice(from, to))}}</span>{${JSON.stringify(pendingText.slice(to))}}`
       }
       patches.push({ ...target, value })
     }
-    if (edit.action === "delete" || edit.action === "duplicate") {
+    if (edit.action === "duplicate") {
       if (!ts.isJsxElement(node.parent) && !ts.isJsxFragment(node.parent))
         throw new Error("Only direct JSX children can be deleted or duplicated")
       const copies = edit.copies ?? 1
       if (!Number.isInteger(copies) || copies < 1 || copies > 100)
         throw new Error("Choose between 1 and 100 copies")
-      const duplicate =
-        edit.action === "duplicate"
-          ? editSource(node.getText(file), [
-              { ...edit, start: 0, action: undefined, copies: undefined }
-            ])
-          : ""
+      const duplicate = editSource(node.getText(file), [
+        { ...edit, start: 0, action: undefined, copies: undefined }
+      ])
       patches.push({
-        start: edit.action === "delete" ? node.getStart() : node.end,
+        start: node.end,
         end: node.end,
-        value: edit.action === "delete" ? "" : ("\n" + duplicate).repeat(copies)
+        value: ("\n" + duplicate).repeat(copies)
       })
     }
     if (edit.insert) {

@@ -29,7 +29,7 @@
   cursor: default;
 }
 .ps-panel {
-  width: 320px;
+  width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -292,6 +292,10 @@
   font-variant-numeric: tabular-nums;
   color: #a3a3a3;
   cursor: pointer;
+}
+.ps-color-value:focus-within {
+  outline: 2px solid #ff8858;
+  outline-offset: 2px;
 }
 .ps-color-value input {
   position: absolute;
@@ -838,9 +842,6 @@
   height: 1px;
 }
 @media (max-width: 850px) {
-  .ps-panel {
-    width: 280px;
-  }
   .ps-panel-heading,
   .ps-panel-body,
   .ps-panel-footer {

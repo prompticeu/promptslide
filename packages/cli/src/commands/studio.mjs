@@ -19,7 +19,7 @@ export async function studio(args) {
   console.log(`  ${bold("promptslide")} ${dim("studio")}`)
   console.log()
 
-  const config = createViteConfig({ cwd, mode: "development" })
+  const config = createViteConfig({ cwd, mode: "development", editor: !hasHost })
   const server = await createServer({
     ...config,
     server: {

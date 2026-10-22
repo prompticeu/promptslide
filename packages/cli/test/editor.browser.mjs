@@ -40,7 +40,10 @@ function Title({title}:{title:string}) {return <h2>{title}</h2>}
 export function Slide(){return <div style={{position:'relative',width:1280,height:720,background:'#151515',color:'white',padding:80}}><Presentation style={{position:"absolute",right:40,top:40,width:48,height:48}}/><h1 style={{fontSize:64}}>Editor test</h1><p>Editable paragraph</p><Title title="Component title"/><div>{items.map(item=><p key={item.title}>{item.title}</p>)}</div><Animated step={1}><p>Revealed content</p></Animated><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=" alt="Fixture" style={{width:100,height:100}}/></div>}`
 writeFileSync(
   path,
-  original +
+  original.replace(
+    "</div>}",
+    '<div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2" style={{top:620,width:80,height:40}}>Centered badge</div></div>}'
+  ) +
     "\nexport function Another(){return <div style={{padding:80}}><h1>Another slide</h1><p>Second slide text</p></div>}"
 )
 mkdirSync(join(root, "public"))
@@ -112,6 +115,12 @@ try {
   console.log("Browser started")
   page.on("pageerror", e => errors.push(e.stack || e.message))
   await page.goto(`http://127.0.0.1:${address.port}`, { timeout: 60000 })
+  for (const query of ["?pdf=true", "?export=true&slidePath=src/slides/slide.tsx"]) {
+    const response = await page.request.get(`http://127.0.0.1:${address.port}/${query}`)
+    assert.equal(response.status(), 200)
+    assert.ok(!(await response.text()).includes("/@id/virtual:promptslide-editor"))
+  }
+  console.log("PASS PDF and export HTML exclude the editor entry")
   await page.evaluate(() => document.fonts.ready)
   await page.waitForTimeout(500)
   const liveCanvas = page.locator("[data-ps-editor-canvas]")
@@ -209,6 +218,49 @@ try {
   const draftBeforeHmr = await page.evaluate(() =>
     sessionStorage.getItem("promptslide:editor-draft")
   )
+  let pdfRequests = 0
+  const countPdf = request => {
+    if (request.url().includes("/__promptslide_pdf")) pdfRequests++
+  }
+  page.on("request", countPdf)
+  await page.evaluate(() => document.activeElement?.blur())
+  for (const key of ["v", "g", "l", "c", "d", "f"]) {
+    await page.keyboard.press(key)
+    assert.equal(await editor.isVisible(), true)
+    assert.equal(await page.locator("[data-ps-editor-canvas] h1").textContent(), "Outside commit")
+    assert.equal(await page.evaluate(() => !!document.fullscreenElement), false)
+  }
+  assert.equal(pdfRequests, 0)
+  page.off("request", countPdf)
+  assert.equal(
+    await page.evaluate(() => sessionStorage.getItem("promptslide:editor-draft")),
+    draftBeforeHmr
+  )
+  for (const width of [850, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.waitForTimeout(300)
+    const panelBox = await editor.boundingBox()
+    const toolbarBox = await page.locator("[data-ps-viewer-toolbar]").boundingBox()
+    assert.equal(Math.round(panelBox.width), 280)
+    assert.ok(toolbarBox.x >= 0)
+    assert.ok(toolbarBox.x + toolbarBox.width <= panelBox.x - 15)
+    for (const control of await page.locator("[data-ps-viewer-toolbar] button").all()) {
+      const box = await control.boundingBox()
+      if (box && box.width) assert.ok(box.x >= 0 && box.x + box.width <= panelBox.x - 15)
+    }
+  }
+  await page.screenshot({ path: "/tmp/promptslide-editor-mobile-review.png" })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.waitForTimeout(300)
+  await page.locator("[data-ps-editor-canvas] h1").click()
+  const picker = editor.locator('.ps-color-value input[type="color"]').first()
+  await picker.focus()
+  assert.equal(
+    await picker.evaluate(el => getComputedStyle(el.parentElement).outlineStyle),
+    "solid"
+  )
+  await page.mouse.click(400, 85)
+  console.log("PASS editor shortcuts retain draft, mobile controls fit and color focus is visible")
   let navigations = 0
   const onNavigation = frame => {
     if (frame === page.mainFrame()) navigations++
@@ -446,15 +498,34 @@ try {
     await page.locator("[data-ps-editor-canvas] p span").first().textContent(),
     "Editable"
   )
+  await text.fill("Editable paragraph updated")
+  assert.equal(
+    await page
+      .locator("[data-ps-editor-canvas] p")
+      .filter({ hasText: /^Editable paragraph updated$/ })
+      .textContent(),
+    "Editable paragraph updated"
+  )
   await button("Save changes").click()
   await page.waitForFunction(() =>
     document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   await page.waitForTimeout(350)
   assert.match(readFileSync(path, "utf8"), /<span style=/)
-  console.log("PASS rich-text range formatting")
+  assert.equal(
+    await page
+      .locator("[data-ps-editor-canvas] p")
+      .filter({ hasText: /^Editable paragraph updated$/ })
+      .textContent(),
+    "Editable paragraph updated"
+  )
+  assert.equal(
+    await page.locator("[data-ps-editor-canvas] p span").first().textContent(),
+    "Editable"
+  )
+  console.log("PASS rich-text range formatting preserves subsequent text edits on save")
   await page.locator("[data-ps-editor-canvas] h1").click()
-  await chooseElement("Editable paragraph", { modifiers: ["Shift"] })
+  await chooseElement("Editable paragraph updated", { modifiers: ["Shift"] })
   await editor.getByRole("tab", { name: "Arrange" }).click()
   await button("Align left").click()
   const headingAligned = await page.locator("[data-ps-editor-canvas] h1").boundingBox()
@@ -469,6 +540,45 @@ try {
   )
   await page.waitForTimeout(350)
   console.log("PASS multiselect alignment")
+  // Movement must retain translations supplied by Tailwind, including percentages.
+  const badge = page.locator("[data-ps-editor-canvas] div").filter({ hasText: /^Centered badge$/ })
+  await chooseElement("Centered badge")
+  const badgeBefore = await badge.boundingBox()
+  const designScale = (await liveCanvas.boundingBox()).width / 1280
+  assert.equal(await badge.evaluate(el => getComputedStyle(el).translate), "-50% -50%")
+  await page.evaluate(() => document.activeElement?.blur())
+  await page.keyboard.press("ArrowRight")
+  await page.keyboard.press("ArrowRight")
+  const badgeNudged = await badge.boundingBox()
+  assert.ok(Math.abs(badgeNudged.x - badgeBefore.x - 2 * designScale) < 0.1)
+  assert.ok(Math.abs(badgeNudged.y - badgeBefore.y) < 0.1)
+  const badgeSelection = await page.locator(".ps-selection").boundingBox()
+  const badgeX = badgeSelection.x + badgeSelection.width / 2
+  const badgeY = badgeSelection.y + badgeSelection.height / 2
+  await page.mouse.move(badgeX, badgeY)
+  await page.keyboard.down("Alt")
+  await page.mouse.down()
+  await page.mouse.move(badgeX + 20, badgeY + 12, { steps: 5 })
+  await page.mouse.up()
+  await page.keyboard.up("Alt")
+  const badgeDragged = await badge.boundingBox()
+  assert.ok(Math.abs(badgeDragged.x - badgeNudged.x - 20) < 1)
+  assert.ok(Math.abs(badgeDragged.y - badgeNudged.y - 12) < 1)
+  await button("Save changes").click()
+  await page.waitForFunction(() =>
+    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+  )
+  await page.waitForTimeout(350)
+  const badgeSaved = await badge.boundingBox()
+  assert.ok(Math.abs(badgeSaved.x - badgeDragged.x) < 0.1)
+  assert.ok(Math.abs(badgeSaved.y - badgeDragged.y) < 0.1)
+  await chooseElement("Centered badge")
+  const beforeResize = await badge.boundingBox()
+  await editor.getByLabel("Width", { exact: true }).fill("100")
+  const afterResize = await badge.boundingBox()
+  assert.ok(Math.abs(afterResize.x - beforeResize.x + 10 * designScale) < 0.1)
+  await button("Discard").click()
+  console.log("PASS Tailwind percentage centering survives nudge, drag, save and resize")
   // Select a source container through Layers, insert, duplicate, and delete.
   await page
     .locator("[data-ps-editor-canvas] [data-slide-render-index] > div")
@@ -561,7 +671,8 @@ try {
   await page.getByRole("button", { name: "Go to slide 1", exact: true }).click()
   await page.waitForTimeout(400)
   console.log("PASS native reveals and slide navigation preserve buffered edits")
-  await page.locator("[data-ps-editor-canvas] h2").click()
+  // Earlier alignment tests can place the title over this element; use Layers.
+  await chooseElement("Component title")
   await editor.getByLabel("Text", { exact: true }).waitFor()
   assert.equal(await editor.getByLabel("Text", { exact: true }).inputValue(), "Component title")
   assert.equal(await editor.getByText("Linked content", { exact: true }).count(), 0)
@@ -574,7 +685,8 @@ try {
   assert.equal(await page.getByLabel("Rotate element", { exact: true }).isDisabled(), true)
   const beforeLockedEdit = await page.locator("[data-ps-editor-canvas] h2").getAttribute("style")
   await page.mouse.click(400, 85)
-  await page.locator("[data-ps-editor-canvas] h2").click()
+  // Earlier alignment tests can place the title over this element; use Layers.
+  await chooseElement("Component title")
   await page.keyboard.press("ArrowRight")
   await page.keyboard.press("Delete")
   assert.equal(
@@ -637,6 +749,32 @@ try {
   console.log(
     "PASS runtime-error guard catches page errors and forwarded React error reports (intentional probe)"
   )
+  const sharedServer = await createServer({
+    ...createViteConfig({ cwd: root, editor: false }),
+    cacheDir: join(root, ".vite-shared"),
+    optimizeDeps: { noDiscovery: true, include: [] },
+    server: { host: "0.0.0.0", port: port + 1, strictPort: false }
+  })
+  try {
+    await sharedServer.listen()
+    const sharedUrl = `http://127.0.0.1:${sharedServer.httpServer.address().port}`
+    assert.ok(!sharedServer.config.plugins.some(plugin => plugin.name === "promptslide-editor"))
+    assert.ok(!(await (await fetch(sharedUrl)).text()).includes("/@id/virtual:promptslide-editor"))
+    const denied = await fetch(`${sharedUrl}/__promptslide_editor`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save", files: [] })
+    })
+    assert.equal(denied.status, 404)
+    console.log("PASS exposed server has no editor entry, instrumentation plugin or write endpoint")
+  } finally {
+    await sharedServer.close()
+  }
+  // Close browser connections before build files trigger Vite reloads during teardown.
+  await browser.close()
+  browser = undefined
+  await server.close()
+  server = undefined
   // Build through the real entry, then assert the development editor is absent.
   writeFileSync(
     join(root, "index.html"),

@@ -24,7 +24,7 @@ For direct local `array.map(item => <p>{item.title}</p>)` expressions over liter
 
 Every batch checks all file revisions and validates all resulting TSX syntax before writing. Stale edits receive HTTP 409. Export or discard the draft and reselect from the current source; there is no force-overwrite button. Parent/child structural edits that overlap must be saved separately. This is optimistic concurrency protection, not a filesystem transaction across external processes. A save failure rolls back files still matching this operation's output.
 
-The endpoint uses a per-server random token, checks cross-site fetches, limits payload size and operation counts, and only runs in Vite serve mode. Keep development servers on trusted interfaces, as with ordinary Vite source access.
+The endpoint uses a per-server random token, checks cross-site fetches, limits payload size and operation counts, and only runs in Vite serve mode. Studio enables editing on its default loopback interface. Passing `--host` (including `--host=...`) disables the editor, source instrumentation, and editor endpoint so shared previews cannot edit source files. The client token is a request guard, not authentication for network clients.
 
 ## Verification
 

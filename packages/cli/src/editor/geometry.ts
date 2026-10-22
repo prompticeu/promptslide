@@ -4,6 +4,30 @@ export interface Rect {
   width: number
   height: number
 }
+export function translated(value: string, dx: number, dy: number) {
+  // Computed translate may contain percentages or calc() with spaces. Keep
+  // those units so movement does not remove centering or break after resizing.
+  const axes: string[] = []
+  let depth = 0,
+    start = 0
+  const input = value.trim()
+  for (let i = 0; i <= input.length; i++) {
+    const char = input[i]
+    if (char === "(") depth++
+    if (char === ")") depth--
+    if (i === input.length || (depth === 0 && /\s/.test(char!))) {
+      if (i > start) axes.push(input.slice(start, i))
+      start = i + 1
+    }
+  }
+  if (axes[0] === "none") axes.length = 0
+  const offset = (axis: string, delta: number) => {
+    if (!delta) return axis
+    if (/^-?(?:\d*\.)?\d+px$/.test(axis)) return `${parseFloat(axis) + delta}px`
+    return `calc(${axis} ${delta < 0 ? "-" : "+"} ${Math.abs(delta)}px)`
+  }
+  return [offset(axes[0] || "0px", dx), offset(axes[1] || "0px", dy), ...axes.slice(2)].join(" ")
+}
 export function snap(rect: Rect, others: Rect[], tolerance = 6) {
   const xs = [0, 640, 1280, ...others.flatMap(r => [r.x, r.x + r.width / 2, r.x + r.width])]
   const ys = [0, 360, 720, ...others.flatMap(r => [r.y, r.y + r.height / 2, r.y + r.height])]

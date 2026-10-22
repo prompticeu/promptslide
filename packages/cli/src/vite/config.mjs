@@ -18,13 +18,13 @@ const tailwindPath = resolve(dirname(require.resolve("tailwindcss")), "..")
 // Resolve promptslide core from source so Vite uses TS directly without a build step
 const promptslidePath = resolve(__dirname, "../core/index.ts")
 
-export function createViteConfig({ cwd, mode = "development" }) {
+export function createViteConfig({ cwd, mode = "development", editor = true }) {
   return {
     configFile: false,
     root: cwd,
     mode,
     plugins: [
-      ...(mode === "development" ? [editorPlugin({ root: cwd })] : []),
+      ...(mode === "development" && editor ? [editorPlugin({ root: cwd })] : []),
       react(),
       promptslidePlugin({ root: cwd })
     ],

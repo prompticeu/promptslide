@@ -46,6 +46,30 @@ test("range formatting creates valid JSX without raw HTML injection", () => {
     /valid text range/
   )
 })
+test("range formatting preserves pending wording and validates against its length", () => {
+  const fixture = "const X = () => <p>Hello world</p>"
+  const start = describe(fixture)[0].start
+  const result = editSource(fixture, [
+    { start, text: "Hello new world", richText: { from: 0, to: 5, style: { fontWeight: 700 } } }
+  ])
+  assert.equal(describe(result).find(n => n.tag === "span").text, "Hello")
+  assert.ok(result.includes('{" new world"}'))
+  const extended = editSource(fixture, [
+    {
+      start,
+      text: "Hello new world",
+      richText: { from: 10, to: 15, style: { fontStyle: "italic" } }
+    }
+  ])
+  assert.equal(describe(extended).find(n => n.tag === "span").text, "world")
+  assert.throws(
+    () =>
+      editSource(fixture, [
+        { start, text: "Hi", richText: { from: 0, to: 5, style: { fontWeight: 700 } } }
+      ]),
+    /valid text range/
+  )
+})
 test("safe structure operations and overlapping edits", () => {
   assert.equal(
     describe(editSource(source, [{ start: p, action: "duplicate" }])).filter(n => n.tag === "p")
@@ -62,10 +86,20 @@ test("safe structure operations and overlapping edits", () => {
     () => editSource(source, [{ start: root, action: "delete" }]),
     /direct JSX children/
   )
-  assert.throws(
-    () => editSource(source, [{ start: p, action: "delete", text: "changed" }]),
-    /Overlapping/
+  const deleted = editSource(source, [
+    {
+      start: p,
+      action: "delete",
+      text: "changed",
+      style: { translate: "20px 10px" },
+      props: { title: "changed" }
+    }
+  ])
+  assert.equal(
+    describe(deleted).some(n => n.tag === "p"),
+    false
   )
+  assert.equal(describe(deleted).find(n => n.tag === "img").props.src, "/old.png")
   assert.equal(
     describe(editSource(source, [{ start: root, insert: "text" }])).filter(n => n.tag === "p")
       .length,
@@ -143,6 +177,36 @@ test("local array text edits address individual items, not the shared JSX expres
   assert.match(result, /\{item.title\}/)
 })
 
+test("array edits reject parameters, imports and declarations outside lexical scope", () => {
+  const fixtures = [
+    `const items = [{title: 'Unrelated'}]; function List({items}) { return <div>{items.map(item => <p>{item.title}</p>)}</div> }`,
+    `const items = [{title: 'Unrelated'}]; function List(items) { return <div>{items.map(item => <p>{item.title}</p>)}</div> }`,
+    `function Other() { const items = [{title: 'Unrelated'}] } const List = () => <div>{items.map(item => <p>{item.title}</p>)}</div>`,
+    `import {items} from './data'; function Other() { const items = [{title: 'Unrelated'}] } const List = () => <div>{items.map(item => <p>{item.title}</p>)}</div>`,
+    `const items = [{title: 'Unrelated'}]; function List(data) { const {items} = data; return <div>{items.map(item => <p>{item.title}</p>)}</div> }`
+  ]
+  for (const fixture of fixtures) {
+    const paragraph = describe(fixture).find(n => n.tag === "p")
+    assert.equal(paragraph.items, undefined)
+    assert.equal(paragraph.computedText, true)
+    assert.throws(
+      () => editSource(fixture, [{ start: paragraph.start, item: 0, text: "Changed" }]),
+      /Computed/
+    )
+    parse(instrument(fixture, "src/array.tsx"))
+  }
+})
+
+test("array edits resolve the nearest local literal despite same-named outer declarations", () => {
+  const fixture = `const items = [{title: 'Outer'}]; function List() { const items = [{title: 'Inner'}]; return <div>{items.map(item => <p>{item.title}</p>)}</div> }`
+  const paragraph = describe(fixture).find(n => n.tag === "p")
+  assert.equal(paragraph.items[0].value, "Inner")
+  const result = editSource(fixture, [{ start: paragraph.start, item: 0, text: "Changed" }])
+  assert.match(result, /title: 'Outer'/)
+  assert.match(result, /title: "Changed"/)
+  assert.doesNotMatch(result, /title: 'Inner'/)
+})
+
 test("JSX whitespace and entities round-trip as rendered text", () => {
   const fixture = "const X = () => <p>\n  Hello &middot; world\n</p>"
   assert.equal(describe(fixture)[0].text, "Hello · world")
@@ -161,7 +225,7 @@ test("geometry snaps in design coordinates and distributes unequal element sizes
     readFileSync(new URL("../src/editor/geometry.ts", import.meta.url), "utf8"),
     { compilerOptions: { module: ts.ModuleKind.ESNext } }
   ).outputText
-  const { snap, aligned } = await import(
+  const { snap, aligned, translated } = await import(
     "data:text/javascript;base64," + Buffer.from(code).toString("base64")
   )
   const snapped = snap({ x: 7, y: 348, width: 20, height: 20 }, [], 8)
@@ -176,6 +240,15 @@ test("geometry snaps in design coordinates and distributes unequal element sizes
   assert.deepEqual(aligned(rects, "x", "start"), [40, 40, 40])
   assert.deepEqual(aligned(rects, "x", "distribute"), [40, 180, 100])
   assert.deepEqual(aligned(rects, "x", "end"), [220, 180, 200])
+  assert.equal(translated("none", 1, -1), "1px -1px")
+  assert.equal(translated("20px 10px", 2, -3), "22px 7px")
+  assert.equal(translated("-50% -50%", 1, 0), "calc(-50% + 1px) -50%")
+  assert.equal(translated("-50%", 0, 2), "-50% 2px")
+  assert.equal(
+    translated("calc(-50% + 1px) -50%", -2, 3),
+    "calc(calc(-50% + 1px) - 2px) calc(-50% + 3px)"
+  )
+  assert.equal(translated("10px 20px 30px", 1, 2), "11px 22px 30px")
 })
 
 test("Lucide icons including aliases and namespaces forward source metadata", () => {

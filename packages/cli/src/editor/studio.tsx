@@ -34,7 +34,7 @@ import {
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
-import { aligned, snap, type Rect } from "./geometry"
+import { aligned, snap, translated, type Rect } from "./geometry"
 import "./studio.css"
 
 type Style = Record<string, string | number>
@@ -589,14 +589,10 @@ function Studio({
   }
   function translation(s: Selection) {
     const style = draftRef.current[s.path]?.edits.find(e => e.start === s.start)?.style
-    const value = String(style?.translate || s.element?.style.translate || "0px 0px").split(" ")
-    return [parseFloat(value[0]!) || 0, parseFloat(value[1]!) || 0]
+    return String(style?.translate ?? (s.element ? getComputedStyle(s.element).translate : "none"))
   }
   function move(items: Selection[], dx: number, dy: number) {
-    change(items, s => {
-      const [x, y] = translation(s)
-      return { style: { translate: `${x! + dx}px ${y! + dy}px` } }
-    })
+    change(items, s => ({ style: { translate: translated(translation(s), dx, dy) } }))
   }
   function gesture(
     event: React.PointerEvent,
@@ -633,10 +629,10 @@ function Studio({
         dy = snapped.y - bounds.y
         setGuides({ x: snapped.guideX, y: snapped.guideY })
       }
-      patches = initial.map(({ s, rect: r, translation: [x, y], rotate }) => {
+      patches = initial.map(({ s, rect: r, translation: initialTranslation, rotate }) => {
         const style: Style =
           kind === "move"
-            ? { translate: `${x! + dx}px ${y! + dy}px` }
+            ? { translate: translated(initialTranslation, dx, dy) }
             : kind === "rotate"
               ? { rotate: `${rotate + dx / 2}deg` }
               : {
@@ -723,11 +719,10 @@ function Studio({
       positions = aligned(rects, axis, mode)
     change(items, s => {
       const i = items.indexOf(s),
-        [x, y] = translation(s),
         delta = positions[i]! - rects[i]![axis]
       return {
         style: {
-          translate: `${x! + (axis === "x" ? delta : 0)}px ${y! + (axis === "y" ? delta : 0)}px`
+          translate: translated(translation(s), axis === "x" ? delta : 0, axis === "y" ? delta : 0)
         }
       }
     })

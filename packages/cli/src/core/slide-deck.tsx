@@ -532,6 +532,7 @@ export function SlideDeck({
       if (e.altKey || e.ctrlKey || e.metaKey) return
       const key = e.key.toLowerCase()
       if (e.repeat && "fvglcdt".includes(key)) return
+      if (isEditorOpen && ["f", "v", "g", "l", "c", "d"].includes(key)) return
 
       if (key === "f") {
         e.preventDefault()
@@ -594,12 +595,15 @@ export function SlideDeck({
     viewMode,
     togglePresentationMode,
     isAnnotationMode,
+    isEditorOpen,
     isPresentationMode,
     setThumbnailRailOpen,
     showThumbnailRail,
     toggleCommentMode,
     handleExportPdf
   ])
+
+  const editorPanelWidth = viewportWidth <= 850 ? 280 : 320
 
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-foreground">
@@ -653,11 +657,18 @@ export function SlideDeck({
       {/* Toolbar */}
       <div
         data-ps-viewer-toolbar
+        style={
+          isEditorOpen
+            ? { right: editorPanelWidth + 16, maxWidth: `calc(100vw - ${editorPanelWidth + 32}px)` }
+            : undefined
+        }
         className={cn(
           "fixed top-4 z-50 flex gap-1 rounded-lg border border-neutral-800 bg-neutral-950/90 p-1 backdrop-blur-sm transition-[right] duration-200 ease-out print:hidden",
           (isPresentationMode || (isNarrowViewport && isAnnotationMode && showAnnotationPanel)) &&
             "hidden",
-          isEditorOpen || (isAnnotationMode && showAnnotationPanel) ? "right-[21rem]" : "right-4"
+          isEditorOpen && "flex-wrap",
+          isEditorOpen && viewportWidth <= 850 && "[&_button:disabled]:hidden [&>div]:hidden",
+          !isEditorOpen && (isAnnotationMode && showAnnotationPanel ? "right-[21rem]" : "right-4")
         )}
       >
         <button
@@ -1013,7 +1024,7 @@ export function SlideDeck({
             aria-hidden={!isEditorOpen}
             inert={!isEditorOpen}
             className="h-full shrink-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none"
-            style={{ width: isEditorOpen ? (viewportWidth <= 850 ? 280 : 320) : 0 }}
+            style={{ width: isEditorOpen ? editorPanelWidth : 0 }}
           />
 
           {/* Annotation Panel — beside the slide */}
