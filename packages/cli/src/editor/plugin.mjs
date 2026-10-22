@@ -7,10 +7,24 @@ import {
   statSync,
   readdirSync
 } from "node:fs"
-import { resolve, relative, sep, dirname } from "node:path"
+import nodePath, { resolve, relative, sep, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { describe, editSource, instrument, revision } from "./source.mjs"
+
+export function sourceModulePath(base, id, paths = nodePath) {
+  const path = paths.resolve(id.split("?")[0])
+  const rel = paths.relative(base, path)
+  if (
+    !rel ||
+    rel === ".." ||
+    rel.startsWith(".." + paths.sep) ||
+    paths.isAbsolute(rel) ||
+    !/\.[jt]sx$/.test(path)
+  )
+    return
+  return path
+}
 
 export function editorPlugin({ root }) {
   root = realpathSync(root)
@@ -30,8 +44,8 @@ export function editorPlugin({ root }) {
     apply: "serve",
     enforce: "pre",
     transform(code, id) {
-      const path = id.split("?")[0]
-      if (!path.startsWith(base + sep) || !/\.[jt]sx$/.test(path)) return
+      const path = sourceModulePath(base, id)
+      if (!path) return
       return { code: instrument(code, relative(root, path)), map: null }
     },
     resolveId(id) {

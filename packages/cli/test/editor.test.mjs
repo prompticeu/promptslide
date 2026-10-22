@@ -1,11 +1,19 @@
 import assert from "node:assert/strict"
 import { EventEmitter } from "node:events"
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync } from "node:fs"
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync
+} from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, posix, win32 } from "node:path"
 import test from "node:test"
 
-import { editorPlugin } from "../src/editor/plugin.mjs"
+import { editorPlugin, sourceModulePath } from "../src/editor/plugin.mjs"
 import { describe, editSource, instrument, parse, revision } from "../src/editor/source.mjs"
 const source = `// keep this comment\nexport const Slide = () => <div className="flex"><p style={{ color: 'red' }}>Hello</p><img src="/old.png" /></div>\n`
 const p = describe(source).find(n => n.tag === "p").start
@@ -106,6 +114,83 @@ test("safe structure operations and overlapping edits", () => {
     2
   )
 })
+test("parent deletion supersedes descendant edits in either batch order and preserves sibling edits", () => {
+  const fixture =
+    "const X = () => <main><section><div><p>Hello</p></div></section><aside>Keep</aside></main>"
+  const nodes = describe(fixture)
+  const start = tag => nodes.find(n => n.tag === tag).start
+  const descendantEdits = [
+    { start: start("p"), text: "Changed", style: { color: "red" } },
+    { start: start("div"), action: "delete" }
+  ]
+  const parentDelete = { start: start("section"), action: "delete" }
+  const siblingEdit = { start: start("aside"), text: "Preserved" }
+  for (const edits of [
+    [...descendantEdits, parentDelete, siblingEdit],
+    [parentDelete, siblingEdit, ...descendantEdits]
+  ]) {
+    const result = editSource(fixture, edits)
+    assert.deepEqual(
+      describe(result).map(n => n.tag),
+      ["main", "aside"]
+    )
+    assert.equal(describe(result).find(n => n.tag === "aside").text, "Preserved")
+  }
+  assert.throws(
+    () => editSource(fixture, [...descendantEdits, { start: start("main"), action: "delete" }]),
+    /direct JSX children/
+  )
+  assert.throws(
+    () => editSource(fixture, [parentDelete, { start: -1, text: "Missing" }]),
+    /no longer exists/
+  )
+})
+
+test("source module paths accept normalized Windows and POSIX IDs while excluding outside files", () => {
+  for (const [paths, root] of [
+    [win32, "C:\\deck"],
+    [posix, "/deck"]
+  ]) {
+    const base = paths.join(root, "src")
+    const file = paths.join(base, "slides", "a.tsx")
+    assert.equal(sourceModulePath(base, file, paths), file)
+    assert.equal(sourceModulePath(base, file.replaceAll("\\", "/") + "?v=1", paths), file)
+    assert.equal(
+      sourceModulePath(base, paths.join(base, "slides", "..", "a.jsx"), paths),
+      paths.join(base, "a.jsx")
+    )
+    assert.equal(
+      sourceModulePath(base, paths.join(base, "..allowed.tsx"), paths),
+      paths.join(base, "..allowed.tsx")
+    )
+    for (const outside of [
+      base,
+      paths.join(base, "..", "outside.tsx"),
+      paths.join(root, "src-other", "a.tsx"),
+      paths.join(base, "a.ts"),
+      paths.join(base, "a.css")
+    ])
+      assert.equal(sourceModulePath(base, outside, paths), undefined)
+  }
+  assert.equal(sourceModulePath("C:\\deck\\src", "D:/deck/src/a.tsx", win32), undefined)
+})
+
+test("editor transform instruments only normalized source module paths", () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "ps-editor-transform-")))
+  try {
+    const plugin = editorPlugin({ root })
+    const filename = join(root, "src/slides/a.tsx")
+    const result = plugin.transform(source, filename + "?v=1")
+    assert.ok(result.code.includes("data-ps-source"))
+    assert.equal(result.code, instrument(source, join("src", "slides", "a.tsx")))
+    parse(result.code)
+    assert.equal(plugin.transform(source, join(root, "src-other/a.tsx")), undefined)
+    assert.equal(plugin.transform(source, join(root, "src/../outside.tsx")), undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test("source saving validates every file before writing, rejects stale revisions and escaped paths", async () => {
   const root = mkdtempSync(join(tmpdir(), "ps-editor-"))
   mkdirSync(join(root, "src"))

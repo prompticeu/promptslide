@@ -238,10 +238,19 @@ export function editSource(text, edits) {
   const file = parse(text)
   const all = nodes(file)
   const patches = []
-  for (const edit of edits) {
+  const pending = edits.map(edit => {
     const node = all.find(n => n.getStart() === edit.start)
     if (!node) throw new Error("Source element no longer exists")
-    // Deletion supersedes the draft changes accumulated on this element.
+    return { edit, node }
+  })
+  const deleted = new Set(
+    pending.filter(({ edit }) => edit.action === "delete").map(({ node }) => node)
+  )
+  for (const { edit, node } of pending) {
+    let ancestor = node.parent
+    while (ancestor && !deleted.has(ancestor)) ancestor = ancestor.parent
+    if (ancestor) continue
+    // Deletion supersedes changes on this element and all of its descendants.
     if (edit.action === "delete") {
       if (!ts.isJsxElement(node.parent) && !ts.isJsxFragment(node.parent))
         throw new Error("Only direct JSX children can be deleted or duplicated")
