@@ -110,9 +110,12 @@ priority = 20
 id = "commitizen"
 name = "commitizen"
 description = "Validate commit message format"
-entry = "bunx cz check --allow-abort --commit-msg-file"
+entry = "cz check"
+args = ["--allow-abort", "--commit-msg-file"]
 stages = ["commit-msg"]
-language = "system"
+# Isolate the validator from the JavaScript Commitizen CLI used for authoring.
+language = "python"
+additional_dependencies = ["commitizen==4.2.1"]
 
 [[repos.hooks]]
 id = "bun-install"
