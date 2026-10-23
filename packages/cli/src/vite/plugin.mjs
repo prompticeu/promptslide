@@ -384,7 +384,7 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, "http://localhost")
         if (url.searchParams.get("pdf") === "true") {
-          const html = await server.transformIndexHtml("/index.html", getPdfHtmlTemplate())
+          const html = await server.transformIndexHtml("/index.html", getPdfHtmlTemplate(), req.url)
           res.setHeader("Content-Type", "text/html")
           res.statusCode = 200
           res.end(html)
@@ -402,7 +402,8 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         }
         const html = await server.transformIndexHtml(
           "/index.html",
-          getExportHtmlTemplate(slidePath)
+          getExportHtmlTemplate(slidePath),
+          req.url
         )
         res.setHeader("Content-Type", "text/html")
         res.statusCode = 200

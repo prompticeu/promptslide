@@ -2,15 +2,19 @@
   "name": "promptslide",
   "version": "0.3.17",
   "description": "CLI and slide engine for PromptSlide presentations",
-  "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./src/commands/*": "./src/commands/*"
+  "keywords": [
+    "cli",
+    "presentations",
+    "promptslide",
+    "react",
+    "slides",
+    "vite"
+  ],
+  "license": "MIT",
+  "author": "prompticeu",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/prompticeu/promptslide.git"
   },
   "bin": {
     "promptslide": "src/index.mjs"
@@ -22,46 +26,42 @@
     "CHANGELOG.md",
     "README.md"
   ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./src/commands/*": "./src/commands/*"
+  },
   "scripts": {
     "build": "tsup",
     "test": "node --test test/*.test.mjs",
     "prepublishOnly": "npm run build"
   },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/prompticeu/promptslide.git"
-  },
-  "author": "prompticeu",
-  "keywords": [
-    "slides",
-    "presentations",
-    "cli",
-    "react",
-    "promptslide",
-    "vite"
-  ],
   "dependencies": {
     "@tailwindcss/postcss": "^4.1.13",
     "@vitejs/plugin-react": "^4.5.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.552.0",
+    "playwright": "^1.50.0",
     "postcss": "^8.5.6",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.13",
-    "playwright": "^1.50.0",
+    "typescript": "^5.9.3",
     "vite": "^6.3.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "tsup": "^8.5.1"
   },
   "peerDependencies": {
     "framer-motion": "^12.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
-  },
-  "devDependencies": {
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "tsup": "^8.5.1",
-    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -4,6 +4,17 @@ import { Presentation } from "lucide-react"
 
 import { SlideLayoutCentered } from "@/layouts/slide-layout-centered"
 
+function LinkedContentExample({ title }: { title: string }) {
+  return (
+    <div className="mt-8 border-t border-border pt-5">
+      <p className="text-xs tracking-widest text-muted-foreground uppercase">
+        Linked content example
+      </p>
+      <p className="mt-2 text-xl font-medium text-foreground">{title}</p>
+    </div>
+  )
+}
+
 export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
   return (
     <SlideLayoutCentered slideNumber={slideNumber} totalSlides={totalSlides} hideFooter>
@@ -17,6 +28,7 @@ export function SlideTitle({ slideNumber, totalSlides }: SlideProps) {
         <div className="mt-10 text-sm text-muted-foreground">
           Open Source &middot; React + Tailwind + Framer Motion
         </div>
+        <LinkedContentExample title="Our strategy for next year" />
       </div>
     </SlideLayoutCentered>
   )
