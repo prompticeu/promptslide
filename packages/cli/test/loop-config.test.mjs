@@ -74,8 +74,30 @@ test("publishing and reconstructing a deck preserves loop settings and stable ID
     const published = parseDeckConfig(root)
     assert.deepEqual(JSON.parse(JSON.stringify(published.loopConfig)), config)
     assert.equal(published.slides[0].id, "agents")
+    const localFile = readFileSync(join(root, "loop-config.json"), "utf8")
+    // Older registry versions lack loop metadata and must preserve local timings.
     replaceDeckConfig(root, [
       { id: "agents", componentName: "Agents", importPath: "@/slides/agents", steps: 5 }
+    ])
+    assert.equal(readFileSync(join(root, "loop-config.json"), "utf8"), localFile)
+    // Explicit remote defaults still replace an existing local configuration.
+    replaceDeckConfig(
+      root,
+      [{ id: "agents", componentName: "Agents", importPath: "@/slides/agents", steps: 5 }],
+      { loopConfig: DEFAULT_LOOP_CONFIG }
+    )
+    assert.deepEqual(JSON.parse(JSON.stringify(readLoopConfig(root))), DEFAULT_LOOP_CONFIG)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test("legacy decks initialize default loop settings when no local file exists", () => {
+  const root = mkdtempSync(join(tmpdir(), "promptslide-legacy-loop-"))
+  try {
+    mkdirSync(join(root, "src"))
+    replaceDeckConfig(root, [
+      { id: "intro", componentName: "Intro", importPath: "@/slides/intro", steps: 0 }
     ])
     assert.deepEqual(JSON.parse(JSON.stringify(readLoopConfig(root))), DEFAULT_LOOP_CONFIG)
   } finally {

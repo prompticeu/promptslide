@@ -340,7 +340,8 @@ export function SlideDeck({
   }, [activateInspector])
   const [isPresentationMode, setIsPresentationMode] = useState(false)
   const providedLoopConfig = useDefaultLoopConfig()
-  const defaultLoopConfig = suppliedLoopConfig ?? providedLoopConfig
+  const defaultLoopKey = JSON.stringify(suppliedLoopConfig ?? providedLoopConfig)
+  const defaultLoopConfig = useMemo<LoopConfig>(() => JSON.parse(defaultLoopKey), [defaultLoopKey])
   const storageKey = `promptslide:loop:${typeof location === "undefined" ? "" : location.pathname}:${JSON.stringify(slides.map(loopSlideKey))}`
   const [loopConfig, setLoopConfig] = useState<LoopConfig>(() =>
     loadLoopConfig(defaultLoopConfig, storageKey)
@@ -348,6 +349,7 @@ export function SlideDeck({
   const [loopDraft, setLoopDraft] = useState<LoopConfig>(() =>
     loadLoopConfig(defaultLoopConfig, storageKey)
   )
+  const [playbackConfig, setPlaybackConfig] = useState(loopConfig)
   const [isLooping, setIsLooping] = useState(false)
   const [loopMenuOpen, setLoopMenuOpen] = useState(false)
   const [loopError, setLoopError] = useState("")
@@ -359,6 +361,7 @@ export function SlideDeck({
     const config = loadLoopConfig(defaultLoopConfig, storageKey)
     setLoopConfig(config)
     setLoopDraft(config)
+    setPlaybackConfig(config)
     setIsLooping(false)
   }, [defaultLoopConfig, storageKey])
   useEffect(() => {
@@ -537,7 +540,7 @@ export function SlideDeck({
   })
 
   const playback = useLoopPlayback({
-    config: loopConfig,
+    config: playbackConfig,
     slides,
     currentSlide,
     animationStep,
@@ -561,9 +564,9 @@ export function SlideDeck({
     }
   }
   const saveLoopConfig = async (config: LoopConfig) => {
-    const savedInBrowser = rememberLoopConfig(config)
     if (onLoopConfigChange) {
       await onLoopConfigChange(config)
+      rememberLoopConfig(config)
       return "Loop settings saved."
     }
     try {
@@ -572,8 +575,10 @@ export function SlideDeck({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config)
       })
-      if (response.status === 204)
+      if (response.status === 204) {
+        rememberLoopConfig(config)
         return "Saved to loop-config.json. Included in future builds and publishing."
+      }
       if (response.status !== 404 && response.status !== 405)
         throw new Error(
           "Studio could not save loop-config.json. Download the settings to keep a copy."
@@ -581,7 +586,7 @@ export function SlideDeck({
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("Studio")) throw error
     }
-    return savedInBrowser
+    return rememberLoopConfig(config)
       ? "Saved in this browser. Download settings and place loop-config.json in the project folder to share or publish them."
       : "Applied for this session. Browser storage is unavailable; download the settings to keep them."
   }
@@ -596,7 +601,7 @@ export function SlideDeck({
     try {
       // Request synchronously from the click, before any asynchronous work.
       if (!document.fullscreenElement) await document.documentElement.requestFullscreen()
-      rememberLoopConfig(config)
+      setPlaybackConfig(config)
       setLoopDraft(config)
       setViewMode("slide")
       setInspectorMode(null)

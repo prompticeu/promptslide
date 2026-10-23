@@ -46,7 +46,8 @@ export function ViewMenu({
       ref={root}
       className="relative flex"
       onBlur={event => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
+        const next = event.relatedTarget
+        if (next && !event.currentTarget.contains(next)) setOpen(false)
       }}
       onKeyDown={event => {
         // Toolbar navigation must not trigger slide advancement or deck shortcuts.

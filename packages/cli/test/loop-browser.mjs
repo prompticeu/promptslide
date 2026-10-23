@@ -50,7 +50,17 @@ function A() {
 function B() { const [born] = useState(() => performance.now()); return <div data-active="b" data-step="0" data-born={born}>Outro</div> }
 function Skip() { return <div data-active="skip">Excluded</div> }
 const slides = [{id:"a",title:"Agents",component:A,steps:2},{id:"skip",title:"Skip",component:Skip,steps:0},{id:"b",title:"Outro",component:B,steps:0}]
-export default function App() { return <SlideDeck slides={slides} /> }
+const hostConfig = ${JSON.stringify(config)}
+export default function App() {
+  const [, setRevision] = useState(0)
+  const [defaultDuration, setDefaultDuration] = useState(hostConfig.defaultDuration)
+  useEffect(() => {
+    window.__rerender = () => setRevision(value => value + 1)
+    window.__setHostDuration = setDefaultDuration
+  }, [])
+  const sdk = new URLSearchParams(location.search).has("sdk")
+  return <SlideDeck slides={slides} loopConfig={sdk ? { ...hostConfig, defaultDuration, slides: { ...hostConfig.slides } } : undefined} />
+}
 `
   )
   writeFileSync(join(root, "src/theme.ts"), "export const theme = {}\n")
@@ -179,6 +189,79 @@ export default function App() { return <SlideDeck slides={slides} /> }
   await fresh.getByRole("button", { name: "Step 2", exact: true }).click()
   assert.equal(await fresh.getByLabel("Step 2 duration in seconds").inputValue(), "0.7")
   await fresh.close()
+  // A blur without a new focus target must not remove menu options before click.
+  await page.getByRole("button", { name: "View options", exact: true }).click()
+  await page.evaluate(() => document.activeElement.blur())
+  assert.equal(await page.getByRole("menu", { name: "View options" }).isVisible(), true)
+  await page.getByRole("menuitemradio", { name: "List view", exact: true }).click()
+  assert.match(
+    await page.getByRole("button", { name: "View options" }).getAttribute("title"),
+    /List view/
+  )
+  await page.getByRole("button", { name: "View options", exact: true }).click()
+  await page.getByRole("button", { name: "Comment", exact: true }).focus()
+  assert.equal(await page.getByRole("menu", { name: "View options" }).count(), 0)
+  await page.getByRole("button", { name: "View options", exact: true }).click()
+  await page.getByRole("menuitemradio", { name: "Presentation view", exact: true }).click()
+  await page.getByRole("button", { name: "View options", exact: true }).click()
+  await page.evaluate(() => document.activeElement.blur())
+  await page.getByRole("button", { name: "View options", exact: true }).click()
+  assert.equal(await page.getByRole("menu", { name: "View options" }).count(), 0)
+
+  // SDK hosts often construct equivalent config objects on every parent render.
+  const sdk = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
+  sdk.on("pageerror", error => errors.push(error.message))
+  await sdk.goto(studioUrl + "?sdk")
+  await sdk.getByRole("button", { name: "Slide settings", exact: true }).click()
+  const sdkDuration = sdk.getByLabel("Initial view duration in seconds")
+  await sdkDuration.fill("1.2")
+  await sdkDuration.press("Tab")
+  await sdk.evaluate(() => window.__rerender())
+  await sdk.waitForTimeout(100)
+  assert.equal(await sdkDuration.inputValue(), "1.2")
+  assert.equal(await sdk.getByText("Unsaved loop settings", { exact: true }).isVisible(), true)
+  const projectFile = readFileSync(join(root, "loop-config.json"), "utf8")
+  const storageBefore = await sdk.evaluate(() => JSON.stringify(localStorage))
+  await sdk.getByRole("button", { name: "Start loop", exact: true }).click()
+  await sdk.locator('[data-loop-running="true"]').waitFor()
+  await sdk.keyboard.press("Space")
+  await sdk.getByText("Loop paused", { exact: false }).waitFor()
+  await sdk.evaluate(() => window.__rerender())
+  await sdk.waitForTimeout(100)
+  assert.equal(await sdk.locator('[data-loop-running="true"]').count(), 1)
+  assert.equal(await sdk.getByText("Loop paused", { exact: false }).isVisible(), true)
+  await sdk.keyboard.press("Escape")
+  await sdk.waitForFunction(() => !document.fullscreenElement)
+  await sdk.getByRole("button", { name: "Slide settings", exact: true }).click()
+  assert.equal(await sdkDuration.inputValue(), "1.2")
+  await sdk.getByText("Unsaved loop settings", { exact: true }).waitFor()
+  assert.equal(await sdk.evaluate(() => JSON.stringify(localStorage)), storageBefore)
+  assert.equal(readFileSync(join(root, "loop-config.json"), "utf8"), projectFile)
+  await sdk.getByRole("button", { name: "Revert", exact: true }).click()
+  assert.equal(await sdkDuration.inputValue(), "0.25")
+  // A real configuration change still replaces stale drafts.
+  await sdkDuration.fill("0.8")
+  await sdkDuration.press("Tab")
+  await sdk.evaluate(() => window.__setHostDuration(0.9))
+  await sdk.waitForFunction(
+    () => document.querySelector('[aria-label="Default duration in seconds"]')?.value === "0.9"
+  )
+  assert.equal(await sdkDuration.inputValue(), "0.25")
+  assert.equal(await sdk.getByText("Unsaved loop settings", { exact: true }).count(), 0)
+  // A rejected project save must also preserve the saved baseline and browser storage.
+  await sdkDuration.fill("0.8")
+  await sdkDuration.press("Tab")
+  await sdk.route("**/__promptslide_loop", route => route.fulfill({ status: 500 }))
+  await Promise.all([
+    sdk.waitForResponse(response => response.url().endsWith("/__promptslide_loop")),
+    sdk.getByRole("button", { name: "Save settings", exact: true }).click()
+  ])
+  assert.equal(await sdk.getByText("Unsaved loop settings", { exact: true }).isVisible(), true)
+  assert.equal(await sdk.evaluate(() => JSON.stringify(localStorage)), storageBefore)
+  assert.equal(readFileSync(join(root, "loop-config.json"), "utf8"), projectFile)
+  await sdk.getByRole("button", { name: "Revert", exact: true }).click()
+  assert.equal(await sdkDuration.inputValue(), "0.25")
+  await sdk.close()
   await page.close()
   await studio.close()
   studio = undefined
