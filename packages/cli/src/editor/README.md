@@ -30,7 +30,7 @@ The endpoint uses a per-server random token, checks cross-site fetches, limits p
 ## Verification
 
 - `node --test packages/cli/test/editor.test.mjs`: source edits, escaping, conflicts, batch validation, path restrictions, and array instances.
-- `node packages/cli/test/editor.browser.mjs`: isolated temporary deck; text/history, save/reload, concurrent edits, scaled dragging, and production bundle exclusion. Requires the package's Playwright Chromium installation.
+- `node packages/cli/test/editor.browser.mjs`: isolated temporary deck; text/history, save/reload, concurrent edits, scaled dragging, and production bundle exclusion. Uses Playwright Chromium, or installed Chrome with `PLAYWRIGHT_CHANNEL=chrome`.
 - `tsc -p packages/cli/tsconfig.json --noEmit`: editor and engine types.
 
 Implementation uses TypeScript's JSX parser and original-range patches. No OpenSlide source code is vendored.
@@ -43,3 +43,5 @@ The viewer's inspector is part of the production core; the source editor remains
 close. `promptslide:editor-state` acknowledges actual open/closed state. The viewer commits a
 pending tab change only after a closed acknowledgement; `promptslide:editor-close-cancelled`
 clears that pending change. Source edits and their history stay in the editor's own React root.
+
+The viewer slots live inside the application's open Shadow DOM. The editor shares its `ApplicationContext` and portal host, injects its private stylesheet there, and keeps authored source elements in the document. Use the helpers in `core/ui/dom.ts` for composed event targets, focus and control queries. Native text undo remains local to a text field; source history shortcuts apply to the editor canvas and controls. The Save / Discard / Keep editing dialog uses the shared modal and stays inside the application theme. See the [application UI guide](../../../../docs/application-ui.md) for component and stylesheet changes.

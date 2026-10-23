@@ -1,0 +1,221 @@
+{
+  "baselineCommit": "6dc2f38",
+  "method": "Fresh Node processes, NODE_ENV=production, same deck and CLI entry, Vite defaults plus manifest; gzip level 9 / Brotli quality 11; sum independently compressed files; initial graph excludes dynamic imports. Application shadow-root CSS is transported in JS and included in JS totals.",
+  "measurements": {
+    "baseline": {
+      "total": {
+        "js": {
+          "raw": 441521,
+          "gzip": 136862,
+          "brotli": 118461
+        },
+        "css": {
+          "raw": 54753,
+          "gzip": 9514,
+          "brotli": 8088
+        }
+      },
+      "initial": {
+        "js": {
+          "raw": 441521,
+          "gzip": 136862,
+          "brotli": 118461
+        },
+        "css": {
+          "raw": 54753,
+          "gzip": 9514,
+          "brotli": 8088
+        }
+      },
+      "assets": [
+        {
+          "file": "assets/index-DUOMJkEx.js",
+          "type": "js",
+          "raw": 441521,
+          "gzip": 136862,
+          "brotli": 118461
+        },
+        {
+          "file": "assets/index-PtswmdBy.css",
+          "type": "css",
+          "raw": 54753,
+          "gzip": 9514,
+          "brotli": 8088
+        }
+      ],
+      "editorModules": [],
+      "modules": 367,
+      "baseUiModules": 0
+    },
+    "migration": {
+      "total": {
+        "js": {
+          "raw": 696899,
+          "gzip": 224722,
+          "brotli": 194655
+        },
+        "css": {
+          "raw": 54938,
+          "gzip": 9540,
+          "brotli": 8073
+        }
+      },
+      "initial": {
+        "js": {
+          "raw": 583091,
+          "gzip": 180853,
+          "brotli": 155145
+        },
+        "css": {
+          "raw": 54938,
+          "gzip": 9540,
+          "brotli": 8073
+        }
+      },
+      "assets": [
+        {
+          "file": "assets/index-B5z05a-O.js",
+          "type": "js",
+          "raw": 583091,
+          "gzip": 180853,
+          "brotli": 155145
+        },
+        {
+          "file": "assets/loop-settings-BvcTiEW4.js",
+          "type": "js",
+          "raw": 26597,
+          "gzip": 10229,
+          "brotli": 9186
+        },
+        {
+          "file": "assets/annotation-panel-CQQQRzsC.js",
+          "type": "js",
+          "raw": 8200,
+          "gzip": 2491,
+          "brotli": 2226
+        },
+        {
+          "file": "assets/rotate-ccw-DwAWGfY7.js",
+          "type": "js",
+          "raw": 373,
+          "gzip": 289,
+          "brotli": 248
+        },
+        {
+          "file": "assets/annotation-form-DDGAY-B7.js",
+          "type": "js",
+          "raw": 10855,
+          "gzip": 4344,
+          "brotli": 3862
+        },
+        {
+          "file": "assets/input-CddoRn8a.js",
+          "type": "js",
+          "raw": 4457,
+          "gzip": 1924,
+          "brotli": 1760
+        },
+        {
+          "file": "assets/tooltip-content-D79j92HB.js",
+          "type": "js",
+          "raw": 2871,
+          "gzip": 1291,
+          "brotli": 1145
+        },
+        {
+          "file": "assets/dropdown-menu-content-D5Bg7AK2.js",
+          "type": "js",
+          "raw": 13893,
+          "gzip": 5106,
+          "brotli": 4621
+        },
+        {
+          "file": "assets/useAnchoredPopupScrollLock-DdhFsnKn.js",
+          "type": "js",
+          "raw": 15044,
+          "gzip": 5819,
+          "brotli": 5314
+        },
+        {
+          "file": "assets/usePositioner-kYsSCZSK.js",
+          "type": "js",
+          "raw": 31518,
+          "gzip": 12376,
+          "brotli": 11148
+        },
+        {
+          "file": "assets/index-DIgvMtOo.css",
+          "type": "css",
+          "raw": 54938,
+          "gzip": 9540,
+          "brotli": 8073
+        }
+      ],
+      "editorModules": [],
+      "modules": 622,
+      "baseUiModules": 222
+    }
+  },
+  "delta": {
+    "initial": {
+      "js": {
+        "raw": {
+          "bytes": 141570,
+          "percent": 32.06
+        },
+        "gzip": {
+          "bytes": 43991,
+          "percent": 32.14
+        },
+        "brotli": {
+          "bytes": 36684,
+          "percent": 30.97
+        }
+      },
+      "css": {
+        "raw": {
+          "bytes": 185,
+          "percent": 0.34
+        },
+        "gzip": {
+          "bytes": 26,
+          "percent": 0.27
+        },
+        "brotli": {
+          "bytes": -15,
+          "percent": -0.19
+        }
+      }
+    },
+    "total": {
+      "js": {
+        "raw": {
+          "bytes": 255378,
+          "percent": 57.84
+        },
+        "gzip": {
+          "bytes": 87860,
+          "percent": 64.2
+        },
+        "brotli": {
+          "bytes": 76194,
+          "percent": 64.32
+        }
+      },
+      "css": {
+        "raw": {
+          "bytes": 185,
+          "percent": 0.34
+        },
+        "gzip": {
+          "bytes": 26,
+          "percent": 0.27
+        },
+        "brotli": {
+          "bytes": -15,
+          "percent": -0.19
+        }
+      }
+    }
+  }
+}

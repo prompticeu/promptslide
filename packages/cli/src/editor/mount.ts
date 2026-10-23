@@ -1,7 +1,12 @@
 import { createElement } from "react"
 import { createRoot } from "react-dom/client"
 
+import { queryApplication } from "../core/ui/dom"
 import { EditorLauncher } from "./studio"
+
+export function editorIsOpen() {
+  return !!queryApplication('[data-ps-edit-action][aria-pressed="true"]')
+}
 
 // Keep mounting outside the component module so React Fast Refresh can retain
 // the open editor, its draft, and its history when the sidebar code changes.

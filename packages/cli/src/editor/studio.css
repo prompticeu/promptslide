@@ -35,21 +35,13 @@
   color: #737373;
 }
 .ps-panel h2 {
-  font:
-    600 14px/1.5 Inter,
-    ui-sans-serif,
-    system-ui,
-    sans-serif;
+  font: 600 14px/1.5 var(--ps-font);
   letter-spacing: -0.025em;
   margin: 3px 0 0;
   color: #f5f5f5;
 }
 .ps-panel h3 {
-  font:
-    600 12px/1.5 Inter,
-    ui-sans-serif,
-    system-ui,
-    sans-serif;
+  font: 600 12px/1.5 var(--ps-font);
   margin: 0 0 12px;
   color: #e5e5e5;
 }
@@ -100,27 +92,7 @@
   background: #262626;
   color: #fafafa;
 }
-.ps-icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background: transparent;
-  color: #a3a3a3;
-}
-.ps-icon-button:hover:not(:disabled) {
-  background: #262626;
-  color: #fff;
-}
-.ps-icon-button[aria-pressed="true"] {
-  background: #ff6b3526;
-  color: #ff6b35;
-}
+
 .ps-panel-body {
   flex: 1;
   min-height: 0;
@@ -152,11 +124,7 @@
   min-height: 80px;
   max-height: 160px;
   resize: vertical;
-  font:
-    400 13px/1.55 Inter,
-    ui-sans-serif,
-    system-ui,
-    sans-serif;
+  font: 400 13px/1.55 var(--ps-font);
   padding: 10px 12px;
   border: 1px solid #404040;
   border-radius: 7px;
@@ -185,11 +153,7 @@
   border-radius: 6px;
   background: #171717;
   color: #e5e5e5;
-  font:
-    400 12px/1.4 Inter,
-    ui-sans-serif,
-    system-ui,
-    sans-serif;
+  font: 400 12px/1.4 var(--ps-font);
   padding: 6px 9px;
 }
 .ps-field select {
@@ -232,10 +196,6 @@
   border: 1px solid #404040;
   background: #171717;
   border-radius: 6px;
-}
-.ps-segments .ps-icon-button {
-  width: 34px;
-  height: 27px;
 }
 .ps-color-field {
   display: flex;
@@ -310,7 +270,7 @@
   outline: 2px solid #888;
   outline-offset: 2px;
 }
-.ps-details > summary {
+.ps-details > .ps-disclosure-trigger {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -320,17 +280,17 @@
   font-size: 11px;
   color: #a3a3a3;
 }
-.ps-details > summary::-webkit-details-marker {
+.ps-details > .ps-disclosure-trigger::-webkit-details-marker {
   display: none;
 }
-.ps-details[open] > summary {
+.ps-details[data-open] > .ps-disclosure-trigger {
   margin-bottom: 14px;
   color: #e5e5e5;
 }
-.ps-details > summary svg {
+.ps-details > .ps-disclosure-trigger svg {
   transition: transform 0.15s;
 }
-.ps-details[open] > summary > svg.lucide-chevron-down {
+.ps-details[data-open] > .ps-disclosure-trigger > svg.lucide-chevron-down {
   transform: rotate(180deg);
 }
 .ps-section > .ps-details {
@@ -409,12 +369,6 @@
   justify-content: space-between;
   margin-bottom: 12px;
 }
-.ps-align-buttons .ps-icon-button {
-  width: 39px;
-  height: 34px;
-  background: #171717;
-  border-color: #262626;
-}
 .ps-insert-options {
   display: flex;
   gap: 8px;
@@ -465,11 +419,7 @@
 .ps-layer-list button:hover {
   background: #171717;
 }
-.ps-layer-list button[aria-pressed="true"] {
-  border-color: #ff6b3533;
-  background: #ff6b351a;
-  color: #ff6b35;
-}
+
 .ps-linked-item {
   display: block;
   text-align: left;
@@ -583,11 +533,8 @@
   justify-content: center;
   gap: 6px;
   height: 32px;
-  border: 1px solid #ff6b3580;
   border-radius: 6px;
   padding: 0 12px;
-  background: #ff6b3526;
-  color: #ff6b35;
   font-weight: 600 !important;
   font-size: 14px;
   line-height: 20px;
@@ -836,12 +783,7 @@
   border-radius: 16px;
   background: #191919;
   color: #f5f5f5;
-  font:
-    14px/1.5 Inter,
-    sans-serif;
-}
-.ps-close-dialog::backdrop {
-  background: rgb(0 0 0 / 65%);
+  font: 14px/1.5 var(--ps-font);
 }
 .ps-close-dialog h2 {
   margin: 0 0 10px;
@@ -859,33 +801,7 @@
   justify-content: flex-end;
   margin-top: 26px;
 }
-.ps-close-actions button {
-  padding: 9px 12px;
-  border: 1px solid #424242;
-  border-radius: 7px;
-  background: #262626;
-  color: #eee;
-  cursor: pointer;
-}
-.ps-close-actions button:hover {
-  background: #363636;
-}
-.ps-close-actions button:focus-visible {
-  outline: 2px solid #ff8858;
-  outline-offset: 3px;
-}
-.ps-close-actions .ps-close-save {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #ff8858;
-  border-color: #ff8858;
-  color: #171717;
-}
-.ps-close-actions button:disabled {
-  opacity: 0.5;
-  cursor: wait;
-}
+
 .ps-close-dialog .ps-close-error {
   color: #ff9a87;
   margin-top: 14px;
@@ -943,7 +859,7 @@
 .ps-panel fieldset:disabled select,
 .ps-panel fieldset:disabled textarea,
 .ps-panel fieldset:disabled button,
-.ps-panel fieldset:disabled summary,
+.ps-panel fieldset:disabled .ps-disclosure-trigger,
 .ps-panel fieldset:disabled .ps-color-value {
   cursor: not-allowed;
 }

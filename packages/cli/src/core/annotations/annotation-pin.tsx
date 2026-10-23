@@ -1,3 +1,4 @@
+import { Button } from "../ui/button"
 interface AnnotationPinProps {
   number: number
   status: "open" | "resolved"
@@ -7,16 +8,24 @@ interface AnnotationPinProps {
   onClick: () => void
 }
 
-export function AnnotationPin({ number, status, xPercent, yPercent, isSelected, onClick }: AnnotationPinProps) {
+export function AnnotationPin({
+  number,
+  status,
+  xPercent,
+  yPercent,
+  isSelected,
+  onClick
+}: AnnotationPinProps) {
   const isResolved = status === "resolved"
 
   return (
-    <button
+    <Button
+      variant="unstyled"
       onClick={e => {
         e.stopPropagation()
         onClick()
       }}
-      className="absolute z-30 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 hover:scale-110"
+      className="pointer-events-auto absolute z-30 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 hover:scale-110"
       style={{ left: `${xPercent}%`, top: `${yPercent}%` }}
       title={`Annotation #${number}`}
     >
@@ -37,6 +46,6 @@ export function AnnotationPin({ number, status, xPercent, yPercent, isSelected, 
       >
         {number}
       </div>
-    </button>
+    </Button>
   )
 }

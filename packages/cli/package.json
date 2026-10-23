@@ -37,13 +37,16 @@
     "./src/commands/*": "./src/commands/*"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "node scripts/build-ui.mjs && tsup",
     "test": "node --test test/*.test.mjs",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "build:ui": "node scripts/build-ui.mjs"
   },
   "dependencies": {
+    "@base-ui/react": "^1.9.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@vitejs/plugin-react": "^4.5.2",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.552.0",
     "playwright": "^1.50.0",

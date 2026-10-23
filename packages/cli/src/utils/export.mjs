@@ -27,16 +27,27 @@ export async function isPlaywrightAvailable() {
  * @param {import("playwright").BrowserType} chromium
  */
 async function ensureChromium(chromium) {
+  const options = { headless: true }
   try {
-    const browser = await chromium.launch({ headless: true })
+    const browser = await chromium.launch(options)
     await browser.close()
-  } catch (err) {
-    if (err.message && err.message.includes("Executable doesn't exist")) {
+    return options
+  } catch (error) {
+    if (!error.message?.includes("Executable doesn't exist")) throw error
+    // Installed Chrome avoids a network download when Playwright's pinned
+    // browser is absent (common on developer machines and exported previews).
+    try {
+      const chromeOptions = { ...options, channel: "chrome" }
+      const browser = await chromium.launch(chromeOptions)
+      await browser.close()
+      return chromeOptions
+    } catch (chromeError) {
+      if (!/Executable doesn't exist|not found at/.test(chromeError.message ?? ""))
+        throw chromeError
       const pwIndex = fileURLToPath(import.meta.resolve("playwright"))
       const cliPath = join(dirname(pwIndex), "cli.js")
       execSync(`node "${cliPath}" install chromium`, { stdio: "inherit" })
-    } else {
-      throw err
+      return options
     }
   }
 }
@@ -131,14 +142,14 @@ export async function captureSlideScreenshot({
     return null
   }
 
-  await ensureChromium(chromium)
+  const browserOptions = await ensureChromium(chromium)
 
   const server = await getCaptureServer(cwd, studioPort)
   const url = `${server.baseUrl}/?export=true&slidePath=${encodeURIComponent(slidePath)}`
 
   let browser
   try {
-    browser = await chromium.launch({ headless: true })
+    browser = await chromium.launch(browserOptions)
     const page = await browser.newPage({ viewport: { width, height } })
 
     const errors = []
@@ -176,9 +187,9 @@ export async function createCaptureSession({ cwd, width = 1280, height = 720, st
     return null
   }
 
-  await ensureChromium(chromium)
+  const browserOptions = await ensureChromium(chromium)
   const server = await getCaptureServer(cwd, studioPort)
-  const browser = await chromium.launch({ headless: true })
+  const browser = await chromium.launch(browserOptions)
   const page = await browser.newPage({ viewport: { width, height } })
   let pending = Promise.resolve()
 
@@ -243,8 +254,8 @@ export async function captureSlideAsDataUri({ cwd, slidePath }) {
 /** Render the whole deck at its design size through an existing Studio server. */
 export async function captureDeckPdfFromServer(baseUrl) {
   const { chromium } = await import("playwright")
-  await ensureChromium(chromium)
-  const browser = await chromium.launch({ headless: true })
+  const browserOptions = await ensureChromium(chromium)
+  const browser = await chromium.launch(browserOptions)
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
     const errors = []

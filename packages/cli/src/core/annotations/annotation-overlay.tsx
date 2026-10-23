@@ -1,13 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useContext, useEffect, useRef, useState } from "react"
 
 import type { SlideConfig } from "../types"
 import type { Annotation, AnnotationTarget } from "./types"
 
-import { AnnotationForm } from "./annotation-form"
+import { ApplicationContext } from "../ui/application-context"
+import { ApplicationRoot } from "../ui/application-root"
+import { Button } from "../ui/button"
+const AnnotationForm = lazy(() =>
+  import("./annotation-form").then(module => ({ default: module.AnnotationForm }))
+)
 import { AnnotationPin } from "./annotation-pin"
 import { buildElementTarget, resolveTarget } from "./selectors"
 
 interface AnnotationOverlayProps {
+  /** Use viewport pixels when mounted beside the scaled slide canvas. */
+  coordinateSpace?: "slide" | "viewport"
   slides: SlideConfig[]
   currentSlide: number
   /** Ref to the slide container element (the div wrapping SlideRenderer) */
@@ -32,7 +39,21 @@ interface PendingAnnotation {
   yPercent: number
 }
 
-export function AnnotationOverlay({
+export function AnnotationOverlay(props: AnnotationOverlayProps) {
+  const application = useContext(ApplicationContext)
+  return application ? (
+    <AnnotationOverlayContent {...props} />
+  ) : (
+    <ApplicationRoot>
+      <div className="pointer-events-none absolute inset-0">
+        <AnnotationOverlayContent {...props} />
+      </div>
+    </ApplicationRoot>
+  )
+}
+
+function AnnotationOverlayContent({
+  coordinateSpace = "slide",
   slides,
   currentSlide,
   slideContainerRef,
@@ -45,7 +66,7 @@ export function AnnotationOverlay({
 }: AnnotationOverlayProps) {
   const [pending, setPending] = useState<PendingAnnotation | null>(null)
   const [hoveredElement, setHoveredElement] = useState<DOMRect | null>(null)
-  const overlayRef = useRef<HTMLDivElement>(null)
+  const overlayRef = useRef<HTMLButtonElement>(null)
 
   const slideTitle = slides[currentSlide]?.title || `Slide ${currentSlide + 1}`
 
@@ -151,8 +172,10 @@ export function AnnotationOverlay({
       if (elementUnder && container.contains(elementUnder) && elementUnder !== container) {
         const containerRect = container.getBoundingClientRect()
         const elRect = elementUnder.getBoundingClientRect()
-        const scaleX = containerRect.width / container.offsetWidth
-        const scaleY = containerRect.height / container.offsetHeight
+        const scaleX =
+          coordinateSpace === "viewport" ? 1 : containerRect.width / container.offsetWidth
+        const scaleY =
+          coordinateSpace === "viewport" ? 1 : containerRect.height / container.offsetHeight
         setHoveredElement(
           new DOMRect(
             (elRect.left - containerRect.left) / scaleX,
@@ -165,7 +188,7 @@ export function AnnotationOverlay({
         setHoveredElement(null)
       }
     },
-    [slideContainerRef, pending]
+    [slideContainerRef, pending, coordinateSpace]
   )
 
   // Clear pending when slide changes
@@ -191,11 +214,12 @@ export function AnnotationOverlay({
       )}
 
       {/* Click capture overlay */}
-      <div
+      <Button
+        variant="unstyled"
         ref={overlayRef}
-        role="button"
+        aria-label="Add annotation at this location"
         tabIndex={0}
-        className="absolute inset-0 z-20"
+        className="pointer-events-auto absolute inset-0 z-20"
         style={{
           cursor: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill='none'%3E%3Ccircle cx='12' cy='12' r='8' stroke='%23FF6B35' stroke-width='2' opacity='0.8'/%3E%3Ccircle cx='12' cy='12' r='2' fill='%23FF6B35'/%3E%3C/svg%3E") 12 12, crosshair`
         }}
@@ -231,12 +255,15 @@ export function AnnotationOverlay({
 
       {/* New annotation form */}
       {pending && (
-        <AnnotationForm
-          xPercent={pending.xPercent}
-          yPercent={pending.yPercent}
-          onSubmit={handleSubmit}
-          onCancel={() => setPending(null)}
-        />
+        <Suspense fallback={null}>
+          <AnnotationForm
+            slideContainerRef={slideContainerRef}
+            xPercent={pending.xPercent}
+            yPercent={pending.yPercent}
+            onSubmit={handleSubmit}
+            onCancel={() => setPending(null)}
+          />
+        </Suspense>
       )}
     </>
   )

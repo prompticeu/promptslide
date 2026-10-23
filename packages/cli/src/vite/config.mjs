@@ -22,6 +22,9 @@ export function createViteConfig({ cwd, mode = "development", editor = true }) {
   return {
     configFile: false,
     root: cwd,
+    // Linked node_modules may be shared by several decks/fixtures. Each Studio
+    // must retain its own optimized React dependency generation.
+    cacheDir: resolve(cwd, ".vite/promptslide"),
     mode,
     plugins: [
       ...(mode === "development" && editor ? [editorPlugin({ root: cwd })] : []),
@@ -49,12 +52,27 @@ export function createViteConfig({ cwd, mode = "development", editor = true }) {
         "lucide-react",
         "framer-motion",
         "clsx",
-        "tailwind-merge"
+        "tailwind-merge",
+        "class-variance-authority",
+        ...[
+          "button",
+          "checkbox",
+          "menu",
+          "tooltip",
+          "tabs",
+          "dialog",
+          "popover",
+          "select",
+          "slider",
+          "input",
+          "field",
+          "collapsible"
+        ].map(name => `@base-ui/react/${name}`)
       ]
     },
     css: {
       postcss: {
-        plugins: [tailwindcss()]
+        plugins: [tailwindcss({ base: cwd })]
       }
     }
   }

@@ -19,6 +19,7 @@ import { chromium } from "playwright"
 import { createServer, build, createLogger } from "vite"
 
 import { createViteConfig } from "../src/vite/config.mjs"
+import { installApplicationQueries } from "./application-browser-helpers.mjs"
 const root = realpathSync(mkdtempSync(join(tmpdir(), "promptslide-editor-browser-")))
 mkdirSync(join(root, "src/slides"), { recursive: true })
 symlinkSync(realpathSync(resolve("node_modules")), join(root, "node_modules"))
@@ -109,6 +110,7 @@ try {
   const address = server.httpServer.address()
   browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL })
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+  await installApplicationQueries(page)
   page.setDefaultTimeout(15000)
   let expectedConflict = false
   let conflictConsoleErrors = 0
@@ -204,7 +206,8 @@ try {
     (name === "Done editing" ? page : editor).getByRole("button", { name, exact: true })
   const chooseElement = async (name, options = {}) => {
     const summary = editor.getByText("Slide elements", { exact: true })
-    if (!(await summary.evaluate(el => el.closest("details").open))) await summary.click()
+    if (!(await summary.evaluate(el => el.closest(".ps-disclosure").hasAttribute("data-open"))))
+      await summary.click()
     await editor.locator(".ps-layer-list").getByRole("button", { name, exact: true }).click(options)
   }
   await page
@@ -236,7 +239,7 @@ try {
     if (request.url().includes("/__promptslide_pdf")) pdfRequests++
   }
   page.on("request", countPdf)
-  await page.evaluate(() => document.activeElement?.blur())
+  await page.evaluate(() => window.psActive()?.blur())
   for (const key of ["v", "g", "l", "c", "d", "f"]) {
     await page.keyboard.press(key)
     assert.equal(await editor.isVisible(), true)
@@ -325,7 +328,7 @@ try {
   for (const key of ["Delete", "Backspace"]) {
     await page.locator("[data-ps-editor-canvas] h1").click()
     assert.equal(
-      await page.evaluate(() => document.activeElement?.hasAttribute("data-ps-editor-canvas")),
+      await page.evaluate(() => window.psActive()?.hasAttribute("data-ps-editor-canvas")),
       true
     )
     await page.keyboard.press(key)
@@ -401,7 +404,7 @@ try {
   assert.equal(await closeDialog.isVisible(), true)
   await closeDialog.getByRole("button", { name: "Keep editing" }).click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-error")?.textContent?.includes("changed elsewhere")
+    window.psQuery(".ps-error")?.textContent?.includes("changed elsewhere")
   )
   assert.ok(readFileSync(path, "utf8").includes("concurrent agent change"))
   assert.ok(!readFileSync(path, "utf8").includes("Conflict draft"))
@@ -423,7 +426,7 @@ try {
   await text.fill("Only second changed")
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   assert.match(readFileSync(path, "utf8"), /title:'First item'/)
   assert.match(readFileSync(path, "utf8"), /Only second changed/)
@@ -445,7 +448,7 @@ try {
   assert.ok(Math.abs(after.y - before.y - 24) < 2)
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   assert.match(readFileSync(path, "utf8"), /translate/)
   console.log("PASS scaled drag and persisted position")
@@ -463,7 +466,7 @@ try {
   )
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   await page.waitForTimeout(350)
   await page.locator("[data-ps-editor-canvas] img").click()
@@ -490,11 +493,12 @@ try {
     await page.locator("[data-ps-editor-canvas] img").evaluate(el => el.style.clipPath),
     "inset(1%)"
   )
-  await editor.getByLabel("Image focus", { exact: true }).selectOption("0% 50%")
+  await editor.getByRole("combobox", { name: "Image focus", exact: true }).click()
+  await page.getByRole("option", { name: "Left", exact: true }).click()
   await editor.getByLabel("Image address", { exact: true }).fill("/pixel.png")
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   await page.waitForTimeout(350)
   assert.match(readFileSync(path, "utf8"), /15deg/)
@@ -521,7 +525,7 @@ try {
   )
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   await page.waitForTimeout(350)
   assert.match(readFileSync(path, "utf8"), /<span style=/)
@@ -549,7 +553,7 @@ try {
   assert.ok(Math.abs(headingAligned.x - paragraphAligned.x) < 1)
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   await page.waitForTimeout(350)
   console.log("PASS multiselect alignment")
@@ -559,7 +563,7 @@ try {
   const badgeBefore = await badge.boundingBox()
   const designScale = (await liveCanvas.boundingBox()).width / 1280
   assert.equal(await badge.evaluate(el => getComputedStyle(el).translate), "-50% -50%")
-  await page.evaluate(() => document.activeElement?.blur())
+  await page.evaluate(() => window.psActive()?.blur())
   await page.keyboard.press("ArrowRight")
   await page.keyboard.press("ArrowRight")
   const badgeNudged = await badge.boundingBox()
@@ -579,7 +583,7 @@ try {
   assert.ok(Math.abs(badgeDragged.y - badgeNudged.y - 12) < 1)
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   await page.waitForTimeout(350)
   const badgeSaved = await badge.boundingBox()
@@ -601,7 +605,7 @@ try {
   await button("Text").click()
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   await page.waitForTimeout(350)
   assert.equal(
@@ -627,7 +631,7 @@ try {
   )
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   await page.waitForTimeout(350)
   assert.equal(
@@ -637,7 +641,7 @@ try {
   if (
     !(await editor
       .getByText("Slide elements", { exact: true })
-      .evaluate(el => el.closest("details").open))
+      .evaluate(el => el.closest(".ps-disclosure").hasAttribute("data-open")))
   )
     await editor.getByText("Slide elements", { exact: true }).click()
   await editor.getByRole("button", { name: "New text", exact: true }).last().click()
@@ -645,7 +649,7 @@ try {
   await button("Delete").click()
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   await page.waitForTimeout(350)
   assert.equal(
@@ -726,7 +730,7 @@ try {
   await editor.getByLabel("Text", { exact: true }).fill("Updated component title")
   await button("Save changes").click()
   await page.waitForFunction(() =>
-    document.querySelector(".ps-save-status")?.textContent?.includes("All changes saved")
+    window.psQuery(".ps-save-status")?.textContent?.includes("All changes saved")
   )
   await page.waitForTimeout(350)
   assert.equal(

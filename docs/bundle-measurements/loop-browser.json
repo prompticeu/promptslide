@@ -1,0 +1,15 @@
+{
+  "result": "passed",
+  "cycles": 3,
+  "measuredFinalStateMs": 725,
+  "sharedInspector": true,
+  "guardedPanelSwitch": true,
+  "timingDraftPreserved": true,
+  "studioSave": true,
+  "production": true,
+  "pause": true,
+  "hiddenTab": true,
+  "escape": true,
+  "singleSlideRestart": true,
+  "errors": []
+}

@@ -286,6 +286,12 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
       if (id === RESOLVED_VIRTUAL_PDF_ID) return getPdfEntryModule(root)
     },
 
+    handleHotUpdate({ file }) {
+      // The watcher below invalidates the entry for future page loads. A live
+      // settings save must not reload the current deck or discard panel drafts.
+      if (resolve(file) === resolve(root, "loop-config.json")) return []
+    },
+
     configureServer(server) {
       const invalidateLoopConfig = () => {
         const entry = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_ENTRY_ID)

@@ -1,8 +1,13 @@
-import { Check, Download, Play, RotateCcw } from "lucide-react"
+import { Download, Play, RotateCcw } from "lucide-react"
 import { useId, useState } from "react"
 
 import type { LoopConfig, SlideConfig } from "../types"
 
+import { Button } from "../ui/button"
+import { Checkbox } from "../ui/checkbox"
+import { Disclosure, DisclosureTrigger, DisclosureContent } from "../ui/disclosure"
+import { FieldRoot, FieldLabel } from "../ui/field"
+import { Input } from "../ui/input"
 import {
   includedSlides,
   loopDuration,
@@ -29,11 +34,11 @@ function DurationInput({
 }) {
   return (
     <span className="inline-flex w-20 shrink-0 items-center gap-1 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 focus-within:border-orange-500 focus-within:outline-2 focus-within:outline-orange-500/30">
-      <input
+      <Input
         key={value}
         id={id}
         aria-label={label}
-        className="min-w-0 w-full bg-transparent py-2 text-right text-sm tabular-nums text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="min-w-0 w-full border-0 p-0 bg-transparent py-2 text-right text-sm tabular-nums text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         style={{ colorScheme: "dark" }}
         type="number"
         min="0.1"
@@ -135,32 +140,19 @@ export function LoopSettings({
             <p className="mt-1 text-xs text-neutral-400">
               Select slides in the thumbnail rail. Select a state below to preview it on the canvas.
             </p>
-            <label className="mt-5 flex items-center justify-between gap-3 border-b border-neutral-800 pb-4">
-              Include in loop
-              <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
-                <input
-                  aria-label="Include current slide in loop"
-                  className="peer h-5 w-5 cursor-pointer appearance-none rounded border border-neutral-600 bg-neutral-950 transition-colors checked:border-orange-500 checked:bg-orange-500 hover:border-neutral-400 checked:hover:border-orange-400 checked:hover:bg-orange-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
-                  type="checkbox"
-                  checked={!settings?.excluded}
-                  onChange={event =>
-                    onChange({
-                      ...config,
-                      slides: {
-                        ...config.slides,
-                        [key]: { ...settings, excluded: !event.target.checked }
-                      }
-                    })
-                  }
-                />
-                <Check
-                  aria-hidden="true"
-                  size={14}
-                  strokeWidth={3}
-                  className="pointer-events-none absolute text-white opacity-0 peer-checked:opacity-100"
-                />
-              </span>
-            </label>
+            <FieldRoot className="mt-5 flex items-center justify-between gap-3 border-b border-neutral-800 pb-4">
+              <FieldLabel>Include in loop</FieldLabel>
+              <Checkbox
+                aria-label="Include current slide in loop"
+                checked={!settings?.excluded}
+                onCheckedChange={checked =>
+                  onChange({
+                    ...config,
+                    slides: { ...config.slides, [key]: { ...settings, excluded: !checked } }
+                  })
+                }
+              />
+            </FieldRoot>
             <h3 className="mb-2 mt-4 text-xs font-semibold text-neutral-300">
               State timings <span className="font-normal text-neutral-500">· seconds</span>
             </h3>
@@ -178,7 +170,8 @@ export function LoopSettings({
                     key={`${key}:${step}`}
                     className={`flex items-center gap-1 rounded-md border p-1 ${animationStep === step ? "border-orange-500/50 bg-orange-500/5" : "border-transparent"}`}
                   >
-                    <button
+                    <Button
+                      variant="outline"
                       aria-label={label}
                       aria-pressed={animationStep === step}
                       className="min-w-0 flex-1 rounded px-1 py-1.5 text-left text-xs hover:bg-neutral-800"
@@ -188,14 +181,15 @@ export function LoopSettings({
                       <span className="mt-0.5 block text-[10px] text-neutral-500">
                         {inherited ? "Default duration" : "Custom duration"}
                       </span>
-                    </button>
+                    </Button>
                     <DurationInput
                       value={stateDuration(config, slide, currentSlide, step)}
                       label={`${label} duration in seconds`}
                       onFocus={() => onStepChange(step)}
                       onCommit={value => updateDuration(step, value)}
                     />
-                    <button
+                    <Button
+                      variant="outline"
                       className="rounded p-1 text-neutral-500 hover:text-white disabled:opacity-30"
                       disabled={inherited}
                       aria-label={`Use default for ${label.toLowerCase()}`}
@@ -203,7 +197,7 @@ export function LoopSettings({
                       onClick={() => updateDuration(step, null)}
                     >
                       <RotateCcw size={13} />
-                    </button>
+                    </Button>
                   </div>
                 )
               })}
@@ -212,7 +206,8 @@ export function LoopSettings({
               Durations include reveal animations. Allow enough time for videos and animations that
               play by themselves.
             </p>
-            <button
+            <Button
+              variant="outline"
               className={`${button} mt-3 w-full`}
               onClick={() => {
                 const rest = { ...settings }
@@ -222,37 +217,40 @@ export function LoopSettings({
               }}
             >
               Use default for this slide
-            </button>
+            </Button>
           </>
         )}
-        <details className="mt-5 border-t border-neutral-800 pt-4" open>
-          <summary className="cursor-pointer text-xs font-semibold text-neutral-300">
+        <Disclosure className="mt-5 border-t border-neutral-800 pt-4" open>
+          <DisclosureTrigger className="cursor-pointer text-xs font-semibold text-neutral-300">
             Loop defaults
-          </summary>
-          <label
-            htmlFor={defaultDurationId}
-            className="mt-3 flex items-center justify-between gap-2 text-xs text-neutral-400"
-          >
-            Seconds per state
-            <DurationInput
-              id={defaultDurationId}
-              value={config.defaultDuration}
-              label="Default duration in seconds"
-              onCommit={value => onChange({ ...config, defaultDuration: value })}
-            />
-          </label>
-          <p className="mt-3 text-xs text-neutral-500">
-            {includedSlides(config, slides).length} slides ·{" "}
-            {loopDuration(config, slides).toFixed(1)}s + slide transitions
-          </p>
-        </details>
+          </DisclosureTrigger>
+          <DisclosureContent>
+            <label
+              htmlFor={defaultDurationId}
+              className="mt-3 flex items-center justify-between gap-2 text-xs text-neutral-400"
+            >
+              Seconds per state
+              <DurationInput
+                id={defaultDurationId}
+                value={config.defaultDuration}
+                label="Default duration in seconds"
+                onCommit={value => onChange({ ...config, defaultDuration: value })}
+              />
+            </label>
+            <p className="mt-3 text-xs text-neutral-500">
+              {includedSlides(config, slides).length} slides ·{" "}
+              {loopDuration(config, slides).toFixed(1)}s + slide transitions
+            </p>
+          </DisclosureContent>
+        </Disclosure>
       </div>
       <footer className="shrink-0 space-y-2 border-t border-neutral-800 p-3">
         <p role="status" className="text-xs text-neutral-400">
           {dirty ? "Unsaved loop settings" : message || "Loop settings saved"}
         </p>
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="outline"
             className={`${button} flex-1`}
             disabled={!dirty || saving}
             onClick={() => {
@@ -261,30 +259,33 @@ export function LoopSettings({
             }}
           >
             Revert
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
             className={`${button} flex-1 border-orange-500/50 text-orange-400`}
             disabled={saving}
             onClick={() => void save()}
           >
             {saving ? "Saving…" : "Save settings"}
-          </button>
+          </Button>
         </div>
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="outline"
             className={`${button} flex items-center justify-center gap-1.5`}
             aria-label="Download loop settings"
             onClick={download}
           >
             <Download size={14} />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
             className={`${button} flex flex-1 items-center justify-center gap-1.5`}
             disabled={!includedSlides(config, slides).length || saving}
             onClick={() => onStart(validateLoopConfig(config))}
           >
             <Play size={14} /> Start loop
-          </button>
+          </Button>
         </div>
       </footer>
     </section>

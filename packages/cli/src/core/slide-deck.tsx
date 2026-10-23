@@ -10,7 +10,16 @@ import {
   Play,
   Settings2
 } from "lucide-react"
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 
 import type { Annotation, AnnotationTarget } from "./annotations"
 import type { SlideTransitionType } from "./transitions"
@@ -18,7 +27,7 @@ import type { LoopConfig, SlideConfig } from "./types"
 
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
-import { AnnotationOverlay, AnnotationPanel, useAnnotations } from "./annotations"
+import { AnnotationOverlay, useAnnotations } from "./annotations"
 import { Inspector, type InspectorMode } from "./inspector"
 import {
   DEFAULT_LOOP_CONFIG,
@@ -27,7 +36,16 @@ import {
   validateLoopConfig
 } from "./loop/config.mjs"
 import { useDefaultLoopConfig } from "./loop/context"
-import { LoopSettings } from "./loop/loop-settings"
+import { ApplicationRoot, SlideSlot } from "./ui/application-root"
+import { Button } from "./ui/button"
+import { eventElement } from "./ui/dom"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent } from "./ui/dropdown-menu"
+const LoopSettings = lazy(() =>
+  import("./loop/loop-settings").then(module => ({ default: module.LoopSettings }))
+)
+const AnnotationPanel = lazy(() =>
+  import("./annotations/annotation-panel").then(module => ({ default: module.AnnotationPanel }))
+)
 import { useLoopPlayback } from "./loop/use-loop-playback"
 import { SlideErrorBoundary } from "./slide-error-boundary"
 import { SlideRenderer } from "./slide-renderer"
@@ -90,17 +108,24 @@ function GridThumbnail({
 
   return (
     <div ref={viewportRef} className="absolute inset-0 overflow-hidden">
-      <div
+      <SlideSlot
         ref={canvasRef}
         className="absolute top-0 left-0 origin-top-left"
-        style={{ width: SLIDE_DIMENSIONS.width, height: SLIDE_DIMENSIONS.height }}
+        style={{
+          width: SLIDE_DIMENSIONS.width,
+          height: SLIDE_DIMENSIONS.height,
+          position: "absolute",
+          top: 0,
+          left: 0,
+          transformOrigin: "top left"
+        }}
       >
         <AnimationProvider currentStep={slide.steps} totalSteps={slide.steps} showAllAnimations>
           <SlideErrorBoundary slideIndex={index} slideTitle={slide.title}>
             <SlideComponent slideNumber={index + 1} totalSlides={total} />
           </SlideErrorBoundary>
         </AnimationProvider>
-      </div>
+      </SlideSlot>
     </div>
   )
 }
@@ -128,17 +153,31 @@ function ListSlide({ slide, index, total }: { slide: SlideConfig; index: number;
       ref={viewportRef}
       className="relative aspect-video w-full overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-sm print:m-0 print:h-[1080px] print:w-[1920px] print:break-after-page print:rounded-none print:border-0 print:shadow-none"
     >
-      <div
+      <SlideSlot
         ref={canvasRef}
+        data-ps-list-canvas
         className="list-slide-canvas absolute top-0 left-0 origin-top-left"
-        style={{ width: SLIDE_DIMENSIONS.width, height: SLIDE_DIMENSIONS.height }}
+        style={{
+          width: SLIDE_DIMENSIONS.width,
+          height: SLIDE_DIMENSIONS.height,
+          position: "absolute",
+          top: 0,
+          left: 0,
+          transformOrigin: "top left"
+        }}
       >
+        <style>{`@media print {
+          @page { size: 1920px 1080px; margin: 0; }
+          html, body { width: 100%; height: 100%; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+          body { print-color-adjust: exact; -webkit-print-color-adjust: exact; background: transparent !important; }
+          [data-ps-list-canvas] { transform: scale(1.5) !important; transform-origin: top left !important; }
+        }`}</style>
         <AnimationProvider currentStep={slide.steps} totalSteps={slide.steps} showAllAnimations>
           <SlideErrorBoundary slideIndex={index} slideTitle={slide.title}>
             <SlideComponent slideNumber={index + 1} totalSlides={total} />
           </SlideErrorBoundary>
         </AnimationProvider>
-      </div>
+      </SlideSlot>
     </div>
   )
 }
@@ -221,7 +260,22 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
 // COMPONENT
 // =============================================================================
 
-export function SlideDeck({
+export function SlideDeck(props: SlideDeckProps) {
+  // Mount hooks only after the application root exists, so refs/observers see
+  // the actual viewport on their first layout effect. Exports need no chrome.
+  const exporting =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("export") === "true"
+  return exporting ? (
+    <SlideDeckViewer {...props} />
+  ) : (
+    <ApplicationRoot>
+      <SlideDeckViewer {...props} />
+    </ApplicationRoot>
+  )
+}
+
+function SlideDeckViewer({
   slides,
   transition,
   directionalTransition,
@@ -354,21 +408,12 @@ export function SlideDeck({
   const [loopStartScreen, setLoopStartScreen] = useState(
     () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("loop")
   )
-  const loopMenuRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const config = loadLoopConfig(defaultLoopConfig, storageKey)
     setLoopConfig(config)
     setLoopDraft(config)
     setIsLooping(false)
   }, [defaultLoopConfig, storageKey])
-  useEffect(() => {
-    if (!loopMenuOpen) return
-    const close = (event: PointerEvent) => {
-      if (!loopMenuRef.current?.contains(event.target as Node)) setLoopMenuOpen(false)
-    }
-    document.addEventListener("pointerdown", close)
-    return () => document.removeEventListener("pointerdown", close)
-  }, [loopMenuOpen])
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1280 : window.innerWidth
   )
@@ -624,6 +669,7 @@ export function SlideDeck({
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsPresentationMode(!!document.fullscreenElement)
+      setLoopMenuOpen(false)
       if (!document.fullscreenElement) setIsLooping(false)
     }
     document.addEventListener("fullscreenchange", handleFullscreenChange)
@@ -709,21 +755,25 @@ export function SlideDeck({
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null
-      if (target?.closest("input, textarea, [contenteditable='true']")) return
+      const target = eventElement(e)
+      if (
+        target?.closest(
+          "input, textarea, [contenteditable='true'], [role='menu'], [role='combobox'], [role='slider'], [role='dialog']"
+        )
+      )
+        return
+      if (
+        target?.closest("button, [role='checkbox'], [role='tablist']") &&
+        [" ", "Enter", "ArrowLeft", "ArrowRight"].includes(e.key)
+      )
+        return
       if (e.altKey || e.ctrlKey || e.metaKey) return
       const key = e.key.toLowerCase()
       if (e.repeat && "fvglcdt".includes(key)) return
       if (isEditorOpen && ["f", "v", "g", "l", "c", "d"].includes(key)) return
 
       if (loopStartScreen) return
-      if (loopMenuOpen) {
-        if (e.key === "Escape") {
-          setLoopMenuOpen(false)
-          loopMenuRef.current?.querySelector("button")?.focus()
-        }
-        return
-      }
+      if (loopMenuOpen) return
       if (isLooping) {
         if (e.key === "Escape") {
           setIsLooping(false)
@@ -815,7 +865,7 @@ export function SlideDeck({
   const inspectorVisible = inspectorMode !== null && !isPresentationMode && viewMode === "slide"
 
   return (
-    <div className="min-h-screen w-full bg-neutral-950 text-foreground">
+    <div className="ps-deck min-h-screen w-full bg-neutral-950 text-foreground">
       <style>{`
         .slide-thumbnail-scroll-area {
           scrollbar-width: thin;
@@ -839,28 +889,6 @@ export function SlideDeck({
         .slide-thumbnail-scroll-area::-webkit-scrollbar-corner {
           background: transparent;
         }
-        @media print {
-          .list-slide-canvas {
-            transform: scale(1.5) !important;
-          }
-          @page {
-            size: 1920px 1080px;
-            margin: 0;
-          }
-          html,
-          body {
-            width: 100%;
-            height: 100%;
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: visible !important;
-          }
-          body {
-            print-color-adjust: exact;
-            -webkit-print-color-adjust: exact;
-            background: transparent !important;
-          }
-        }
       `}</style>
 
       {loopError && (
@@ -869,22 +897,24 @@ export function SlideDeck({
           className="fixed bottom-4 left-4 z-[110] max-w-md rounded-lg border border-red-700 bg-neutral-950 p-4 text-sm text-red-300"
         >
           {loopError}
-          <button className="ml-3 underline" onClick={() => setLoopError("")}>
+          <Button variant="unstyled" className="ml-3 underline" onClick={() => setLoopError("")}>
             Dismiss
-          </button>
+          </Button>
         </div>
       )}
       {loopStartScreen && (
         <div className="fixed inset-0 z-[90] flex flex-col items-center justify-center gap-5 bg-neutral-950 text-white">
           <h1 className="text-3xl font-semibold">Ready to loop</h1>
           <p className="text-neutral-400">Space pauses or resumes. Escape stops the loop.</p>
-          <button
+          <Button
+            variant="unstyled"
             className="rounded-lg border border-orange-500 px-6 py-3 text-orange-400"
             onClick={() => void startLoop()}
           >
             Click to start
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="unstyled"
             className="text-sm text-neutral-400 underline"
             onClick={() => {
               setLoopStartScreen(false)
@@ -892,7 +922,7 @@ export function SlideDeck({
             }}
           >
             Configure loop
-          </button>
+          </Button>
         </div>
       )}
       {isLooping && playback.paused && (
@@ -959,49 +989,46 @@ export function SlideDeck({
         >
           <Download className="h-4 w-4" />
         </ToolbarAction>
-        <div ref={loopMenuRef} className="relative flex">
-          <button
-            onClick={togglePresentationMode}
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-l-md border border-[#FF6B35]/50 bg-[#FF6B35]/15 px-3 text-sm font-semibold text-[#FF6B35] transition-colors hover:border-[#FF6B35] hover:bg-[#FF6B35]/25"
-            disabled={isEditorOpen}
-            title="Present (F)"
-          >
-            <Play className="h-3.5 w-3.5 fill-current" />
-            <span>Present</span>
-          </button>
-          <button
-            disabled={isEditorOpen}
-            aria-label="Presentation options"
-            aria-expanded={loopMenuOpen}
-            aria-controls="presentation-options"
-            className="rounded-r-md border border-l-0 border-[#FF6B35]/50 bg-[#FF6B35]/15 px-2 text-[#FF6B35] hover:bg-[#FF6B35]/25"
-            onClick={() => setLoopMenuOpen(value => !value)}
-          >
-            <ChevronDown size={16} />
-          </button>
-          {loopMenuOpen && (
-            <div
-              id="presentation-options"
-              className="absolute right-0 top-10 w-52 rounded-lg border border-neutral-700 bg-neutral-950 p-1 text-sm text-white"
+        <DropdownMenu open={loopMenuOpen} onOpenChange={setLoopMenuOpen}>
+          <div className="flex">
+            <Button
+              variant="primary"
+              onClick={togglePresentationMode}
+              disabled={isEditorOpen}
+              title="Present (F)"
+              className="rounded-r-none"
             >
-              <button
-                className="w-full rounded px-3 py-2 text-left hover:bg-neutral-800"
-                onClick={() => void startLoop()}
-              >
-                Auto-loop
-              </button>
-              <button
-                className="w-full rounded px-3 py-2 text-left hover:bg-neutral-800"
-                onClick={() => {
+              <Play className="h-3.5 w-3.5 fill-current" />
+              <span>Present</span>
+            </Button>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="primary"
+                  disabled={isEditorOpen}
+                  aria-label="Presentation options"
+                  className="rounded-l-none border-l-0 px-2"
+                />
+              }
+            >
+              <ChevronDown size={16} />
+            </DropdownMenuTrigger>
+          </div>
+          <DropdownMenuContent
+            align="end"
+            aria-label="Presentation options"
+            items={[
+              { label: "Auto-loop", onClick: () => void startLoop() },
+              {
+                label: "Configure loop…",
+                onClick: () => {
                   setLoopMenuOpen(false)
                   requestInspector("slide")
-                }}
-              >
-                Configure loop…
-              </button>
-            </div>
-          )}
-        </div>
+                }
+              }
+            ]}
+          />
+        </DropdownMenu>
       </div>
 
       {/* Slide View */}
@@ -1037,7 +1064,8 @@ export function SlideDeck({
                   >
                     <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
                       <span className="text-sm font-semibold">Slides ({slides.length})</span>
-                      <button
+                      <Button
+                        variant="unstyled"
                         type="button"
                         onClick={() => setThumbnailRailOpen(false)}
                         className="rounded p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white"
@@ -1045,11 +1073,12 @@ export function SlideDeck({
                         title="Hide thumbnails (T)"
                       >
                         <PanelLeftClose className="h-4 w-4" />
-                      </button>
+                      </Button>
                     </div>
                     <div className="slide-thumbnail-scroll-area min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
                       {slides.map((slideConfig, index) => (
-                        <button
+                        <Button
+                          variant="unstyled"
                           key={slideConfig.id ?? index}
                           ref={index === currentSlide ? activeThumbnailRef : undefined}
                           type="button"
@@ -1085,7 +1114,7 @@ export function SlideDeck({
                               <span>Slide {index + 1}</span>
                             )}
                           </div>
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   </aside>
@@ -1147,7 +1176,8 @@ export function SlideDeck({
                     : "opacity-100 delay-200"
                 )}
               >
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={() => setThumbnailRailOpen(true)}
                   className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
@@ -1155,7 +1185,7 @@ export function SlideDeck({
                   title="Show thumbnails (T)"
                 >
                   <PanelLeftOpen className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -1195,25 +1225,30 @@ export function SlideDeck({
                     transformOrigin: "center center"
                   }}
                 >
-                  <SlideRenderer
-                    playbackKey={isLooping ? playback.epoch : undefined}
-                    slides={slides}
-                    currentSlide={currentSlide}
-                    animationStep={animationStep}
-                    totalSteps={totalSteps}
-                    direction={direction}
-                    showAllAnimations={showAllAnimations}
-                    transition={transition}
-                    directionalTransition={directionalTransition}
-                    onTransitionComplete={onTransitionComplete}
-                  />
+                  <SlideSlot
+                    data-loop-running={isLooping ? "true" : undefined}
+                    style={{ width: "100%", height: "100%", position: "relative" }}
+                  >
+                    <SlideRenderer
+                      playbackKey={isLooping ? playback.epoch : undefined}
+                      slides={slides}
+                      currentSlide={currentSlide}
+                      animationStep={animationStep}
+                      totalSteps={totalSteps}
+                      direction={direction}
+                      showAllAnimations={showAllAnimations}
+                      transition={transition}
+                      directionalTransition={directionalTransition}
+                      onTransitionComplete={onTransitionComplete}
+                    />
+                  </SlideSlot>
                 </div>
               ) : (
                 <div
                   ref={previewViewportRef}
                   className="relative aspect-video w-full max-w-7xl overflow-hidden rounded-xl border border-neutral-800 bg-black shadow-2xl"
                 >
-                  <div
+                  <SlideSlot
                     ref={slideContainerRef}
                     data-ps-editor-canvas
                     tabIndex={-1}
@@ -1222,7 +1257,12 @@ export function SlideDeck({
                     style={{
                       width: SLIDE_DIMENSIONS.width,
                       height: SLIDE_DIMENSIONS.height,
-                      transformOrigin: "top left"
+                      transformOrigin: "top left",
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      overflow: "hidden",
+                      outline: "none"
                     }}
                   >
                     <SlideRenderer
@@ -1237,8 +1277,11 @@ export function SlideDeck({
                       directionalTransition={directionalTransition}
                       onTransitionComplete={onTransitionComplete}
                     />
-                    {isAnnotationMode && (
+                  </SlideSlot>
+                  {isAnnotationMode && (
+                    <div className="pointer-events-none absolute inset-0">
                       <AnnotationOverlay
+                        coordinateSpace="viewport"
                         slides={slides}
                         currentSlide={currentSlide}
                         slideContainerRef={slideContainerRef}
@@ -1249,8 +1292,8 @@ export function SlideDeck({
                         slideAnnotations={getSlideAnnotations(currentSlide)}
                         addAnnotation={effectiveAdd ?? (() => {})}
                       />
-                    )}
-                  </div>
+                    </div>
+                  )}
                   <div
                     data-ps-editor-overlay
                     className="pointer-events-none absolute inset-0 z-20"
@@ -1262,25 +1305,27 @@ export function SlideDeck({
             {/* Navigation Controls */}
             {!isPresentationMode && (
               <div className="mt-6 flex items-center gap-4">
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={goBack}
                   className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
                   title="Previous step or slide (←)"
                 >
                   <ChevronLeft className="h-5 w-5" />
-                </button>
+                </Button>
                 <div className="flex min-w-[4rem] flex-col items-center">
                   <span className="font-mono text-sm text-neutral-500">
                     {currentSlide + 1} / {slides.length}
                   </span>
                 </div>
-                <button
+                <Button
+                  variant="unstyled"
                   onClick={advance}
                   className="rounded-full border border-neutral-800 bg-black/50 p-2 text-neutral-400 backdrop-blur-sm transition-colors hover:bg-neutral-900 hover:text-white"
                   title="Next step or slide (→ / Space)"
                 >
                   <ChevronRight className="h-5 w-5" />
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -1294,31 +1339,39 @@ export function SlideDeck({
             onSelect={requestInspector}
             onClose={() => requestInspector(null)}
             slideSettings={
-              <LoopSettings
-                slides={slides}
-                currentSlide={currentSlide}
-                animationStep={animationStep}
-                config={loopDraft}
-                onChange={setLoopDraft}
-                onStepChange={goToStep}
-                onSave={saveLoopConfig}
-                onStart={config => void startLoop(config)}
-                onRevert={() => setLoopDraft(loopConfig)}
-                dirty={JSON.stringify(loopDraft) !== JSON.stringify(loopConfig)}
-              />
+              <Suspense
+                fallback={<p className="p-4 text-xs text-neutral-400">Loading settings…</p>}
+              >
+                <LoopSettings
+                  slides={slides}
+                  currentSlide={currentSlide}
+                  animationStep={animationStep}
+                  config={loopDraft}
+                  onChange={setLoopDraft}
+                  onStepChange={goToStep}
+                  onSave={saveLoopConfig}
+                  onStart={config => void startLoop(config)}
+                  onRevert={() => setLoopDraft(loopConfig)}
+                  dirty={JSON.stringify(loopDraft) !== JSON.stringify(loopConfig)}
+                />
+              </Suspense>
             }
             comments={
-              <AnnotationPanel
-                embedded
-                annotations={getSlideAnnotations(currentSlide)}
-                unlinkedAnnotations={unlinkedAnnotations}
-                selectedId={selectedAnnotationId}
-                onSelect={setSelectedAnnotationId}
-                onHover={setHoveredAnnotationId}
-                onDelete={effectiveDelete ?? (() => {})}
-                onUpdate={effectiveUpdate ?? (() => {})}
-                onClose={() => requestInspector(null)}
-              />
+              <Suspense
+                fallback={<p className="p-4 text-xs text-neutral-400">Loading comments…</p>}
+              >
+                <AnnotationPanel
+                  embedded
+                  annotations={getSlideAnnotations(currentSlide)}
+                  unlinkedAnnotations={unlinkedAnnotations}
+                  selectedId={selectedAnnotationId}
+                  onSelect={setSelectedAnnotationId}
+                  onHover={setHoveredAnnotationId}
+                  onDelete={effectiveDelete ?? (() => {})}
+                  onUpdate={effectiveUpdate ?? (() => {})}
+                  onClose={() => requestInspector(null)}
+                />
+              </Suspense>
             }
           />
         </div>
@@ -1339,7 +1392,8 @@ export function SlideDeck({
                       {slideConfig.section}
                     </h3>
                   )}
-                  <button
+                  <Button
+                    variant="unstyled"
                     onClick={() => {
                       goToSlide(index)
                       setViewMode("slide")
@@ -1351,7 +1405,7 @@ export function SlideDeck({
                     <div className="absolute bottom-2 left-2 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white">
                       {slideConfig.title ? `${index + 1}. ${slideConfig.title}` : index + 1}
                     </div>
-                  </button>
+                  </Button>
                 </div>
               )
             })}

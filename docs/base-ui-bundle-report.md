@@ -1,6 +1,8 @@
-# Base UI application component migration: measured decision
+# Base UI application component migration: historical feasibility probe
 
-The broad migration was **not rolled out**. The representative production probe exceeds the budget stated before implementation: at most **15% additional gzip/Brotli viewer JavaScript**, for both initial loading and total shipped code. The CSS allowance was an additional 10 KiB gzip. The actual replacement probe adds **56,318 bytes gzip (+41.15%)** and **47,403 bytes Brotli (+40.02%)** for just the view menu, toolbar actions/tooltips, and loop checkbox.
+**Status:** The user subsequently approved the larger bundle tradeoff and the application migration was implemented. See [the completed migration measurements](application-ui-bundle-report.md) and [the implementation guide](application-ui.md). The observations below describe the earlier experiment at `d2dc75a`, not the current application. Reproduce the final comparison with `application-bundle.mjs`; the historical probe harness targets that earlier checkout.
+
+At this experiment stage, the broad migration was **not rolled out**. The representative production probe exceeds the budget stated before implementation: at most **15% additional gzip/Brotli viewer JavaScript**, for both initial loading and total shipped code. The CSS allowance was an additional 10 KiB gzip. The actual replacement probe adds **56,318 bytes gzip (+41.15%)** and **47,403 bytes Brotli (+40.02%)** for just the view menu, toolbar actions/tooltips, and loop checkbox.
 
 Deferring popup controls keeps the initial increase small, but the full viewer probe still ships roughly 44% more compressed JavaScript. This is a material tradeoff under the requested measurement gate. Acceptance of that tradeoff is needed before proceeding with the broad migration.
 

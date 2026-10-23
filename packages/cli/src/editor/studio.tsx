@@ -35,8 +35,17 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom"
 
 import { ToolbarAction } from "../core/toolbar-action"
+import { ApplicationContext } from "../core/ui/application-context"
+import { Button } from "../core/ui/button"
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../core/ui/dialog"
+import { Disclosure, DisclosureTrigger, DisclosureContent } from "../core/ui/disclosure"
+import { applicationRoots, queryApplication, eventElement, activeElement } from "../core/ui/dom"
+import { Input, Textarea } from "../core/ui/input"
+import { Select } from "../core/ui/select"
+import { Slider } from "../core/ui/slider"
+import { TabsRoot, TabsList, TabsTrigger } from "../core/ui/tabs"
 import { aligned, snap, translated, type Rect } from "./geometry"
-import "./studio.css"
+import studioStyles from "./studio.css?inline"
 
 type Style = Record<string, string | number>
 type SourceNode = {
@@ -127,11 +136,6 @@ function Studio({
   const [guides, setGuides] = useState<{ x?: number; y?: number }>({})
   const [confirmClose, setConfirmClose] = useState(false)
   const [closeError, setCloseError] = useState("")
-  const closeDialog = useRef<HTMLDialogElement>(null)
-  useEffect(() => {
-    if (confirmClose) closeDialog.current?.showModal()
-    else closeDialog.current?.close()
-  }, [confirmClose])
   const [inlineText, setInlineText] = useState<string | null>(null)
   const canvas = useRef<HTMLElement>(surface)
   canvas.current = surface
@@ -362,7 +366,7 @@ function Studio({
     }
     resize()
     const observer = new ResizeObserver(resize)
-    observer.observe(surface.parentElement!)
+    observer.observe(surface.parentElement?.assignedSlot?.parentElement ?? surface)
     return () => {
       observer.disconnect()
       cancelAnimationFrame(frame)
@@ -527,11 +531,10 @@ function Studio({
     // Prevent the presentation's global keyboard handler from advancing behind the editor.
     const handler = (event: KeyboardEvent) => {
       // Inspector navigation belongs to the core viewer, including its keyboard controls.
-      if ((event.target as HTMLElement).closest("[data-ps-inspector-header]")) return
-      event.stopImmediatePropagation()
+      if (eventElement(event)?.closest("[data-ps-inspector-header]")) return
       if (confirmClose) return
       if (busy) return
-      const input = (event.target as HTMLElement).closest("input,textarea,select,[contenteditable]")
+      const input = eventElement(event)?.closest("input,textarea,select,[contenteditable]")
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault()
         void save()
@@ -540,15 +543,21 @@ function Studio({
       if (input) return
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
         event.preventDefault()
+        event.stopImmediatePropagation()
         if (event.shiftKey) redo()
         else undo()
         return
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "y") {
         event.preventDefault()
+        event.stopImmediatePropagation()
         redo()
         return
       }
+      // Base UI handles keyboard interaction inside application roots. The
+      // viewer independently ignores these composed event targets.
+      if (eventElement(event)?.getRootNode() instanceof ShadowRoot) return
+      event.stopImmediatePropagation()
       if (event.key === "Escape") {
         setSelected([])
         setInlineText(null)
@@ -746,7 +755,7 @@ function Studio({
   }
   useEffect(() => {
     const clearOutside = (event: PointerEvent) => {
-      const target = event.target
+      const target = eventElement(event)
       if (
         confirmClose ||
         busy ||
@@ -755,7 +764,7 @@ function Studio({
         overlay.contains(target) ||
         panel.contains(target) ||
         (target instanceof Element &&
-          target.closest("[data-ps-viewer-toolbar], [data-ps-inspector-header]"))
+          target.closest("[data-ps-viewer-toolbar], [data-ps-inspector-header], [data-ps-portals]"))
       )
         return
       if (inlineText !== null && current && inlineText !== (currentEdit?.text ?? currentText))
@@ -772,7 +781,7 @@ function Studio({
       if (busy) return
       event.preventDefault()
       event.stopPropagation()
-      const element = (event.target as HTMLElement).closest<HTMLElement>("[data-ps-source]")
+      const element = eventElement(event)?.closest<HTMLElement>("[data-ps-source]")
       if (!element) {
         setSelected([])
         return
@@ -891,55 +900,51 @@ function Studio({
   const selectedName = selected.length > 1 ? `${selected.length} elements` : selectionKind
   return (
     <>
-      {confirmClose &&
-        createPortal(
-          <dialog
-            ref={closeDialog}
-            className="ps-close-dialog"
-            aria-labelledby="ps-close-title"
-            onCancel={event => {
-              event.preventDefault()
-              if (!busy) cancelClosing()
-            }}
-          >
-            <h2 id="ps-close-title">Save your changes?</h2>
-            <p>
-              You have unsaved changes to this deck. Save them before leaving the editor, or discard
-              them.
+      <Dialog
+        open={confirmClose}
+        onOpenChange={open => {
+          if (!open && !busy) cancelClosing()
+        }}
+      >
+        <DialogContent className="ps-close-dialog" aria-labelledby="ps-close-title">
+          <DialogTitle id="ps-close-title">Save your changes?</DialogTitle>
+          <DialogDescription>
+            You have unsaved changes to this deck. Save them before leaving the editor, or discard
+            them.
+          </DialogDescription>
+          {closeError && (
+            <p role="alert" className="ps-close-error">
+              {closeError}
             </p>
-            {closeError && (
-              <p role="alert" className="ps-close-error">
-                {closeError}
-              </p>
-            )}
-            <div className="ps-close-actions">
-              <button disabled={busy} onClick={cancelClosing}>
-                Keep editing
-              </button>
-              <button
-                disabled={busy}
-                onClick={() => {
-                  discard()
-                  closeAfterResolution()
-                }}
-              >
-                Discard changes
-              </button>
-              <button
-                className="ps-close-save"
-                disabled={busy}
-                onClick={async () => {
-                  setCloseError("")
-                  if (await save()) closeAfterResolution()
-                }}
-              >
-                <Check size={14} />
-                {busy ? "Saving…" : "Save changes"}
-              </button>
-            </div>
-          </dialog>,
-          document.body
-        )}
+          )}
+          <div className="ps-close-actions">
+            <Button variant="outline" disabled={busy} onClick={cancelClosing}>
+              Keep editing
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                discard()
+                closeAfterResolution()
+              }}
+            >
+              Discard changes
+            </Button>
+            <Button
+              variant="primary"
+              disabled={busy}
+              onClick={async () => {
+                setCloseError("")
+                if (await save()) closeAfterResolution()
+              }}
+            >
+              <Check size={14} />
+              {busy ? "Saving…" : "Save changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {createPortal(
         <aside className="ps-panel" aria-label="Format panel">
           <div className="ps-panel-heading">
@@ -949,23 +954,27 @@ function Studio({
             </div>
           </div>
           <div className="ps-panel-tools">
-            <div className="ps-tabs" role="tablist" aria-label="Editing tools">
-              <button role="tab" aria-selected={tab === "design"} onClick={() => setTab("design")}>
-                Design
-              </button>
-              <button
-                role="tab"
-                disabled={
-                  unsupportedSelection ||
-                  (shared && !sharedAppearanceEnabled) ||
-                  (!!current && !current.element)
-                }
-                aria-selected={tab === "arrange"}
-                onClick={() => setTab("arrange")}
-              >
-                Arrange
-              </button>
-            </div>
+            <TabsRoot
+              value={tab}
+              onValueChange={value => {
+                if (value === "design" || value === "arrange") setTab(value)
+              }}
+              className="contents"
+            >
+              <TabsList className="ps-tabs" aria-label="Editing tools" activateOnFocus={false}>
+                <TabsTrigger value="design">Design</TabsTrigger>
+                <TabsTrigger
+                  value="arrange"
+                  disabled={
+                    unsupportedSelection ||
+                    (shared && !sharedAppearanceEnabled) ||
+                    (!!current && !current.element)
+                  }
+                >
+                  Arrange
+                </TabsTrigger>
+              </TabsList>
+            </TabsRoot>
             <IconButton label="Undo" disabled={!past.length || busy} onClick={undo}>
               <Undo2 size={16} />
             </IconButton>
@@ -977,9 +986,13 @@ function Studio({
             <section className="ps-selection-notice" role="status">
               <h3>Not directly editable</h3>
               <p>This element can’t be edited here yet. Select another element to make changes.</p>
-              <button className="ps-text-button" onClick={() => selectRelative("parent")}>
+              <Button
+                variant="unstyled"
+                className="ps-text-button"
+                onClick={() => selectRelative("parent")}
+              >
                 Select containing group
-              </button>
+              </Button>
             </section>
           )}
           <div className="ps-panel-body" inert={busy}>
@@ -1024,7 +1037,8 @@ function Studio({
                         : "Design changes apply to every use of this element, including other slides."}
                     </p>
                     {!sharedAppearanceEnabled && (
-                      <button
+                      <Button
+                        variant="unstyled"
                         className="ps-shared-action"
                         aria-label="Edit shared component"
                         onClick={() => {
@@ -1034,7 +1048,7 @@ function Studio({
                       >
                         <Pencil size={14} />
                         Edit shared component
-                      </button>
+                      </Button>
                     )}
                   </section>
                 )}
@@ -1052,7 +1066,7 @@ function Studio({
                           <h3>Text</h3>
                           <span>Double-click to edit on slide</span>
                         </div>
-                        <textarea
+                        <Textarea
                           className="ps-text-input"
                           aria-label="Text"
                           ref={textArea}
@@ -1083,7 +1097,7 @@ function Studio({
                                 )[name]
                               }
                             </span>
-                            <input
+                            <Input
                               value={currentEdit?.props?.[name] ?? value}
                               onChange={event =>
                                 change([current], { props: { [name]: event.target.value } })
@@ -1099,9 +1113,9 @@ function Studio({
                         <section className="ps-section">
                           <h3>Font</h3>
                           <div className="ps-font-row">
-                            <label className="ps-field">
+                            <div className="ps-field">
                               <span className="ps-sr-only">Font</span>
-                              <select
+                              <Select
                                 aria-label="Font"
                                 value={css("fontFamily").split(",")[0]!.replace(/"/g, "")}
                                 onChange={event => put({ fontFamily: event.target.value })}
@@ -1119,8 +1133,8 @@ function Studio({
                                 ).map(font => (
                                   <option key={font}>{font}</option>
                                 ))}
-                              </select>
-                            </label>
+                              </Select>
+                            </div>
                             <NumberField
                               label="Font size"
                               value={number("fontSize", 16)}
@@ -1183,7 +1197,8 @@ function Studio({
                               { name: "White", value: "#ffffff" },
                               { name: "Dark", value: "#171717" }
                             ].map(color => (
-                              <button
+                              <Button
+                                variant="unstyled"
                                 key={color.name}
                                 className="ps-swatch"
                                 aria-label={`${color.name} text color`}
@@ -1193,30 +1208,32 @@ function Studio({
                               />
                             ))}
                           </div>
-                          <details className="ps-details">
-                            <summary>
+                          <Disclosure className="ps-details">
+                            <DisclosureTrigger>
                               Text spacing
                               <ChevronDown size={14} />
-                            </summary>
-                            <div className="ps-two-col">
-                              <NumberField
-                                label="Line spacing"
-                                value={
-                                  number("lineHeight", number("fontSize", 16) * 1.5) /
-                                  number("fontSize", 16)
-                                }
-                                min={0.5}
-                                step={0.1}
-                                onChange={value => put({ lineHeight: value })}
-                              />
-                              <NumberField
-                                label="Letter spacing"
-                                value={number("letterSpacing")}
-                                step={0.1}
-                                onChange={value => put({ letterSpacing: `${value}px` })}
-                              />
-                            </div>
-                          </details>
+                            </DisclosureTrigger>
+                            <DisclosureContent>
+                              <div className="ps-two-col">
+                                <NumberField
+                                  label="Line spacing"
+                                  value={
+                                    number("lineHeight", number("fontSize", 16) * 1.5) /
+                                    number("fontSize", 16)
+                                  }
+                                  min={0.5}
+                                  step={0.1}
+                                  onChange={value => put({ lineHeight: value })}
+                                />
+                                <NumberField
+                                  label="Letter spacing"
+                                  value={number("letterSpacing")}
+                                  step={0.1}
+                                  onChange={value => put({ letterSpacing: `${value}px` })}
+                                />
+                              </div>
+                            </DisclosureContent>
+                          </Disclosure>
                         </section>
                       )}
                       {current.element && (
@@ -1267,28 +1284,25 @@ function Studio({
                               onChange={borderColor => put({ borderColor })}
                             />
                           )}
-                          <label className="ps-range">
+                          <div className="ps-range">
                             <span>
                               Opacity
                               <strong>{Math.round(Number(css("opacity", "1")) * 100)}%</strong>
                             </span>
-                            <input
-                              aria-label="Opacity"
-                              type="range"
-                              min={0}
-                              max={100}
+                            <Slider
+                              label="Opacity"
                               value={Math.round(Number(css("opacity", "1")) * 100)}
-                              onChange={event => put({ opacity: Number(event.target.value) / 100 })}
+                              onChange={value => put({ opacity: value / 100 })}
                             />
-                          </label>
+                          </div>
                         </section>
                       )}
                       {isImage && (
                         <section className="ps-section">
                           <h3>Image</h3>
-                          <label className="ps-field">
+                          <div className="ps-field">
                             <span>Fit</span>
-                            <select
+                            <Select
                               aria-label="Image fit"
                               value={css("objectFit", "fill")}
                               onChange={event => put({ objectFit: event.target.value })}
@@ -1296,11 +1310,11 @@ function Studio({
                               <option value="cover">Fill the frame</option>
                               <option value="contain">Fit entire image</option>
                               <option value="fill">Stretch to fit</option>
-                            </select>
-                          </label>
-                          <label className="ps-field">
+                            </Select>
+                          </div>
+                          <div className="ps-field">
                             <span>Focus</span>
-                            <select
+                            <Select
                               aria-label="Image focus"
                               value={css("objectPosition", "50% 50%")}
                               onChange={event => put({ objectPosition: event.target.value })}
@@ -1316,54 +1330,54 @@ function Studio({
                                   {name}
                                 </option>
                               ))}
-                            </select>
-                          </label>
-                          <label className="ps-range">
+                            </Select>
+                          </div>
+                          <div className="ps-range">
                             <span>
                               Crop edges
                               <strong>
                                 {parseFloat(css("clipPath").match(/inset\(([^%]+)/)?.[1] || "0")}%
                               </strong>
                             </span>
-                            <input
-                              aria-label="Crop edges"
-                              type="range"
-                              min={0}
+                            <Slider
+                              label="Crop edges"
                               max={45}
                               value={parseFloat(
                                 css("clipPath").match(/inset\(([^%]+)/)?.[1] || "0"
                               )}
-                              onChange={event => put({ clipPath: `inset(${event.target.value}%)` })}
+                              onChange={value => put({ clipPath: `inset(${value}%)` })}
                             />
-                          </label>
+                          </div>
                         </section>
                       )}
                       {current.element && (
-                        <details className="ps-details ps-section">
-                          <summary>
+                        <Disclosure className="ps-details ps-section">
+                          <DisclosureTrigger>
                             Spacing
                             <ChevronDown size={14} />
-                          </summary>
-                          <div className="ps-two-col">
-                            {["Top", "Right", "Bottom", "Left"].map(side => (
+                          </DisclosureTrigger>
+                          <DisclosureContent>
+                            <div className="ps-two-col">
+                              {["Top", "Right", "Bottom", "Left"].map(side => (
+                                <NumberField
+                                  key={side}
+                                  label={`Inside ${side.toLowerCase()}`}
+                                  value={number(`padding${side}`)}
+                                  min={0}
+                                  onChange={value => put({ [`padding${side}`]: `${value}px` })}
+                                />
+                              ))}
+                            </div>
+                            {["flex", "grid"].includes(css("display")) && (
                               <NumberField
-                                key={side}
-                                label={`Inside ${side.toLowerCase()}`}
-                                value={number(`padding${side}`)}
+                                label="Space between items"
+                                value={number("gap")}
                                 min={0}
-                                onChange={value => put({ [`padding${side}`]: `${value}px` })}
+                                onChange={value => put({ gap: `${value}px` })}
                               />
-                            ))}
-                          </div>
-                          {["flex", "grid"].includes(css("display")) && (
-                            <NumberField
-                              label="Space between items"
-                              value={number("gap")}
-                              min={0}
-                              onChange={value => put({ gap: `${value}px` })}
-                            />
-                          )}
-                        </details>
+                            )}
+                          </DisclosureContent>
+                        </Disclosure>
                       )}
                       {!current.element && (
                         <p className="ps-note">Save to update this linked content on your slide.</p>
@@ -1464,22 +1478,24 @@ function Studio({
                         ))}
                       </div>
                       <div className="ps-two-col">
-                        <button
+                        <Button
+                          variant="unstyled"
                           className="ps-soft-button"
                           disabled={selected.length < 3}
                           onClick={() => align("x", "distribute")}
                         >
                           <MoveHorizontal size={16} />
                           Space across
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="unstyled"
                           className="ps-soft-button"
                           disabled={selected.length < 3}
                           onClick={() => align("y", "distribute")}
                         >
                           <MoveVertical size={16} />
                           Space down
-                        </button>
+                        </Button>
                       </div>
                       {selected.length < 2 && (
                         <p className="ps-note">Shift-click another element to align them.</p>
@@ -1488,7 +1504,8 @@ function Studio({
                     <section className="ps-section">
                       <h3>Layer order</h3>
                       <div className="ps-two-col">
-                        <button
+                        <Button
+                          variant="unstyled"
                           className="ps-soft-button"
                           disabled={!current.element}
                           onClick={() =>
@@ -1500,8 +1517,9 @@ function Studio({
                         >
                           <ArrowUpToLine size={16} />
                           Bring forward
-                        </button>
-                        <button
+                        </Button>
+                        <Button
+                          variant="unstyled"
                           className="ps-soft-button"
                           disabled={!current.element}
                           onClick={() =>
@@ -1513,7 +1531,7 @@ function Studio({
                         >
                           <ArrowDownToLine size={16} />
                           Send backward
-                        </button>
+                        </Button>
                       </div>
                     </section>
                   </>
@@ -1522,7 +1540,8 @@ function Studio({
                   <p className="ps-note">Copy added. Save to edit copies separately.</p>
                 )}
                 <section className="ps-section ps-object-actions">
-                  <button
+                  <Button
+                    variant="unstyled"
                     className="ps-soft-button"
                     disabled={!structureAllowed}
                     onClick={() =>
@@ -1534,94 +1553,106 @@ function Studio({
                   >
                     <Copy size={15} />
                     Duplicate
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="unstyled"
                     className="ps-soft-button ps-danger"
                     disabled={!structureAllowed}
                     onClick={() => change([current], { action: "delete" })}
                   >
                     <Trash2 size={15} />
                     Delete
-                  </button>
+                  </Button>
                   {current.element && (
-                    <button className="ps-text-button" onClick={() => selectRelative("parent")}>
+                    <Button
+                      variant="unstyled"
+                      className="ps-text-button"
+                      onClick={() => selectRelative("parent")}
+                    >
                       Select group
-                    </button>
+                    </Button>
                   )}
                 </section>
                 {renderedNode?.container && (
-                  <details className="ps-details ps-section">
-                    <summary>
+                  <Disclosure className="ps-details ps-section">
+                    <DisclosureTrigger>
                       <span>Add to this group</span>
                       <Plus size={14} />
-                    </summary>
-                    <div className="ps-insert-options">
-                      {[
-                        { kind: "text", name: "Text", icon: Type },
-                        { kind: "shape", name: "Shape", icon: Shapes },
-                        { kind: "image", name: "Image", icon: ImageIcon }
-                      ].map(({ kind: insert, name, icon: Icon }) => (
-                        <button
-                          key={insert}
-                          disabled={editingLocked}
-                          onClick={() => change([current], { insert })}
-                        >
-                          <Icon size={20} />
-                          <span>{name}</span>
-                        </button>
-                      ))}
-                    </div>
-                    <p className="ps-note">New elements appear after you save.</p>
-                  </details>
+                    </DisclosureTrigger>
+                    <DisclosureContent>
+                      <div className="ps-insert-options">
+                        {[
+                          { kind: "text", name: "Text", icon: Type },
+                          { kind: "shape", name: "Shape", icon: Shapes },
+                          { kind: "image", name: "Image", icon: ImageIcon }
+                        ].map(({ kind: insert, name, icon: Icon }) => (
+                          <Button
+                            variant="unstyled"
+                            key={insert}
+                            disabled={editingLocked}
+                            onClick={() => change([current], { insert })}
+                          >
+                            <Icon size={20} />
+                            <span>{name}</span>
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="ps-note">New elements appear after you save.</p>
+                    </DisclosureContent>
+                  </Disclosure>
                 )}
               </>
             )}
-            <details className="ps-details ps-section">
-              <summary>
+            <Disclosure className="ps-details ps-section">
+              <DisclosureTrigger>
                 <span>Slide elements</span>
                 <Layers size={14} />
-              </summary>
-              <div className="ps-layer-list">
-                {layers
-                  .filter(item => item.element?.getBoundingClientRect().height)
-                  .map((item, i) => {
-                    const element = item.element!,
-                      kind = elementKind(element),
-                      Icon =
-                        kind === "Image"
-                          ? ImageIcon
-                          : kind === "Group"
-                            ? Layers
-                            : kind === "Shape" || kind === "Icon"
-                              ? Shapes
-                              : Type
-                    return (
-                      <button
-                        key={`${keyOf(item)}:${i}`}
-                        aria-pressed={selected.some(s => s.element === element)}
-                        onClick={event =>
-                          void inspect(
-                            event.shiftKey
-                              ? selected.some(s => s.element === element)
-                                ? selected.filter(s => s.element !== element)
-                                : [...selected, item]
-                              : [item]
-                          )
-                        }
-                      >
-                        <Icon size={14} />
-                        <span>
-                          {kind === "Group" || kind === "Icon"
-                            ? kind
-                            : kind === "Image"
-                              ? element.getAttribute("alt") || "Image"
-                              : element.textContent?.trim().slice(0, 48) || "Shape"}
-                        </span>
-                      </button>
-                    )
-                  })}
-              </div>
-            </details>
+              </DisclosureTrigger>
+              <DisclosureContent>
+                <div className="ps-layer-list">
+                  {layers
+                    .filter(item => item.element?.getBoundingClientRect().height)
+                    .map((item, i) => {
+                      const element = item.element!,
+                        kind = elementKind(element),
+                        Icon =
+                          kind === "Image"
+                            ? ImageIcon
+                            : kind === "Group"
+                              ? Layers
+                              : kind === "Shape" || kind === "Icon"
+                                ? Shapes
+                                : Type
+                      return (
+                        <Button
+                          variant="unstyled"
+                          key={`${keyOf(item)}:${i}`}
+                          selected={selected.some(s => s.element === element)}
+                          aria-pressed={selected.some(s => s.element === element)}
+                          onClick={event =>
+                            void inspect(
+                              event.shiftKey
+                                ? selected.some(s => s.element === element)
+                                  ? selected.filter(s => s.element !== element)
+                                  : [...selected, item]
+                                : [item]
+                            )
+                          }
+                        >
+                          <Icon size={14} />
+                          <span>
+                            {kind === "Group" || kind === "Icon"
+                              ? kind
+                              : kind === "Image"
+                                ? element.getAttribute("alt") || "Image"
+                                : element.textContent?.trim().slice(0, 48) || "Shape"}
+                          </span>
+                        </Button>
+                      )
+                    })}
+                </div>
+              </DisclosureContent>
+            </Disclosure>
           </div>
           <footer className="ps-panel-footer">
             <div className="ps-save-status" role="status">
@@ -1637,17 +1668,29 @@ function Studio({
             ].includes(message) ? (
               <p className="ps-error">
                 {message}
-                <button onClick={exportDraft}>Download your changes</button>
+                <Button variant="unstyled" onClick={exportDraft}>
+                  Download your changes
+                </Button>
               </p>
             ) : null}
             <div className="ps-save-actions">
-              <button className="ps-text-button" disabled={!dirty || busy} onClick={discard}>
+              <Button
+                variant="unstyled"
+                className="ps-text-button"
+                disabled={!dirty || busy}
+                onClick={discard}
+              >
                 Discard
-              </button>
-              <button className="ps-save" disabled={!dirty || busy} onClick={() => void save()}>
+              </Button>
+              <Button
+                variant="primary"
+                className="ps-save"
+                disabled={!dirty || busy}
+                onClick={() => void save()}
+              >
                 <Check size={14} />
                 <span>{busy ? "Saving…" : "Save changes"}</span>
-              </button>
+              </Button>
             </div>
           </footer>
         </aside>,
@@ -1673,7 +1716,8 @@ function Studio({
                 onPointerDown={event => gesture(event, "move")}
               >
                 {!unsupportedSelection && (
-                  <button
+                  <Button
+                    variant="unstyled"
                     aria-label="Resize element"
                     disabled={editingLocked}
                     className="ps-resize"
@@ -1681,14 +1725,15 @@ function Studio({
                   />
                 )}
                 {!unsupportedSelection && (
-                  <button
+                  <Button
+                    variant="unstyled"
                     aria-label="Rotate element"
                     disabled={editingLocked}
                     className="ps-rotate"
                     onPointerDown={event => gesture(event, "rotate", item)}
                   >
                     <RotateCw size={10} />
-                  </button>
+                  </Button>
                 )}
               </div>
             )
@@ -1714,11 +1759,11 @@ function Studio({
                     <span>Editing text</span>
                     <span className="ps-inline-hint-detail">Click outside to apply</span>
                   </div>
-                  <textarea
+                  <Textarea
                     ref={element => {
                       if (!element) return
                       element.style.height = `${Math.max(lineHeight + 4, r.height * scale + 4, element.scrollHeight)}px`
-                      if (document.activeElement !== element) element.focus()
+                      if (activeElement() !== element) element.focus()
                     }}
                     aria-label="Edit text inline"
                     className="ps-inline"
@@ -1770,7 +1815,10 @@ function IconButton({
   onClick: () => void
 }) {
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="icon"
+      selected={pressed}
       className="ps-icon-button"
       type="button"
       aria-label={label}
@@ -1780,7 +1828,7 @@ function IconButton({
       onClick={onClick}
     >
       {children}
-    </button>
+    </Button>
   )
 }
 function NumberField({
@@ -1804,7 +1852,7 @@ function NumberField({
     <label className="ps-field ps-number-field">
       <span>{shortLabel || label}</span>
       <div>
-        <input
+        <Input
           aria-label={label}
           type="number"
           min={min}
@@ -1856,7 +1904,7 @@ function ColorField({
             style={{ background: transparent ? undefined : value }}
           />
           <span>{transparent ? "None" : colorHex(value).toUpperCase()}</span>
-          <input
+          <Input
             type="color"
             aria-label={label}
             value={colorHex(value)}
@@ -1897,10 +1945,10 @@ export function EditorLauncher({
   } | null>(null)
   useEffect(() => {
     const find = () => {
-      const toolbar = document.querySelector<HTMLElement>("[data-ps-editor-toolbar]"),
-        panel = document.querySelector<HTMLElement>("[data-ps-editor-panel]"),
-        overlay = document.querySelector<HTMLElement>("[data-ps-editor-overlay]"),
-        surface = document.querySelector<HTMLElement>("[data-ps-editor-canvas]")
+      const toolbar = queryApplication<HTMLElement>("[data-ps-editor-toolbar]"),
+        panel = queryApplication<HTMLElement>("[data-ps-editor-panel]"),
+        overlay = queryApplication<HTMLElement>("[data-ps-editor-overlay]"),
+        surface = queryApplication<HTMLElement>("[data-ps-editor-canvas]")
       if (toolbar && panel && overlay && surface)
         setSlots(previous =>
           previous?.toolbar === toolbar &&
@@ -1913,8 +1961,18 @@ export function EditorLauncher({
     }
     find()
     const observer = new MutationObserver(find)
+    const observe = () => {
+      find()
+      for (const root of applicationRoots())
+        observer.observe(root, { childList: true, subtree: true })
+    }
     observer.observe(document.getElementById("root")!, { childList: true, subtree: true })
-    return () => observer.disconnect()
+    observe()
+    window.addEventListener("promptslide:application-ready", observe)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener("promptslide:application-ready", observe)
+    }
   }, [])
   const toggle = useCallback((value: boolean) => {
     setOpen(value)
@@ -1943,7 +2001,17 @@ export function EditorLauncher({
   }, [slots, toggle])
   if (!slots) return null
   return (
-    <>
+    <ApplicationContext.Provider
+      value={{
+        root: slots.toolbar.getRootNode() as ShadowRoot,
+        host: (slots.toolbar.getRootNode() as ShadowRoot).host as HTMLElement,
+        portal: (slots.toolbar.getRootNode() as ShadowRoot).querySelector<HTMLElement>(
+          "[data-ps-portals]"
+        )!,
+        inheritance: {}
+      }}
+    >
+      {createPortal(<style>{studioStyles}</style>, slots.toolbar.getRootNode() as ShadowRoot)}
       {createPortal(
         <ToolbarAction
           data-ps-edit-action
@@ -1959,6 +2027,6 @@ export function EditorLauncher({
         slots.toolbar
       )}
       {open && <Studio token={token} close={() => toggle(false)} {...slots} />}
-    </>
+    </ApplicationContext.Provider>
   )
 }

@@ -91,3 +91,7 @@ Layouts in `src/layouts/` and theme colors in `src/globals.css` are yours to cus
 - **Animations**: Use `<Animated step={n}>` for click-to-reveal. The `steps` value in `deck-config.ts` must equal the highest step number used. Available: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`.
 - **PDF compatibility**: No `blur()` or `backdrop-filter` (dropped by Chromium). No gradients (use solid colors with opacity). No `box-shadow` (doesn't export correctly) — use borders or background tints instead.
 - **Brand color**: Edit `--primary` in `src/globals.css`. Configure logo and fonts in `src/theme.ts`.
+
+## Application UI contributors
+
+Viewer/editor controls use the shared Base UI wrappers in `packages/cli/src/core/ui/`. Keep application chrome independent of authored slide themes; use the application tokens and existing variants. Read [the application UI guide](docs/application-ui.md) before changing controls, portals, source-editor integration or style generation. Run the CLI package build after changes to UI classes/styles and commit the generated `app-styles.ts` with its source. Slide authoring continues to use the deck's own layouts and semantic colors.

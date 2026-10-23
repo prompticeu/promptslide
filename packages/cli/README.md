@@ -132,3 +132,7 @@ there is no separate playlist order.
 ## License
 
 MIT
+
+## Application controls
+
+`SlideDeck` includes its own isolated application styles for the toolbar, menus, inspector and comments. SDK consumers do not need an application stylesheet, Tailwind plugin or shadcn configuration. Your slides retain their existing theme and CSS. The visual source editor is available only in local Studio; published decks include the presentation viewer without the source editing tools. Framework contributors should read the [application UI guide](../../docs/application-ui.md).

@@ -53,14 +53,14 @@ export function editorPlugin({ root }) {
     },
     load(id) {
       if (id !== "\0virtual:promptslide-editor") return
-      return `import { mountEditor } from ${JSON.stringify(clientUrl)};
+      return `import { mountEditor, editorIsOpen } from ${JSON.stringify(clientUrl)};
 import { slides } from ${JSON.stringify(resolve(root, "src/deck-config.ts"))};
 import { theme } from ${JSON.stringify(resolve(root, "src/theme.ts"))};
 const dispose = mountEditor(slides, theme, ${JSON.stringify(token)}, import.meta.hot?.data.open ?? false);
 if (import.meta.hot) {
   import.meta.hot.accept();
   import.meta.hot.dispose((data) => {
-    data.open = document.querySelector('[data-ps-edit-action][aria-pressed="true"]') !== null;
+    data.open = editorIsOpen();
     dispose?.();
     window.dispatchEvent(new Event("promptslide:editor-refresh"));
   });
