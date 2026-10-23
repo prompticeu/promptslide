@@ -1,6 +1,6 @@
 # Development source editor
 
-Run `promptslide studio` and choose **Edit** in the existing top-right toolbar. The editor is injected by the development Vite plugin. Production builds, registry previews, embeds, and export pages do not load it. No editable-component migration is needed.
+Run `promptslide studio` and choose **Edit** in the top-right toolbar, or **Elements** in the shared inspector. The core viewer owns the inspector's tabs, docking, and close control; the editor portals its tools into the Elements slot. The editor is injected by the development Vite plugin. Production builds, registry previews, embeds, and export pages do not load it. No editable-component migration is needed.
 
 ## Workflow
 
@@ -11,6 +11,7 @@ Run `promptslide studio` and choose **Edit** in the existing top-right toolbar. 
 - For images, adjust the frame size, objectFit, objectPosition, and inset crop.
 - Select a range in Text and apply bold, italic, or underline. Save existing text changes first. Range formatting creates ordinary styled JSX spans, which can subsequently be selected individually.
 - Structure supports inserting text, shapes, and images into JSX containers and duplicating/deleting direct JSX children. Root components and expressions cannot be deleted. Duplicates preview immediately and support Undo and Discard; save to edit copies independently. Insertions render after Save; range formatting previews immediately.
+- Switching from Elements to Slide settings or Comments uses the same Save / Discard / Keep editing guard as closing the editor. Keeping editing (or cancelling the dialog) cancels the pending panel switch. Loop timing drafts stay in the viewer across panel changes and source saves.
 - Undo/redo affects the buffered draft. Save batches edits to source; Discard restores the source rendering. Close requires resolving unsaved changes. The browser tab retains its draft across hot reloads. Export draft downloads the pending operations for recovery.
 - Editing uses the original viewer canvas, styling, and animation wrappers. Leave Edit to reveal steps normally; opening Edit preserves the currently visible content.
 
@@ -33,3 +34,12 @@ The endpoint uses a per-server random token, checks cross-site fetches, limits p
 - `tsc -p packages/cli/tsconfig.json --noEmit`: editor and engine types.
 
 Implementation uses TypeScript's JSX parser and original-range patches. No OpenSlide source code is vendored.
+
+## Inspector protocol
+
+The viewer's inspector is part of the production core; the source editor remains development-only.
+`EditorLauncher` discovers the existing toolbar, panel, canvas, and overlay slots, announces
+`promptslide:editor-ready`, and handles `promptslide:editor-request` to open or request a guarded
+close. `promptslide:editor-state` acknowledges actual open/closed state. The viewer commits a
+pending tab change only after a closed acknowledgement; `promptslide:editor-close-cancelled`
+clears that pending change. Source edits and their history stay in the editor's own React root.

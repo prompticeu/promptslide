@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 
+import { readLoopConfig, writeLoopConfig } from "./loop-config.mjs"
+
 const DECK_CONFIG_PATH = "src/deck-config.ts"
 
 /**
@@ -224,6 +226,7 @@ export function replaceDeckConfig(cwd, slides, opts = {}) {
   ].join("\n")
 
   writeFileSync(configPath, content, "utf-8")
+  writeLoopConfig(cwd, opts.loopConfig ?? { version: 1, defaultDuration: 5, slides: {} })
   return true
 }
 
@@ -310,6 +313,8 @@ export function parseDeckConfig(cwd) {
   if (slides.length === 0) return null
 
   const result = { slides }
+  const loopConfig = readLoopConfig(cwd)
+  if (loopConfig) result.loopConfig = loopConfig
   if (transition) result.transition = transition
   if (directionalTransition !== undefined) result.directionalTransition = directionalTransition
   return result

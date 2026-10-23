@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import type { Annotation } from "./types"
 
 interface AnnotationPanelProps {
+  embedded?: boolean
   annotations: Annotation[]
   unlinkedAnnotations?: Annotation[]
   selectedId: string | null
@@ -15,6 +16,7 @@ interface AnnotationPanelProps {
 }
 
 export function AnnotationPanel({
+  embedded = false,
   annotations,
   unlinkedAnnotations = [],
   selectedId,
@@ -31,18 +33,22 @@ export function AnnotationPanel({
     annotations.findIndex(a => a.id === annotation.id) + 1
 
   return (
-    <div className="flex h-full w-80 max-w-[90vw] flex-shrink-0 flex-col border-l border-neutral-800 bg-neutral-950 text-white">
-      <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
-        <button
-          onClick={onClose}
-          className="rounded p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white"
-          aria-label="Hide comments"
-          title="Hide comments (C)"
-        >
-          <PanelRightClose className="h-4 w-4" />
-        </button>
-        <span className="text-right text-sm font-semibold">Comments ({total})</span>
-      </div>
+    <div
+      className={`flex h-full max-w-[90vw] flex-shrink-0 flex-col bg-neutral-950 text-white ${embedded ? "w-full" : "w-80 border-l border-neutral-800"}`}
+    >
+      {!embedded && (
+        <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
+          <button
+            onClick={onClose}
+            className="rounded p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white"
+            aria-label="Hide comments"
+            title="Hide comments (C)"
+          >
+            <PanelRightClose className="h-4 w-4" />
+          </button>
+          <span className="text-right text-sm font-semibold">Comments ({total})</span>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {annotations.length === 0 && unlinkedAnnotations.length === 0 && (
