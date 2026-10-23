@@ -198,7 +198,8 @@ export async function pull(args) {
       }))
       replaceDeckConfig(cwd, slides, {
         transition: deckItem.meta.transition,
-        directionalTransition: deckItem.meta.directionalTransition
+        directionalTransition: deckItem.meta.directionalTransition,
+        loopConfig: deckItem.meta.loopConfig
       })
       console.log(
         `  ${green("+")} Replaced ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`

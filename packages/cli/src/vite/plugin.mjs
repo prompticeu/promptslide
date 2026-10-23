@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs"
 import { join, resolve, sep, extname } from "node:path"
 
 import { bold, dim } from "../utils/ansi.mjs"
+import { readLoopConfig, DEFAULT_LOOP_CONFIG, loopConfigMiddleware } from "../utils/loop-config.mjs"
 import { projectIdentity } from "../utils/studio-discovery.mjs"
 
 /** Normalize a path to forward slashes so it can be used in ES module import strings on Windows. */
@@ -84,9 +85,11 @@ import { StrictMode, createElement } from "react"
 import { createRoot } from "react-dom/client"
 import "${r}/src/globals.css"
 import App from "${r}/src/App"
+import { LoopConfigProvider } from "promptslide"
+const loopConfig = ${JSON.stringify(readLoopConfig(root) ?? DEFAULT_LOOP_CONFIG)}
 
 createRoot(document.getElementById("root")).render(
-  createElement(StrictMode, null, createElement(App))
+  createElement(StrictMode, null, createElement(LoopConfigProvider, { config: loopConfig }, createElement(App)))
 )
 `
 }
@@ -256,7 +259,7 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
       return {
         server: {
           watch: {
-            ignored: ["**/annotations.json"]
+            ignored: ["**/annotations.json", "**/.loop-config-*.tmp"]
           }
         }
       }
@@ -284,6 +287,19 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     },
 
     configureServer(server) {
+      const invalidateLoopConfig = () => {
+        const entry = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_ENTRY_ID)
+        if (entry) server.moduleGraph.invalidateModule(entry)
+      }
+      const loopFileChanged = path => {
+        if (resolve(path) === resolve(root, "loop-config.json")) invalidateLoopConfig()
+      }
+      // New page loads see the saved file without interrupting the current presentation.
+      server.watcher
+        .on("change", loopFileChanged)
+        .on("add", loopFileChanged)
+        .on("unlink", loopFileChanged)
+      server.middlewares.use(loopConfigMiddleware(root, invalidateLoopConfig))
       server.middlewares.use(async (req, res, next) => {
         if (req.method !== "GET" || req.url !== "/__promptslide_pdf") return next()
         try {

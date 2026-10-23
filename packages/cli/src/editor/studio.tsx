@@ -31,9 +31,10 @@ import {
   MoveVertical,
   RotateCw
 } from "lucide-react"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
+import { ToolbarAction } from "../core/toolbar-action"
 import { aligned, snap, translated, type Rect } from "./geometry"
 import "./studio.css"
 
@@ -525,6 +526,8 @@ function Studio({
   useEffect(() => {
     // Prevent the presentation's global keyboard handler from advancing behind the editor.
     const handler = (event: KeyboardEvent) => {
+      // Inspector navigation belongs to the core viewer, including its keyboard controls.
+      if ((event.target as HTMLElement).closest("[data-ps-inspector-header]")) return
       event.stopImmediatePropagation()
       if (confirmClose) return
       if (busy) return
@@ -751,7 +754,8 @@ function Studio({
         surface.contains(target) ||
         overlay.contains(target) ||
         panel.contains(target) ||
-        (target instanceof Element && target.closest("[data-ps-viewer-toolbar]"))
+        (target instanceof Element &&
+          target.closest("[data-ps-viewer-toolbar], [data-ps-inspector-header]"))
       )
         return
       if (inlineText !== null && current && inlineText !== (currentEdit?.text ?? currentText))
@@ -803,7 +807,15 @@ function Studio({
     }
     close()
   }
+  function cancelClosing() {
+    setConfirmClose(false)
+    window.dispatchEvent(new Event("promptslide:editor-close-cancelled"))
+  }
   function finishEditing() {
+    if (busy) {
+      window.dispatchEvent(new Event("promptslide:editor-close-cancelled"))
+      return
+    }
     if (dirty) {
       setCloseError("")
       setConfirmClose(true)
@@ -887,7 +899,7 @@ function Studio({
             aria-labelledby="ps-close-title"
             onCancel={event => {
               event.preventDefault()
-              if (!busy) setConfirmClose(false)
+              if (!busy) cancelClosing()
             }}
           >
             <h2 id="ps-close-title">Save your changes?</h2>
@@ -901,7 +913,7 @@ function Studio({
               </p>
             )}
             <div className="ps-close-actions">
-              <button disabled={busy} onClick={() => setConfirmClose(false)}>
+              <button disabled={busy} onClick={cancelClosing}>
                 Keep editing
               </button>
               <button
@@ -935,9 +947,6 @@ function Studio({
               <span className="ps-overline">SLIDE EDITOR</span>
               <h2>{current ? selectedName : "Make it yours"}</h2>
             </div>
-            <IconButton label="Done editing" disabled={busy} onClick={finishEditing}>
-              <X size={18} />
-            </IconButton>
           </div>
           <div className="ps-panel-tools">
             <div className="ps-tabs" role="tablist" aria-label="Editing tools">
@@ -1880,18 +1889,6 @@ export function EditorLauncher({
   initiallyOpen?: boolean
 }) {
   const [open, setOpen] = useState(initiallyOpen)
-  const [mounted, setMounted] = useState(initiallyOpen)
-  useEffect(() => {
-    if (open) {
-      setMounted(true)
-      return
-    }
-    const timeout = window.setTimeout(
-      () => setMounted(false),
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 200
-    )
-    return () => window.clearTimeout(timeout)
-  }, [open])
   const [slots, setSlots] = useState<{
     toolbar: HTMLElement
     panel: HTMLElement
@@ -1919,30 +1916,49 @@ export function EditorLauncher({
     observer.observe(document.getElementById("root")!, { childList: true, subtree: true })
     return () => observer.disconnect()
   }, [])
-  const toggle = (value: boolean) => {
+  const toggle = useCallback((value: boolean) => {
     setOpen(value)
     window.dispatchEvent(new CustomEvent("promptslide:editor-state", { detail: { open: value } }))
-  }
+  }, [])
+  const openRef = useRef(open)
+  openRef.current = open
+  useEffect(() => {
+    if (!slots) return
+    window.dispatchEvent(
+      new CustomEvent("promptslide:editor-ready", { detail: { available: true } })
+    )
+    if (openRef.current)
+      window.dispatchEvent(new CustomEvent("promptslide:editor-state", { detail: { open: true } }))
+    const onRequest = (event: Event) => {
+      if ((event as CustomEvent).detail?.open) toggle(true)
+      else window.dispatchEvent(new Event("promptslide:editor-done"))
+    }
+    window.addEventListener("promptslide:editor-request", onRequest)
+    return () => {
+      window.removeEventListener("promptslide:editor-request", onRequest)
+      window.dispatchEvent(
+        new CustomEvent("promptslide:editor-ready", { detail: { available: false } })
+      )
+    }
+  }, [slots, toggle])
   if (!slots) return null
   return (
     <>
       {createPortal(
-        <button
-          className={`ps-edit-action ${open ? "active" : ""}`}
-          aria-label="Edit slide"
-          title="Edit slide"
-          aria-pressed={open}
+        <ToolbarAction
+          data-ps-edit-action
+          label="Edit slide"
+          selected={open}
           onClick={() => {
             if (!open) toggle(true)
             else window.dispatchEvent(new Event("promptslide:editor-done"))
           }}
         >
           <Pencil size={15} />
-          {!open && <span>Edit</span>}
-        </button>,
+        </ToolbarAction>,
         slots.toolbar
       )}
-      {mounted && <Studio token={token} close={() => toggle(false)} {...slots} />}
+      {open && <Studio token={token} close={() => toggle(false)} {...slots} />}
     </>
   )
 }

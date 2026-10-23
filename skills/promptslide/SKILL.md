@@ -157,8 +157,12 @@ Register it in `src/deck-config.ts`:
 import type { SlideConfig } from "promptslide";
 import { SlideExample } from "@/slides/slide-example";
 
-export const slides: SlideConfig[] = [{ component: SlideExample, steps: 0 }];
+export const slides: SlideConfig[] = [
+  { id: "example", title: "Example", component: SlideExample, steps: 0 }
+];
 ```
+
+Give every slide a readable, capitalized `title` for the thumbnail rail and slide settings (for example, `title: "Problem"` or `title: "How It Works"`). Preserve brand and acronym casing. Keep the stable `id` lowercase and hyphenated for links, for example `id: "how-it-works"`; do not use the ID as the display title.
 
 ### Layouts (Master Themes)
 
@@ -177,6 +181,10 @@ Use `<Animated>` for click-to-reveal steps and `<AnimatedGroup>` for staggered r
 - `<Animated>` renders a wrapper `<div>`. When inside a **grid or flex container**, you MUST pass layout classes (`h-full`, `w-full`, `col-span-*`) via `className` on the `<Animated>`, not only on the inner child — otherwise the wrapper collapses and breaks the layout.
 
 For the full animation API, see [references/animation-api.md](references/animation-api.md).
+
+### Auto-loop Presentations
+
+For convention displays, kiosks, or timed playback, read [references/auto-loop.md](references/auto-loop.md). Configure the built-in loop using code or Studio's Slide inspector; define the initial view and each click step's duration, and exclude slides as needed. Use project-root `loop-config.json` when timings must travel through CLI builds and registry publishing.
 
 ### Styling Constraints (PDF Compatibility)
 

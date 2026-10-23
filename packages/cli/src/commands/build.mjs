@@ -4,6 +4,7 @@ import { resolve, join } from "node:path"
 import { build as viteBuild } from "vite"
 
 import { bold, green, dim } from "../utils/ansi.mjs"
+import { readLoopConfig, DEFAULT_LOOP_CONFIG } from "../utils/loop-config.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 import { createViteConfig } from "../vite/config.mjs"
 
@@ -36,9 +37,11 @@ import { StrictMode, createElement } from "react"
 import { createRoot } from "react-dom/client"
 import "${globals}"
 import App from "${app}"
+import { LoopConfigProvider } from "promptslide"
+const loopConfig = ${JSON.stringify(readLoopConfig(cwd) ?? DEFAULT_LOOP_CONFIG)}
 
 createRoot(document.getElementById("root")).render(
-  createElement(StrictMode, null, createElement(App))
+  createElement(StrictMode, null, createElement(LoopConfigProvider, { config: loopConfig }, createElement(App)))
 )
 `
 }

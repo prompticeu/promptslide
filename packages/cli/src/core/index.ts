@@ -3,6 +3,8 @@ export type {
   SlideProps,
   SlideComponent,
   SlideConfig,
+  LoopConfig,
+  LoopSlideConfig,
   NavigationDirection
 } from "./types"
 
@@ -51,10 +53,7 @@ export { Morph, MorphGroup, MorphItem, MorphText } from "./morph"
 
 // Navigation Hook
 export { useSlideNavigation } from "./use-slide-navigation"
-export type {
-  UseSlideNavigationOptions,
-  UseSlideNavigationReturn
-} from "./use-slide-navigation"
+export type { UseSlideNavigationOptions, UseSlideNavigationReturn } from "./use-slide-navigation"
 
 // Theme
 export { SlideThemeProvider, useTheme } from "./theme-context"
@@ -75,7 +74,14 @@ export { SlideErrorBoundary } from "./slide-error-boundary"
 
 // Annotations
 export { AnnotationOverlay, useAnnotations, createHttpAdapter } from "./annotations"
-export type { Annotation, AnnotationsFile, AnnotationStorageAdapter, AnnotationTarget } from "./annotations"
+export type {
+  Annotation,
+  AnnotationsFile,
+  AnnotationStorageAdapter,
+  AnnotationTarget
+} from "./annotations"
 
 // Utils
 export { cn } from "./utils"
+
+export { LoopConfigProvider } from "./loop/context"

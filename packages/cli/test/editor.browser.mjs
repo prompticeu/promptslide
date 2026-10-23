@@ -51,6 +51,15 @@ writeFileSync(
   join(root, "public/pixel.png"),
   Buffer.from(original.match(/base64,([^" ]+)/)[1], "base64")
 )
+// Chrome fetches the default favicon outside Playwright's page response events.
+// Keep strict console assertions focused on the editor by supplying a fixture icon.
+writeFileSync(
+  join(root, "public/favicon.ico"),
+  Buffer.from(
+    "AAABAAEAAQEAAAEAIABEAAAAFgAAAIlQTkcNChoKAAAADUlIRFIAAAABAAAAAQgEAAAAtRwMAgAAAAtJREFUeNpj/P8fAAMDAgDvo0WZAAAAAElFTkSuQmCC",
+    "base64"
+  )
+)
 let server, browser
 try {
   // Vite 6 treats port: 0 as its default 5173. Reserve an OS-assigned port
@@ -76,7 +85,8 @@ try {
   cpSync(resolve("packages/cli/src/editor"), editorDirectory, { recursive: true })
   writeFileSync(
     join(root, "src/globals.css"),
-    readFileSync("src/globals.css", "utf8") + `\n@source "${editorDirectory}";\n`
+    readFileSync("src/globals.css", "utf8") +
+      `\n@source "${editorDirectory}";\n@source "${resolve("packages/cli/src/core")}";\n`
   )
   const { editorPlugin } = await import(join(editorDirectory, "plugin.mjs"))
   const config = createViteConfig({ cwd: root })
@@ -188,7 +198,8 @@ try {
   assert.equal(await page.locator(".ps-launch,.ps-canvas,.ps-slide-surface").count(), 0)
   console.log("PASS identical original slide DOM, computed styles and pixels on editor activation")
   const editor = page.locator(".ps-panel")
-  const button = name => editor.getByRole("button", { name, exact: true })
+  const button = name =>
+    (name === "Done editing" ? page : editor).getByRole("button", { name, exact: true })
   const chooseElement = async (name, options = {}) => {
     const summary = editor.getByText("Slide elements", { exact: true })
     if (!(await summary.evaluate(el => el.closest("details").open))) await summary.click()
@@ -239,7 +250,7 @@ try {
   for (const width of [850, 390]) {
     await page.setViewportSize({ width, height: 900 })
     await page.waitForTimeout(300)
-    const panelBox = await editor.boundingBox()
+    const panelBox = await page.locator("[data-ps-inspector]").boundingBox()
     const toolbarBox = await page.locator("[data-ps-viewer-toolbar]").boundingBox()
     assert.equal(Math.round(panelBox.width), 280)
     assert.ok(toolbarBox.x >= 0)

@@ -191,7 +191,8 @@ export async function clone(args) {
     }))
     replaceDeckConfig(targetDir, slides, {
       transition: item.meta.transition,
-      directionalTransition: item.meta.directionalTransition
+      directionalTransition: item.meta.directionalTransition,
+      loopConfig: item.meta.loopConfig
     })
     console.log(
       `  ${green("✓")} Generated ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`

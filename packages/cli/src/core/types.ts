@@ -136,3 +136,17 @@ export interface LayoutBaseProps extends SlideProps {
   hideFooter?: boolean
   className?: string
 }
+
+/** Durations in seconds, including the initial state at dwell[0]. */
+export interface LoopSlideConfig {
+  excluded?: boolean
+  /** Step count when these timings were edited; used to flag changes. */
+  steps?: number
+  dwell?: (number | null)[]
+}
+
+export interface LoopConfig {
+  version: 1
+  defaultDuration: number
+  slides: Record<string, LoopSlideConfig>
+}

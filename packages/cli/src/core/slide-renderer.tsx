@@ -13,6 +13,7 @@ import { DEFAULT_SLIDE_TRANSITION, getSlideVariants } from "./transitions"
 // =============================================================================
 
 export interface SlideRendererProps {
+  playbackKey?: number
   slides: SlideConfig[]
   currentSlide: number
   animationStep: number
@@ -33,6 +34,7 @@ export interface SlideRendererProps {
  * Extracted from SlideDeck so it can be reused in SlideEmbed and other contexts.
  */
 export function SlideRenderer({
+  playbackKey,
   slides,
   currentSlide,
   animationStep,
@@ -77,7 +79,11 @@ export function SlideRenderer({
           showAllAnimations={showAllAnimations}
         >
           <SlideErrorBoundary slideIndex={currentSlide} slideTitle={slides[currentSlide]?.title}>
-            <CurrentSlideComponent slideNumber={currentSlide + 1} totalSlides={slides.length} />
+            <CurrentSlideComponent
+              key={playbackKey}
+              slideNumber={currentSlide + 1}
+              totalSlides={slides.length}
+            />
           </SlideErrorBoundary>
         </AnimationProvider>
       </motion.div>

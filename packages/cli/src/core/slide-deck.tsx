@@ -1,40 +1,66 @@
 import { LayoutGroup } from "framer-motion"
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
-  Grid3X3,
-  List,
   MessageCircle,
-  Monitor,
   PanelLeftClose,
   PanelLeftOpen,
-  Play
+  Play,
+  Settings2
 } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import type { Annotation, AnnotationTarget } from "./annotations"
 import type { SlideTransitionType } from "./transitions"
-import type { SlideConfig } from "./types"
+import type { LoopConfig, SlideConfig } from "./types"
 
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
 import { AnnotationOverlay, AnnotationPanel, useAnnotations } from "./annotations"
+import { Inspector, type InspectorMode } from "./inspector"
+import {
+  DEFAULT_LOOP_CONFIG,
+  includedSlides,
+  loopSlideKey,
+  validateLoopConfig
+} from "./loop/config.mjs"
+import { useDefaultLoopConfig } from "./loop/context"
+import { LoopSettings } from "./loop/loop-settings"
+import { useLoopPlayback } from "./loop/use-loop-playback"
 import { SlideErrorBoundary } from "./slide-error-boundary"
 import { SlideRenderer } from "./slide-renderer"
+import { ToolbarAction } from "./toolbar-action"
 import { useSlideNavigation } from "./use-slide-navigation"
 import { cn } from "./utils"
+import { ViewMenu, type ViewMode } from "./view-menu"
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-type ViewMode = "slide" | "list" | "grid"
 const NARROW_VIEWPORT_WIDTH = 768
 const DEFAULT_THUMBNAIL_WIDTH = 240
 const MIN_THUMBNAIL_WIDTH = 176
 const MAX_THUMBNAIL_WIDTH = 480
 const THUMBNAIL_WIDTH_STORAGE_KEY = "promptslide:thumbnail-width"
+
+function loadLoopConfig(base: LoopConfig, storageKey: string): LoopConfig {
+  let fallback = DEFAULT_LOOP_CONFIG
+  try {
+    fallback = validateLoopConfig(base)
+  } catch {
+    /* Invalid host settings use defaults. */
+  }
+  try {
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "null")
+    if (saved?.base === JSON.stringify(base)) return validateLoopConfig(saved.config)
+  } catch {
+    /* Storage may be disabled or stale. */
+  }
+  return fallback
+}
 
 function GridThumbnail({
   slide,
@@ -121,6 +147,10 @@ interface SlideDeckProps {
   slides: SlideConfig[]
   transition?: SlideTransitionType
   directionalTransition?: boolean
+  /** Overrides the CLI-provided loop settings. */
+  loopConfig?: LoopConfig
+  /** Persist settings in a custom host. CLI Studio saves loop-config.json automatically. */
+  onLoopConfigChange?: (config: LoopConfig) => void | Promise<void>
   /** Annotation data to display. When provided (even empty array), annotation UI is enabled. When undefined, annotation UI is hidden. */
   annotations?: Annotation[]
   /** Called when the user creates an annotation */
@@ -195,6 +225,8 @@ export function SlideDeck({
   slides,
   transition,
   directionalTransition,
+  loopConfig: suppliedLoopConfig,
+  onLoopConfigChange,
   annotations,
   onAnnotationAdd,
   onAnnotationDelete,
@@ -239,26 +271,104 @@ export function SlideDeck({
 
   const [viewMode, setViewMode] = useState<ViewMode>("slide")
   const [isEditorOpen, setIsEditorOpen] = useState(false)
+  const editorOpenRef = useRef(false)
+  const [editorAvailable, setEditorAvailable] = useState(false)
+  const [inspectorMode, setInspectorMode] = useState<InspectorMode | null>(null)
+  const pendingInspector = useRef<InspectorMode | null | undefined>(undefined)
   const [editorRevision, setEditorRevision] = useState(0)
+  const activateInspector = useCallback((mode: InspectorMode | null) => {
+    setInspectorMode(mode)
+    setLoopMenuOpen(false)
+    if (mode) setViewMode("slide")
+    if (mode !== "comments") {
+      setSelectedAnnotationId(null)
+      setHoveredAnnotationId(null)
+    }
+  }, [])
+  const requestInspector = useCallback(
+    (mode: InspectorMode | null) => {
+      if (isEditorOpen) {
+        if (mode === "editor") return
+        pendingInspector.current = mode
+        window.dispatchEvent(
+          new CustomEvent("promptslide:editor-request", { detail: { open: false } })
+        )
+        return
+      }
+      if (mode === "editor") {
+        if (editorAvailable)
+          window.dispatchEvent(
+            new CustomEvent("promptslide:editor-request", { detail: { open: true } })
+          )
+        return
+      }
+      activateInspector(mode)
+    },
+    [isEditorOpen, editorAvailable, activateInspector]
+  )
   useEffect(() => {
     const onEditorState = (event: Event) => {
       const open = Boolean((event as CustomEvent).detail?.open)
+      const changed = editorOpenRef.current !== open
+      editorOpenRef.current = open
       setIsEditorOpen(open)
       if (open) {
-        setViewMode("slide")
-        setIsAnnotationMode(false)
-        setShowAnnotationPanel(false)
+        if (changed) pendingInspector.current = undefined
+        activateInspector("editor")
+      } else if (changed) {
+        const next = pendingInspector.current
+        pendingInspector.current = undefined
+        activateInspector(next === undefined ? null : next)
       }
+    }
+    const onEditorReady = (event: Event) =>
+      setEditorAvailable(Boolean((event as CustomEvent).detail?.available))
+    const onCloseCancelled = () => {
+      pendingInspector.current = undefined
     }
     const refreshEditor = () => setEditorRevision(value => value + 1)
     window.addEventListener("promptslide:editor-state", onEditorState)
+    window.addEventListener("promptslide:editor-ready", onEditorReady)
+    window.addEventListener("promptslide:editor-close-cancelled", onCloseCancelled)
     window.addEventListener("promptslide:editor-refresh", refreshEditor)
     return () => {
       window.removeEventListener("promptslide:editor-state", onEditorState)
+      window.removeEventListener("promptslide:editor-ready", onEditorReady)
+      window.removeEventListener("promptslide:editor-close-cancelled", onCloseCancelled)
       window.removeEventListener("promptslide:editor-refresh", refreshEditor)
     }
-  }, [])
+  }, [activateInspector])
   const [isPresentationMode, setIsPresentationMode] = useState(false)
+  const providedLoopConfig = useDefaultLoopConfig()
+  const defaultLoopConfig = suppliedLoopConfig ?? providedLoopConfig
+  const storageKey = `promptslide:loop:${typeof location === "undefined" ? "" : location.pathname}:${JSON.stringify(slides.map(loopSlideKey))}`
+  const [loopConfig, setLoopConfig] = useState<LoopConfig>(() =>
+    loadLoopConfig(defaultLoopConfig, storageKey)
+  )
+  const [loopDraft, setLoopDraft] = useState<LoopConfig>(() =>
+    loadLoopConfig(defaultLoopConfig, storageKey)
+  )
+  const [isLooping, setIsLooping] = useState(false)
+  const [loopMenuOpen, setLoopMenuOpen] = useState(false)
+  const [loopError, setLoopError] = useState("")
+  const [loopStartScreen, setLoopStartScreen] = useState(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).has("loop")
+  )
+  const loopMenuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const config = loadLoopConfig(defaultLoopConfig, storageKey)
+    setLoopConfig(config)
+    setLoopDraft(config)
+    setIsLooping(false)
+  }, [defaultLoopConfig, storageKey])
+  useEffect(() => {
+    if (!loopMenuOpen) return
+    const close = (event: PointerEvent) => {
+      if (!loopMenuRef.current?.contains(event.target as Node)) setLoopMenuOpen(false)
+    }
+    document.addEventListener("pointerdown", close)
+    return () => document.removeEventListener("pointerdown", close)
+  }, [loopMenuOpen])
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === "undefined" ? 1280 : window.innerWidth
   )
@@ -272,8 +382,7 @@ export function SlideDeck({
       ? Math.min(savedWidth, MAX_THUMBNAIL_WIDTH)
       : DEFAULT_THUMBNAIL_WIDTH
   })
-  const [isAnnotationMode, setIsAnnotationMode] = useState(false)
-  const [showAnnotationPanel, setShowAnnotationPanel] = useState(false)
+  const isAnnotationMode = inspectorMode === "comments"
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
   const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null)
   const [isResizingThumbnails, setIsResizingThumbnails] = useState(false)
@@ -318,8 +427,7 @@ export function SlideDeck({
     if (isNarrowViewport !== wasNarrowViewportRef.current) {
       setShowThumbnailRail(isNarrowViewport ? false : preferredRailOpenRef.current)
       if (isNarrowViewport) {
-        setIsAnnotationMode(false)
-        setShowAnnotationPanel(false)
+        setInspectorMode(mode => (mode === "comments" ? null : mode))
         setSelectedAnnotationId(null)
       }
       wasNarrowViewportRef.current = isNarrowViewport
@@ -415,15 +523,94 @@ export function SlideDeck({
     currentSlide,
     animationStep,
     totalSteps,
+    isTransitioning,
     direction,
     showAllAnimations,
     advance,
     goBack,
     goToSlide,
+    goToStep,
+    restartAtSlide,
     onTransitionComplete
   } = useSlideNavigation({
     slides
   })
+
+  const playback = useLoopPlayback({
+    config: loopConfig,
+    slides,
+    currentSlide,
+    animationStep,
+    isTransitioning,
+    enabled: isLooping && isPresentationMode,
+    advance,
+    goBack,
+    restartAtSlide
+  })
+  const rememberLoopConfig = (config: LoopConfig) => {
+    setLoopConfig(config)
+    setLoopDraft(config)
+    try {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({ base: JSON.stringify(defaultLoopConfig), config })
+      )
+      return true
+    } catch {
+      return false
+    }
+  }
+  const saveLoopConfig = async (config: LoopConfig) => {
+    const savedInBrowser = rememberLoopConfig(config)
+    if (onLoopConfigChange) {
+      await onLoopConfigChange(config)
+      return "Loop settings saved."
+    }
+    try {
+      const response = await fetch("/__promptslide_loop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config)
+      })
+      if (response.status === 204)
+        return "Saved to loop-config.json. Included in future builds and publishing."
+      if (response.status !== 404 && response.status !== 405)
+        throw new Error(
+          "Studio could not save loop-config.json. Download the settings to keep a copy."
+        )
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith("Studio")) throw error
+    }
+    return savedInBrowser
+      ? "Saved in this browser. Download settings and place loop-config.json in the project folder to share or publish them."
+      : "Applied for this session. Browser storage is unavailable; download the settings to keep them."
+  }
+  const startLoop = async (config = loopDraft) => {
+    if (isEditorOpen) return
+    const first = includedSlides(config, slides)[0]
+    if (first === undefined) {
+      setLoopError("Include at least one slide before starting the loop.")
+      return
+    }
+    setLoopError("")
+    try {
+      // Request synchronously from the click, before any asynchronous work.
+      if (!document.fullscreenElement) await document.documentElement.requestFullscreen()
+      rememberLoopConfig(config)
+      setLoopDraft(config)
+      setViewMode("slide")
+      setInspectorMode(null)
+      setLoopMenuOpen(false)
+      setLoopStartScreen(false)
+      playback.setPaused(false)
+      playback.restart(first)
+      setIsLooping(true)
+    } catch {
+      setLoopError(
+        "Full screen could not start. Allow full screen in your browser, then try again."
+      )
+    }
+  }
 
   const togglePresentationMode = useCallback(async () => {
     if (!document.fullscreenElement) {
@@ -437,6 +624,7 @@ export function SlideDeck({
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsPresentationMode(!!document.fullscreenElement)
+      if (!document.fullscreenElement) setIsLooping(false)
     }
     document.addEventListener("fullscreenchange", handleFullscreenChange)
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange)
@@ -486,14 +674,8 @@ export function SlideDeck({
   }, [viewMode, isPresentationMode])
 
   const toggleCommentMode = useCallback(() => {
-    const next = !isAnnotationMode
-    setIsAnnotationMode(next)
-    setShowAnnotationPanel(next)
-    if (!next) {
-      setSelectedAnnotationId(null)
-      setHoveredAnnotationId(null)
-    }
-  }, [isAnnotationMode])
+    requestInspector(isAnnotationMode && viewMode === "slide" ? null : "comments")
+  }, [isAnnotationMode, viewMode, requestInspector])
 
   const handleExportPdf = useCallback(async () => {
     try {
@@ -533,6 +715,28 @@ export function SlideDeck({
       const key = e.key.toLowerCase()
       if (e.repeat && "fvglcdt".includes(key)) return
       if (isEditorOpen && ["f", "v", "g", "l", "c", "d"].includes(key)) return
+
+      if (loopStartScreen) return
+      if (loopMenuOpen) {
+        if (e.key === "Escape") {
+          setLoopMenuOpen(false)
+          loopMenuRef.current?.querySelector("button")?.focus()
+        }
+        return
+      }
+      if (isLooping) {
+        if (e.key === "Escape") {
+          setIsLooping(false)
+          if (document.fullscreenElement) void document.exitFullscreen().catch(() => {})
+        } else if (e.key === " ") {
+          e.preventDefault()
+          if (!e.repeat) playback.setPaused(value => !value)
+        } else if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+          e.preventDefault()
+          playback.move(e.key === "ArrowRight" ? 1 : -1)
+        }
+        return
+      }
 
       if (key === "f") {
         e.preventDefault()
@@ -592,6 +796,10 @@ export function SlideDeck({
   }, [
     advance,
     goBack,
+    playback,
+    isLooping,
+    loopMenuOpen,
+    loopStartScreen,
     viewMode,
     togglePresentationMode,
     isAnnotationMode,
@@ -603,7 +811,8 @@ export function SlideDeck({
     handleExportPdf
   ])
 
-  const editorPanelWidth = viewportWidth <= 850 ? 280 : 320
+  const inspectorWidth = viewportWidth <= 850 ? 280 : 320
+  const inspectorVisible = inspectorMode !== null && !isPresentationMode && viewMode === "slide"
 
   return (
     <div className="min-h-screen w-full bg-neutral-950 text-foreground">
@@ -654,102 +863,145 @@ export function SlideDeck({
         }
       `}</style>
 
+      {loopError && (
+        <div
+          role="alert"
+          className="fixed bottom-4 left-4 z-[110] max-w-md rounded-lg border border-red-700 bg-neutral-950 p-4 text-sm text-red-300"
+        >
+          {loopError}
+          <button className="ml-3 underline" onClick={() => setLoopError("")}>
+            Dismiss
+          </button>
+        </div>
+      )}
+      {loopStartScreen && (
+        <div className="fixed inset-0 z-[90] flex flex-col items-center justify-center gap-5 bg-neutral-950 text-white">
+          <h1 className="text-3xl font-semibold">Ready to loop</h1>
+          <p className="text-neutral-400">Space pauses or resumes. Escape stops the loop.</p>
+          <button
+            className="rounded-lg border border-orange-500 px-6 py-3 text-orange-400"
+            onClick={() => void startLoop()}
+          >
+            Click to start
+          </button>
+          <button
+            className="text-sm text-neutral-400 underline"
+            onClick={() => {
+              setLoopStartScreen(false)
+              requestInspector("slide")
+            }}
+          >
+            Configure loop
+          </button>
+        </div>
+      )}
+      {isLooping && playback.paused && (
+        <div
+          role="status"
+          className="pointer-events-none fixed bottom-4 left-4 z-[90] rounded-md bg-neutral-950 px-4 py-2 text-sm text-white"
+        >
+          Loop paused · Space to resume
+        </div>
+      )}
+
       {/* Toolbar */}
       <div
         data-ps-viewer-toolbar
         style={
-          isEditorOpen
-            ? { right: editorPanelWidth + 16, maxWidth: `calc(100vw - ${editorPanelWidth + 32}px)` }
+          inspectorVisible
+            ? { right: inspectorWidth + 16, maxWidth: `calc(100vw - ${inspectorWidth + 32}px)` }
             : undefined
         }
         className={cn(
-          "fixed top-4 z-50 flex gap-1 rounded-lg border border-neutral-800 bg-neutral-950/90 p-1 backdrop-blur-sm transition-[right] duration-200 ease-out print:hidden",
-          (isPresentationMode || (isNarrowViewport && isAnnotationMode && showAnnotationPanel)) &&
+          "fixed top-4 z-50 flex flex-wrap gap-1 rounded-lg border border-neutral-800 bg-neutral-950/90 p-1 backdrop-blur-sm transition-[right] duration-200 ease-out print:hidden",
+          (isPresentationMode || (isNarrowViewport && inspectorVisible && !isEditorOpen)) &&
             "hidden",
-          isEditorOpen && "flex-wrap",
           isEditorOpen && viewportWidth <= 850 && "[&_button:disabled]:hidden [&>div]:hidden",
-          !isEditorOpen && (isAnnotationMode && showAnnotationPanel ? "right-[21rem]" : "right-4")
+          !inspectorVisible && "right-4"
         )}
       >
-        <button
-          onClick={() => setViewMode("slide")}
-          className={cn(
-            "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-            viewMode === "slide" && "bg-neutral-800 text-white"
-          )}
-          disabled={isEditorOpen}
-          title="Presentation View (V)"
-        >
-          <Monitor className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => setViewMode("list")}
-          className={cn(
-            "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-            viewMode === "list" && "bg-neutral-800 text-white"
-          )}
-          disabled={isEditorOpen}
-          title="List View (L)"
-        >
-          <List className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => setViewMode("grid")}
-          className={cn(
-            "rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white",
-            viewMode === "grid" && "bg-neutral-800 text-white"
-          )}
-          disabled={isEditorOpen}
-          title="Grid View (G)"
-        >
-          <Grid3X3 className="h-4 w-4" />
-        </button>
+        <ViewMenu value={viewMode} onChange={setViewMode} disabled={isEditorOpen} />
 
         <div className="mx-1 w-px bg-neutral-800" />
 
-        <button
+        <ToolbarAction
           onClick={toggleCommentMode}
-          className={cn(
-            "relative inline-flex h-8 items-center justify-center gap-1.5 rounded-md font-[family-name:system-ui] text-[13px] leading-none font-medium transition-colors",
-            isAnnotationMode
-              ? "border border-[#FF6B35]/50 bg-[#FF6B35]/15 p-[7px] text-[#FF6B35] hover:border-[#FF6B35] hover:bg-[#FF6B35]/25"
-              : "px-2.5 text-neutral-400 hover:bg-neutral-800 hover:text-white"
-          )}
-          disabled={isEditorOpen}
-          aria-label="Comment"
-          aria-pressed={isAnnotationMode}
+          label="Comment"
+          selected={isAnnotationMode}
           title="Comment (C)"
         >
           <MessageCircle className="h-[15px] w-[15px] shrink-0" />
-          {!isAnnotationMode && <span>Comment</span>}
           {openCount > 0 && (
             <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#FF6B35] text-[10px] font-bold text-white">
               {openCount}
             </span>
           )}
-        </button>
+        </ToolbarAction>
 
         <span data-ps-editor-toolbar className="contents" />
+        <ToolbarAction
+          label="Slide settings"
+          selected={inspectorMode === "slide" && inspectorVisible}
+          onClick={() =>
+            requestInspector(inspectorMode === "slide" && inspectorVisible ? null : "slide")
+          }
+        >
+          <Settings2 size={16} />
+        </ToolbarAction>
 
         <div className="mx-1 w-px bg-neutral-800" />
 
-        <button
+        <ToolbarAction
           onClick={handleExportPdf}
-          className="rounded-md p-2 text-neutral-400 transition-colors hover:bg-neutral-800 hover:text-white"
           disabled={isEditorOpen}
+          label="Download PDF"
           title="Download PDF (D)"
         >
           <Download className="h-4 w-4" />
-        </button>
-        <button
-          onClick={togglePresentationMode}
-          className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md border border-[#FF6B35]/50 bg-[#FF6B35]/15 px-3 text-sm font-semibold text-[#FF6B35] transition-colors hover:border-[#FF6B35] hover:bg-[#FF6B35]/25"
-          disabled={isEditorOpen}
-          title="Present (F)"
-        >
-          <Play className="h-3.5 w-3.5 fill-current" />
-          <span>Present</span>
-        </button>
+        </ToolbarAction>
+        <div ref={loopMenuRef} className="relative flex">
+          <button
+            onClick={togglePresentationMode}
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-l-md border border-[#FF6B35]/50 bg-[#FF6B35]/15 px-3 text-sm font-semibold text-[#FF6B35] transition-colors hover:border-[#FF6B35] hover:bg-[#FF6B35]/25"
+            disabled={isEditorOpen}
+            title="Present (F)"
+          >
+            <Play className="h-3.5 w-3.5 fill-current" />
+            <span>Present</span>
+          </button>
+          <button
+            disabled={isEditorOpen}
+            aria-label="Presentation options"
+            aria-expanded={loopMenuOpen}
+            aria-controls="presentation-options"
+            className="rounded-r-md border border-l-0 border-[#FF6B35]/50 bg-[#FF6B35]/15 px-2 text-[#FF6B35] hover:bg-[#FF6B35]/25"
+            onClick={() => setLoopMenuOpen(value => !value)}
+          >
+            <ChevronDown size={16} />
+          </button>
+          {loopMenuOpen && (
+            <div
+              id="presentation-options"
+              className="absolute right-0 top-10 w-52 rounded-lg border border-neutral-700 bg-neutral-950 p-1 text-sm text-white"
+            >
+              <button
+                className="w-full rounded px-3 py-2 text-left hover:bg-neutral-800"
+                onClick={() => void startLoop()}
+              >
+                Auto-loop
+              </button>
+              <button
+                className="w-full rounded px-3 py-2 text-left hover:bg-neutral-800"
+                onClick={() => {
+                  setLoopMenuOpen(false)
+                  requestInspector("slide")
+                }}
+              >
+                Configure loop…
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Slide View */}
@@ -812,6 +1064,11 @@ export function SlideDeck({
                           )}
                         >
                           <div className="relative aspect-video w-full overflow-hidden rounded bg-black">
+                            {loopDraft.slides[loopSlideKey(slideConfig, index)]?.excluded && (
+                              <span className="absolute right-1 top-1 z-10 rounded border border-neutral-700 bg-neutral-950 px-1.5 py-0.5 text-[9px] text-neutral-400">
+                                Skip in loop
+                              </span>
+                            )}
                             <GridThumbnail
                               slide={slideConfig}
                               index={index}
@@ -883,7 +1140,8 @@ export function SlideDeck({
                 aria-hidden={isThumbnailRailVisible || isResizingThumbnails}
                 inert={isThumbnailRailVisible || isResizingThumbnails}
                 className={cn(
-                  "fixed top-4 left-4 z-50 rounded-lg border border-neutral-800 bg-neutral-950/90 backdrop-blur-sm transition-opacity duration-150 motion-reduce:transition-none",
+                  "fixed left-4 z-50 rounded-lg border border-neutral-800 bg-neutral-950/90 backdrop-blur-sm transition-opacity duration-150 motion-reduce:transition-none",
+                  isNarrowViewport && !inspectorVisible ? "top-16" : "top-4",
                   isThumbnailRailVisible || isResizingThumbnails
                     ? "pointer-events-none opacity-0"
                     : "opacity-100 delay-200"
@@ -904,16 +1162,24 @@ export function SlideDeck({
           <div
             ref={containerRef}
             role="presentation"
+            data-loop-running={isLooping ? "true" : undefined}
             tabIndex={isPresentationMode ? 0 : undefined}
             className={cn(
               "flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden",
-              isPresentationMode ? "bg-black p-0" : "p-4 md:p-8"
+              isPresentationMode ? `bg-black p-0 ${isLooping ? "cursor-none" : ""}` : "p-4 md:p-8"
             )}
-            onClick={isPresentationMode ? advance : undefined}
+            onClick={
+              isPresentationMode ? () => (isLooping ? playback.move(1) : advance()) : undefined
+            }
             onKeyDown={
               isPresentationMode
                 ? e => {
-                    if (e.key === "Enter" || e.key === " ") advance()
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      if (isLooping) playback.move(1)
+                      else advance()
+                    }
                   }
                 : undefined
             }
@@ -930,6 +1196,7 @@ export function SlideDeck({
                   }}
                 >
                   <SlideRenderer
+                    playbackKey={isLooping ? playback.epoch : undefined}
                     slides={slides}
                     currentSlide={currentSlide}
                     animationStep={animationStep}
@@ -978,7 +1245,7 @@ export function SlideDeck({
                         selectedId={selectedAnnotationId}
                         hoveredId={hoveredAnnotationId}
                         onSelectId={setSelectedAnnotationId}
-                        onShowPanel={() => setShowAnnotationPanel(true)}
+                        onShowPanel={() => requestInspector("comments")}
                         slideAnnotations={getSlideAnnotations(currentSlide)}
                         addAnnotation={effectiveAdd ?? (() => {})}
                       />
@@ -1018,62 +1285,42 @@ export function SlideDeck({
             )}
           </div>
 
-          <div
-            data-ps-editor-panel
-            data-open={isEditorOpen}
-            aria-hidden={!isEditorOpen}
-            inert={!isEditorOpen}
-            className="h-full shrink-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none"
-            style={{ width: isEditorOpen ? editorPanelWidth : 0 }}
+          <Inspector
+            mode={inspectorMode}
+            visible={inspectorVisible}
+            editorAvailable={editorAvailable}
+            width={inspectorWidth}
+            overlay={isNarrowViewport}
+            onSelect={requestInspector}
+            onClose={() => requestInspector(null)}
+            slideSettings={
+              <LoopSettings
+                slides={slides}
+                currentSlide={currentSlide}
+                animationStep={animationStep}
+                config={loopDraft}
+                onChange={setLoopDraft}
+                onStepChange={goToStep}
+                onSave={saveLoopConfig}
+                onStart={config => void startLoop(config)}
+                onRevert={() => setLoopDraft(loopConfig)}
+                dirty={JSON.stringify(loopDraft) !== JSON.stringify(loopConfig)}
+              />
+            }
+            comments={
+              <AnnotationPanel
+                embedded
+                annotations={getSlideAnnotations(currentSlide)}
+                unlinkedAnnotations={unlinkedAnnotations}
+                selectedId={selectedAnnotationId}
+                onSelect={setSelectedAnnotationId}
+                onHover={setHoveredAnnotationId}
+                onDelete={effectiveDelete ?? (() => {})}
+                onUpdate={effectiveUpdate ?? (() => {})}
+                onClose={() => requestInspector(null)}
+              />
+            }
           />
-
-          {/* Annotation Panel — beside the slide */}
-          {!isPresentationMode && (
-            <div
-              aria-hidden={!isAnnotationMode || !showAnnotationPanel}
-              inert={!isAnnotationMode || !showAnnotationPanel}
-              className={cn(
-                "h-full shrink-0 overflow-hidden transition-[width,transform] duration-200 ease-out motion-reduce:transition-none",
-                isNarrowViewport && "fixed inset-y-0 right-0 z-50 shadow-xl",
-                isNarrowViewport &&
-                  (!isAnnotationMode || !showAnnotationPanel) &&
-                  "translate-x-full"
-              )}
-              style={{
-                width:
-                  isAnnotationMode && showAnnotationPanel
-                    ? isNarrowViewport
-                      ? "min(20rem, 90vw)"
-                      : "20rem"
-                    : 0
-              }}
-            >
-              <div
-                className={cn(
-                  "h-full transition-opacity motion-reduce:transition-none",
-                  isAnnotationMode && showAnnotationPanel
-                    ? "opacity-100 delay-100 duration-100"
-                    : "opacity-0 duration-75"
-                )}
-              >
-                <AnnotationPanel
-                  annotations={getSlideAnnotations(currentSlide)}
-                  unlinkedAnnotations={unlinkedAnnotations}
-                  selectedId={selectedAnnotationId}
-                  onSelect={setSelectedAnnotationId}
-                  onHover={setHoveredAnnotationId}
-                  onDelete={effectiveDelete ?? (() => {})}
-                  onUpdate={effectiveUpdate ?? (() => {})}
-                  onClose={() => {
-                    setIsAnnotationMode(false)
-                    setShowAnnotationPanel(false)
-                    setSelectedAnnotationId(null)
-                    setHoveredAnnotationId(null)
-                  }}
-                />
-              </div>
-            </div>
-          )}
         </div>
       )}
 

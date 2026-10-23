@@ -231,12 +231,14 @@ export async function create(args) {
       const slides = available.map(s => ({
         componentName: s.componentName || toPascalCase(s.slug),
         importPath: `@/slides/${s.slug}`,
+        id: s.id,
         steps: s.steps,
         section: s.section
       }))
       replaceDeckConfig(targetDir, slides, {
         transition: fromItem.meta.transition,
-        directionalTransition: fromItem.meta.directionalTransition
+        directionalTransition: fromItem.meta.directionalTransition,
+        loopConfig: fromItem.meta.loopConfig
       })
       console.log(`  ${green("✓")} Generated ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`)
     }
