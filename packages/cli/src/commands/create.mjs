@@ -6,10 +6,14 @@ import { fileURLToPath } from "node:url"
 import { bold, green, cyan, red, dim, yellow } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { hexToOklch, isValidHex } from "../utils/colors.mjs"
-import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
-import { fetchRegistryItem, resolveRegistryDependencies, writeLockfile } from "../utils/registry.mjs"
 import { toPascalCase, replaceDeckConfig } from "../utils/deck-config.mjs"
 import { collectRegistrySlideSlugs, partitionDeckSlides } from "../utils/deck-sync.mjs"
+import { prompt, confirm, closePrompts } from "../utils/prompts.mjs"
+import {
+  fetchRegistryItem,
+  resolveRegistryDependencies,
+  writeLockfile
+} from "../utils/registry.mjs"
 import { ensureTsConfig } from "../utils/tsconfig.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -43,13 +47,17 @@ export async function create(args) {
   const useDefaults = args.includes("--yes") || args.includes("-y")
   const fromIdx = args.findIndex(a => a === "--from")
   const fromSlug = fromIdx >= 0 ? args[fromIdx + 1] : null
-  const filteredArgs = args.filter((a, i) => a !== "--yes" && a !== "-y" && a !== "--from" && !(fromIdx >= 0 && i === fromIdx + 1))
+  const filteredArgs = args.filter(
+    (a, i) => a !== "--yes" && a !== "-y" && a !== "--from" && !(fromIdx >= 0 && i === fromIdx + 1)
+  )
 
   // 1. Parse directory name from args or prompt
   let dirName = filteredArgs[0]
 
   if (dirName === "--help" || dirName === "-h") {
-    console.log(`  ${bold("Usage:")} promptslide create ${dim("[project-directory]")} ${dim("[options]")}`)
+    console.log(
+      `  ${bold("Usage:")} promptslide create ${dim("[project-directory]")} ${dim("[options]")}`
+    )
     console.log()
     console.log(`  Scaffolds a new PromptSlide slide deck project.`)
     console.log()
@@ -80,7 +88,9 @@ export async function create(args) {
     }
 
     if (fromItem.type !== "deck") {
-      console.error(`  ${red("Error:")} "${fromSlug}" is a ${fromItem.type}, not a deck. Use --from with a published deck.`)
+      console.error(
+        `  ${red("Error:")} "${fromSlug}" is a ${fromItem.type}, not a deck. Use --from with a published deck.`
+      )
       closePrompts()
       process.exit(1)
     }
@@ -93,8 +103,12 @@ export async function create(args) {
       const localParts = CLI_VERSION.match(/^(\d+)\.(\d+)/)
       if (pubParts && localParts && pubParts[2] !== localParts[2]) {
         console.log()
-        console.log(`  ${yellow("⚠")} This deck was published with promptslide ${bold(`v${fromItem.promptslideVersion}`)}`)
-        console.log(`    You have ${bold(`v${CLI_VERSION}`)} installed — some slides may need updating.`)
+        console.log(
+          `  ${yellow("⚠")} This deck was published with promptslide ${bold(`v${fromItem.promptslideVersion}`)}`
+        )
+        console.log(
+          `    You have ${bold(`v${CLI_VERSION}`)} installed — some slides may need updating.`
+        )
       }
     }
 
@@ -158,7 +172,11 @@ export async function create(args) {
   const replacements = [
     {
       path: join(targetDir, "package.json"),
-      values: { "{{PROJECT_SLUG}}": dirName, "{{PROJECT_NAME}}": projectName, "{{PROMPTSLIDE_VERSION}}": `^${CLI_VERSION}` }
+      values: {
+        "{{PROJECT_SLUG}}": dirName,
+        "{{PROJECT_NAME}}": projectName,
+        "{{PROMPTSLIDE_VERSION}}": `^${CLI_VERSION}`
+      }
     },
     {
       path: join(targetDir, "src", "theme.ts"),
@@ -212,7 +230,10 @@ export async function create(args) {
 
         const dataUriPrefix = file.content.match(/^data:[^;]+;base64,/)
         if (dataUriPrefix) {
-          writeFileSync(targetPath, Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64"))
+          writeFileSync(
+            targetPath,
+            Buffer.from(file.content.slice(dataUriPrefix[0].length), "base64")
+          )
         } else {
           writeFileSync(targetPath, file.content, "utf-8")
         }
@@ -225,20 +246,26 @@ export async function create(args) {
       const registrySlideSlugs = collectRegistrySlideSlugs(resolved.items)
       const { available, missing } = partitionDeckSlides(fromItem.meta.slides, registrySlideSlugs)
       if (missing.length > 0) {
-        console.log(`  ${yellow("⚠")} Skipped ${missing.length} slide(s) listed in the deck but not included in this version:`)
+        console.log(
+          `  ${yellow("⚠")} Skipped ${missing.length} slide(s) listed in the deck but not included in this version:`
+        )
         console.log(`    ${dim(missing.map(s => s.slug).join(", "))}`)
       }
       const slides = available.map(s => ({
         componentName: s.componentName || toPascalCase(s.slug),
         importPath: `@/slides/${s.slug}`,
+        id: s.id,
         steps: s.steps,
         section: s.section
       }))
       replaceDeckConfig(targetDir, slides, {
         transition: fromItem.meta.transition,
-        directionalTransition: fromItem.meta.directionalTransition
+        directionalTransition: fromItem.meta.directionalTransition,
+        loopConfig: fromItem.meta.loopConfig
       })
-      console.log(`  ${green("✓")} Generated ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`)
+      console.log(
+        `  ${green("✓")} Generated ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`
+      )
     }
 
     // Add npm dependencies from the deck to package.json
@@ -255,7 +282,9 @@ export async function create(args) {
     }
 
     // New deck identity — deckSlug stays as dirName (set in initial lockfile scaffold)
-    console.log(`  ${dim("Deck slug set to")} ${bold(dirName)} ${dim("(publish will create a new deck)")}`)
+    console.log(
+      `  ${dim("Deck slug set to")} ${bold(dirName)} ${dim("(publish will create a new deck)")}`
+    )
 
     console.log()
   }
@@ -265,7 +294,9 @@ export async function create(args) {
 
   // 9. Install PromptSlide agent skill (defaults to yes; skipped with --yes since skills CLI is interactive)
   if (useDefaults) {
-    console.log(`  ${dim("Tip: Run")} npx skills add prompticeu/promptslide ${dim("to install the agent skill")}`)
+    console.log(
+      `  ${dim("Tip: Run")} npx skills add prompticeu/promptslide ${dim("to install the agent skill")}`
+    )
   } else {
     const installSkill = await confirm("Install PromptSlide agent skill?")
 

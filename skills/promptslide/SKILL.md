@@ -106,6 +106,7 @@ Remove the demo slides from `src/slides/` and clear `src/deck-config.ts`, then f
 Whether this is a new deck or an existing one, confirm the visual direction with the user before creating slide files. The user's primary color may already be configured from scaffolding — don't overwrite it without asking.
 
 **Present your design plan to the user before writing any slide code.** Include:
+
 1. The overall visual direction — mood, color strategy, how the primary color will be used (sparingly for impact, not on every element)
 2. The layout approach for each slide — not just "cards" but the specific composition (e.g., "asymmetric split with oversized number left, description right")
 3. Which slides will be the "hero moments" that break the pattern
@@ -137,7 +138,7 @@ Every slide is a React component that receives `SlideProps`:
 
 ```tsx
 // src/slides/slide-example.tsx
-import type { SlideProps } from "promptslide";
+import type { SlideProps } from "promptslide"
 
 export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
   return (
@@ -147,18 +148,22 @@ export function SlideExample({ slideNumber, totalSlides }: SlideProps) {
         <p className="text-muted-foreground text-lg">Your content</p>
       </div>
     </div>
-  );
+  )
 }
 ```
 
 Register it in `src/deck-config.ts`:
 
 ```ts
-import type { SlideConfig } from "promptslide";
-import { SlideExample } from "@/slides/slide-example";
+import type { SlideConfig } from "promptslide"
+import { SlideExample } from "@/slides/slide-example"
 
-export const slides: SlideConfig[] = [{ component: SlideExample, steps: 0 }];
+export const slides: SlideConfig[] = [
+  { id: "example", title: "Example", component: SlideExample, steps: 0 }
+]
 ```
+
+Give every slide a readable, capitalized `title` for the thumbnail rail and slide settings (for example, `title: "Problem"` or `title: "How It Works"`). Preserve brand and acronym casing. Keep the stable `id` lowercase and hyphenated for links, for example `id: "how-it-works"`; do not use the ID as the display title.
 
 ### Layouts (Master Themes)
 
@@ -173,10 +178,15 @@ The scaffolded project includes `SlideLayoutCentered` as a starter. Create new o
 Use `<Animated>` for click-to-reveal steps and `<AnimatedGroup>` for staggered reveals. Available animations: `fade`, `slide-up`, `slide-down`, `slide-left`, `slide-right`, `scale`.
 
 **Critical rules**:
+
 - The `steps` value in `deck-config.ts` MUST equal the highest `step` number used in that slide. `steps: 0` means no animations.
 - `<Animated>` renders a wrapper `<div>`. When inside a **grid or flex container**, you MUST pass layout classes (`h-full`, `w-full`, `col-span-*`) via `className` on the `<Animated>`, not only on the inner child — otherwise the wrapper collapses and breaks the layout.
 
 For the full animation API, see [references/animation-api.md](references/animation-api.md).
+
+### Auto-loop Presentations
+
+For convention displays, kiosks, or timed playback, read [references/auto-loop.md](references/auto-loop.md). Configure the built-in loop using code or Studio's Slide inspector; define the initial view and each click step's duration, and exclude slides as needed. Use project-root `loop-config.json` when timings must travel through CLI builds and registry publishing.
 
 ### Styling Constraints (PDF Compatibility)
 
@@ -205,6 +215,7 @@ cat annotations.json 2>/dev/null
 ```
 
 Each annotation has:
+
 - `slideIndex` — which slide (0-based, matching `deck-config.ts` order)
 - `slideTitle` — human-readable slide name
 - `target.selector` — CSS selector to the element within the slide

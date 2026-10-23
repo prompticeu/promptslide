@@ -67,6 +67,8 @@ export interface UseSlideNavigationReturn {
   advance: () => void
   goBack: () => void
   goToSlide: (index: number) => void
+  goToStep: (step: number) => void
+  restartAtSlide: (index: number) => void
   onTransitionComplete: () => void
 }
 
@@ -206,6 +208,29 @@ export function useSlideNavigation({
     [currentSlide, slides.length, onSlideChange]
   )
 
+  const goToStep = useCallback(
+    (step: number) => {
+      if (!Number.isInteger(step)) return
+      setQueuedAction(null)
+      setAnimationStep(Math.max(0, Math.min(step, slides[currentSlide]?.steps ?? 0)))
+      setNavState(previous => ({ ...previous, direction: 0 }))
+    },
+    [slides, currentSlide]
+  )
+
+  const restartAtSlide = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= slides.length) return
+      setQueuedAction(null)
+      setAnimationStep(0)
+      setCurrentSlide(index)
+      // Same-slide restarts do not have a transition to complete.
+      setNavState({ status: index === currentSlide ? "idle" : "transitioning", direction: 1 })
+      onSlideChange?.(index)
+    },
+    [slides.length, currentSlide, onSlideChange]
+  )
+
   useEffect(() => {
     if (navState.status === "idle" && queuedAction !== null) {
       setQueuedAction(null)
@@ -227,6 +252,8 @@ export function useSlideNavigation({
     advance,
     goBack,
     goToSlide,
+    goToStep,
+    restartAtSlide,
     onTransitionComplete
   }
 }

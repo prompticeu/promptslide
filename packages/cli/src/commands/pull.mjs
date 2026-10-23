@@ -5,6 +5,7 @@ import { join, dirname, resolve, sep } from "node:path"
 import { bold, green, cyan, red, yellow, dim } from "../utils/ansi.mjs"
 import { requireAuth } from "../utils/auth.mjs"
 import { toPascalCase, addSlideToDeckConfig, replaceDeckConfig } from "../utils/deck-config.mjs"
+import { collectRegistrySlideSlugs, partitionDeckSlides } from "../utils/deck-sync.mjs"
 import { confirm, closePrompts } from "../utils/prompts.mjs"
 import {
   fetchRegistryItem,
@@ -17,7 +18,6 @@ import {
   hashFile,
   isFileDirty
 } from "../utils/registry.mjs"
-import { collectRegistrySlideSlugs, partitionDeckSlides } from "../utils/deck-sync.mjs"
 
 export async function pull(args) {
   const cwd = process.cwd()
@@ -184,7 +184,9 @@ export async function pull(args) {
     const registrySlideSlugs = collectRegistrySlideSlugs(resolved.items)
     const { available, missing } = partitionDeckSlides(deckItem.meta.slides, registrySlideSlugs)
     if (missing.length > 0) {
-      console.log(`  ${yellow("!")} Skipped ${missing.length} slide(s) listed in the deck but not included in this version:`)
+      console.log(
+        `  ${yellow("!")} Skipped ${missing.length} slide(s) listed in the deck but not included in this version:`
+      )
       console.log(`    ${dim(missing.map(s => s.slug).join(", "))}`)
     }
     const shouldReplace = await confirm("  Replace deck-config.ts with pulled deck config?", true)
@@ -198,7 +200,8 @@ export async function pull(args) {
       }))
       replaceDeckConfig(cwd, slides, {
         transition: deckItem.meta.transition,
-        directionalTransition: deckItem.meta.directionalTransition
+        directionalTransition: deckItem.meta.directionalTransition,
+        loopConfig: deckItem.meta.loopConfig
       })
       console.log(
         `  ${green("+")} Replaced ${cyan("deck-config.ts")} ${dim(`(${slides.length} slides)`)}`

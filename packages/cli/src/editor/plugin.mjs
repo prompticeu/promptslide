@@ -60,7 +60,7 @@ const dispose = mountEditor(slides, theme, ${JSON.stringify(token)}, import.meta
 if (import.meta.hot) {
   import.meta.hot.accept();
   import.meta.hot.dispose((data) => {
-    data.open = document.querySelector('.ps-edit-action[aria-pressed="true"]') !== null;
+    data.open = document.querySelector('[data-ps-edit-action][aria-pressed="true"]') !== null;
     dispose?.();
     window.dispatchEvent(new Event("promptslide:editor-refresh"));
   });
