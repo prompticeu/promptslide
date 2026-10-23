@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.18](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.17...promptslide-v0.3.18) (2026-10-23)
+
+
+### Features
+
+* add visual slide editing in studio ([#107](https://github.com/prompticeu/promptslide/issues/107)) ([4dd6651](https://github.com/prompticeu/promptslide/commit/4dd6651269687c6a0d219c8e3b261a9ac11b7876))
+
 ## [0.3.17](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.16...promptslide-v0.3.17) (2026-09-26)
 
 
