@@ -1,0 +1,19 @@
+{
+  "checked": [
+    "Integrated Base UI view menu: ArrowDown opens, Escape closes and restores trigger focus",
+    "Integrated menu selection changes the real deck view and updates aria-checked",
+    "Integrated settings: orange selected action, white checkbox checkmark, Space toggles real loop inclusion",
+    "Base UI toolbar tooltip opens through the actual toolbar adapter",
+    "Deferred popup chunk is requested only after the explicit controls action"
+  ],
+  "errors": [],
+  "deferredScripts": {
+    "initial": [
+      "/assets/index-CmnIi-N8.js"
+    ],
+    "afterOpen": [
+      "/assets/index-CmnIi-N8.js",
+      "/assets/viewer-xnpdROSl.js"
+    ]
+  }
+}

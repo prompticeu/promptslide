@@ -83,6 +83,8 @@ try {
   // Exercise editor HMR using a private copy, without touching the user's editor or deck.
   const editorDirectory = join(root, "editor")
   cpSync(resolve("packages/cli/src/editor"), editorDirectory, { recursive: true })
+  // The editor imports shared viewer controls from its core sibling.
+  symlinkSync(resolve("packages/cli/src/core"), join(root, "core"), "dir")
   writeFileSync(
     join(root, "src/globals.css"),
     readFileSync("src/globals.css", "utf8") +
@@ -105,7 +107,7 @@ try {
   })
   await server.listen()
   const address = server.httpServer.address()
-  browser = await chromium.launch({ headless: true })
+  browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL })
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
   page.setDefaultTimeout(15000)
   let expectedConflict = false
