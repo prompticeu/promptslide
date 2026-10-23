@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.19](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.18...promptslide-v0.3.19) (2026-10-23)
+
+
+### Features
+
+* add timed autoplay loops and shared slide inspector ([#109](https://github.com/prompticeu/promptslide/issues/109)) ([6393775](https://github.com/prompticeu/promptslide/commit/63937759fd86b996fe69b0a76dd3e18adf0a8a86))
+
 ## [0.3.18](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.17...promptslide-v0.3.18) (2026-10-23)
 
 
