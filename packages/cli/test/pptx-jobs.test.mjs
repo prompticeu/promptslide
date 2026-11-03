@@ -283,6 +283,57 @@ test("cancellation aborts the worker and removes access to its artifacts", async
   }
 })
 
+test("cancellation waits for cleanup and reserves the worker until it settles", async () => {
+  let releaseCleanup, reportAbort
+  const cleanup = new Promise(resolve => {
+    releaseCleanup = resolve
+  })
+  const aborted = new Promise(resolve => {
+    reportAbort = resolve
+  })
+  const manager = createPptxJobs({
+    cwd: "/tmp",
+    getBaseUrl: () => "http://localhost:5173",
+    run: async ({ signal }) => {
+      await new Promise(resolve => {
+        if (signal.aborted) resolve()
+        else signal.addEventListener("abort", resolve, { once: true })
+      })
+      reportAbort()
+      await cleanup
+      throw signal.reason
+    }
+  })
+  try {
+    const token = (await request(manager)).json().token
+    const submit = () =>
+      request(manager, { token, method: "POST", url: "/__promptslide_exports/pptx", body: {} })
+    const id = (await submit()).json().jobId
+    let cancellationFinished = false
+    const cancellation = request(manager, {
+      token,
+      method: "DELETE",
+      url: `/__promptslide_exports/${id}`
+    }).then(response => {
+      cancellationFinished = true
+      return response
+    })
+    await aborted
+    assert.equal(cancellationFinished, false)
+    assert.equal(
+      (await submit()).status,
+      409,
+      "A removed job can still own a browser during cleanup"
+    )
+    releaseCleanup()
+    assert.equal((await cancellation).status, 200)
+    assert.equal((await submit()).status, 202, "Retry is available once cancellation completes")
+  } finally {
+    releaseCleanup()
+    await manager.close()
+  }
+})
+
 test("concurrent submissions reserve one worker and malformed tokens fail safely", async () => {
   let release
   const ready = new Promise(resolve => {

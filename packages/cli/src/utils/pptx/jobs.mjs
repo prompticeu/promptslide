@@ -56,6 +56,8 @@ export function createPptxJobs({ cwd, getBaseUrl, run, now = () => Date.now() })
   async function remove(job) {
     jobs.delete(job.id)
     job.controller.abort(new DOMException("Export cancelled", "AbortError"))
+    // DELETE completes only after the browser and temporary output are closed.
+    await job.task
     await rm(join(await directory, job.id), { recursive: true, force: true })
   }
   async function prune() {
@@ -112,7 +114,7 @@ export function createPptxJobs({ cwd, getBaseUrl, run, now = () => Date.now() })
           !req.headers["content-type"]?.startsWith("application/json")
         )
           return send(403, { error: "Invalid export origin or content type." })
-        if (starting || [...jobs.values()].some(j => !TERMINAL.has(j.status)))
+        if (starting || pending.size || [...jobs.values()].some(j => !TERMINAL.has(j.status)))
           return send(409, { error: "An export is already running." })
         starting = true
         reserved = true
@@ -174,6 +176,7 @@ export function createPptxJobs({ cwd, getBaseUrl, run, now = () => Date.now() })
             if (!jobs.has(id)) await rm(output, { recursive: true, force: true })
           }
         })()
+        job.task = task
         pending.add(task)
         void task.then(
           () => pending.delete(task),
