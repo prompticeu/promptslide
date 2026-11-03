@@ -21,22 +21,33 @@ Then open your coding agent and say:
 
 All commands are run via `npx promptslide <command>`.
 
-| Command    | Description                              |
-| ---------- | ---------------------------------------- |
-| `create`   | Scaffold a new slide deck project        |
-| `studio`   | Start the dev server with hot reload     |
-| `build`    | Build the deck for production            |
-| `preview`  | Preview the production build             |
-| `add`      | Add a slide to the current deck          |
-| `remove`   | Remove a slide from the current deck     |
-| `list`     | List all slides in the current deck      |
-| `publish`  | Publish the deck to PromptSlide registry |
-| `search`   | Search published decks                   |
-| `pull`     | Pull a published deck                    |
-| `to-image` | Export a slide as a PNG image            |
-| `to-pdf`   | Export all slides as a PDF               |
+| Command    | Description                                           |
+| ---------- | ----------------------------------------------------- |
+| `create`   | Scaffold a new slide deck project                     |
+| `studio`   | Start the dev server with hot reload                  |
+| `build`    | Build the deck for production                         |
+| `preview`  | Preview the production build                          |
+| `add`      | Add a slide to the current deck                       |
+| `remove`   | Remove a slide from the current deck                  |
+| `list`     | List all slides in the current deck                   |
+| `publish`  | Publish the deck to PromptSlide registry              |
+| `search`   | Search published decks                                |
+| `pull`     | Pull a published deck                                 |
+| `to-image` | Export a slide as a PNG image                         |
+| `to-pdf`   | Export all slides as a PDF                            |
+| `to-pptx`  | Export editable PowerPoint and a compatibility report |
 
 Use optional, unique slide IDs in `src/deck-config.ts` for stable URL links and annotations. Existing numbered slide links and decks without IDs continue to work.
+
+## PowerPoint export
+
+Run `npx promptslide to-pptx -o slides.pptx` or choose **Download → PowerPoint (.pptx)** in local Studio. Conversion runs locally and preserves editable text, native shapes, supported gradients and SVG paths, simple tables, and explicitly supplied chart data/workbooks. Complex effects use localized PNG graphics with source-specific compatibility issues in `slides.pptx.report.json`. Studio supports progress, cancellation and report downloads; static decks hide this local-server action.
+
+Use `--mode=strict` to return a report without a new PPTX if any graphic fallback or warning is present. `--profile=extended` additionally permits sampled transparent-gradient fills. `--builds=final|slides|native` selects the final state, one slide per reveal state, or native reveal animations. Morph requires final/per-state export. `--font-policy=embed-when-permitted|require-installed` chooses font embedding or an explicit installed-font workflow. Other options: `--report=<path>`, `--timeout=1..600`, `--port=<Studio port>`. Run `to-pptx --help` for syntax.
+
+Chromium is installed on first use when absent. `PROMPTSLIDE_CHROMIUM_PATH` selects an existing executable. Assets/fonts must be available to the browser. Permitted font bytes and variable instances are embedded with their original shaping tables; restricted/unavailable faces produce portability warnings. Static and instanced variable controls load successfully from embedded fonts in LibreOffice 26.2; target Office verification remains necessary. Optional `theme.pptx.fonts` accepts `{ family, path, weight?, style? }` entries pointing to project-local font files. `registerPptxExportAdapter` supports custom native components; `data-pptx-chart` supplies semantic chart data.
+
+Near 1:1 is a target. Current LibreOffice render benchmarks still expose text baseline/spacing differences; desktop Microsoft PowerPoint qualification remains pending. Native object counts describe editability, not certified visual fidelity. Reports explicitly state this qualification status. Full usage, support boundaries and reproducible evidence are documented in the repository's `docs/pptx-export.md` and `benchmarks/pptx/README.md`.
 
 ## Auto-loop presentations
 
@@ -132,3 +143,10 @@ there is no separate playlist order.
 ## License
 
 MIT
+
+
+### PDF fidelity
+
+`promptslide to-pdf -o slides.pdf` and Studio's Download → PDF use Chromium at the 1280×720 presentation size with screen styles and final reveal states. Text remains selectable; Chromium handles PDF font subsets and vector drawing. Slides print individually and are combined as native PDF pages, avoiding Chromium pagination clipping defects. External links survive assembly; structure tagging is not retained in merged multipage files. Font/stylesheet retries, explicit font loading, visible image decoding, offscreen lazy-image loading and deterministic animation settling run before capture. Missing visible assets and slide crashes fail export instead of producing an incomplete PDF. Custom CSS finite animations settle at their end; infinite animations pause at time zero. Arbitrary asynchronous components still need to render stable content before capture. Static deployments retain browser printing, whose output depends on the browser's print settings. `PROMPTSLIDE_CHROMIUM_PATH` selects a custom installed Chromium for both PDF and PowerPoint.
+
+PDF gradient-text paint uses localized 2× graphics where needed to avoid viewer-specific clipping; underlying ordinary text stays searchable/selectable. Other text, shapes and supported gradient fills retain native PDF output. Compositions with transformed or translucent ancestors are outside this workaround's admitted subset.

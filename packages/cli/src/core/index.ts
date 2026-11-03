@@ -85,3 +85,5 @@ export type {
 export { cn } from "./utils"
 
 export { LoopConfigProvider } from "./loop/context"
+export { registerPptxExportAdapter, getPptxExportAdapters } from "./export/adapters"
+export type { PptxExportAdapter, PptxAdapterNode, PptxChartData, PptxChartType, PptxFontConfig, PptxBox } from "./export/types"

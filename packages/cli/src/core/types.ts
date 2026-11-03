@@ -122,6 +122,8 @@ export interface ThemeConfig {
   assets?: ThemeAssets
   /** Typography preferences */
   fonts?: ThemeFonts
+  /** Explicit local font sources for portable PowerPoint exports. Paths are relative to the project. */
+  pptx?: { fonts?: import("./export/types").PptxFontConfig[] }
 }
 
 // =============================================================================

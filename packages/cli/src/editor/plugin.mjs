@@ -68,7 +68,7 @@ if (import.meta.hot) {
     },
     transformIndexHtml(html, ctx) {
       const url = new URL(ctx.originalUrl ?? ctx.path, "http://localhost")
-      if (url.searchParams.get("pdf") === "true" || url.searchParams.get("export") === "true")
+      if (url.searchParams.get("pdf") === "true" || url.searchParams.get("export") === "true" || url.searchParams.get("pptx") === "true")
         return
       if (ctx.path !== "/" && ctx.path !== "/index.html") return
       return {

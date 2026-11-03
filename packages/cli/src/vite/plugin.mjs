@@ -1,13 +1,23 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs"
 import { join, resolve, sep, extname } from "node:path"
+import { fileURLToPath } from "node:url"
 
 import { bold, dim } from "../utils/ansi.mjs"
 import { readLoopConfig, DEFAULT_LOOP_CONFIG, loopConfigMiddleware } from "../utils/loop-config.mjs"
+import { createPptxJobs } from "../utils/pptx/jobs.mjs"
 import { projectIdentity } from "../utils/studio-discovery.mjs"
+import { PPTX_ENTRY, getPptxHtml, getPptxEntry } from "./pptx-entry.mjs"
 
 /** Normalize a path to forward slashes so it can be used in ES module import strings on Windows. */
 function toImportPath(p) {
   return p.split("\\").join("/")
+}
+
+function captureBaseUrl(server) {
+  const address = server.httpServer.address()
+  if (!address || typeof address !== "object") throw new Error("Studio is not listening")
+  const host = ["0.0.0.0", "::"].includes(address.address) ? "127.0.0.1" : address.address
+  return `http://${host.includes(":") ? `[${host}]` : host}:${address.port}`
 }
 
 function validateSlidePath(root, slidePath) {
@@ -173,10 +183,16 @@ function getPdfHtmlTemplate() {
 
 function getPdfEntryModule(root) {
   const r = toImportPath(root)
+  const ready = toImportPath(fileURLToPath(new URL("../core/export/ready.mjs", import.meta.url)))
+  const paint = toImportPath(
+    fileURLToPath(new URL("../core/export/pdf-paint.mjs", import.meta.url))
+  )
   return `
 import { StrictMode, createElement, useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { AnimationProvider, SlideErrorBoundary, SlideThemeProvider } from "promptslide"
+import { preparePdfDocument } from ${JSON.stringify(ready)}
+import * as paint from ${JSON.stringify(paint)}
 import "${r}/src/globals.css"
 import { slides } from "${r}/src/deck-config"
 
@@ -187,26 +203,29 @@ try {
 } catch {}
 
 const style = document.createElement("style")
-style.textContent = "@page{size:1280px 720px;margin:0}html,body,#root{margin:0;padding:0;width:1280px;background:#000}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.pdf-slide{width:1280px;height:720px;overflow:hidden;break-after:page;page-break-after:always}.pdf-slide:last-child{break-after:auto}"
+style.textContent = "@page{size:1280px 720px;margin:0}html,body,#root{margin:0;padding:0;width:1280px;background:#000}body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.pdf-slide{position:relative;isolation:isolate;width:1280px;height:720px;overflow:hidden;break-inside:avoid;break-after:page;page-break-after:always}.pdf-slide:last-child{break-after:auto}"
 document.head.appendChild(style)
+window.__promptslidePdf = { prepare: () => preparePdfDocument(document.getElementById("root")), paint }
 
 function PdfView() {
   const [ready, setReady] = useState(false)
+  const [error, setError] = useState("")
   useEffect(() => {
     let cancelled = false
     const markReady = async () => {
-      await document.fonts.ready
-      await Promise.all(Array.from(document.images, image => image.decode().catch(() => {})))
-      requestAnimationFrame(() => requestAnimationFrame(() => {
+      try {
+        await preparePdfDocument(document.getElementById("root"))
         if (!cancelled) setReady(true)
-      }))
+      } catch (cause) {
+        if (!cancelled) setError(cause.message || "PDF content could not be prepared")
+      }
     }
     void markReady()
     return () => { cancelled = true }
   }, [])
-  return createElement("div", { "data-pdf-ready": ready ? "true" : undefined },
+  return createElement("div", { "data-pdf-ready": ready ? "true" : undefined, "data-pdf-error": error || undefined },
     slides.map((slide, index) => createElement("div", { className: "pdf-slide", key: slide.id || index },
-      createElement(AnimationProvider, { currentStep: slide.steps, totalSteps: slide.steps, showAllAnimations: true },
+      createElement(AnimationProvider, { currentStep: slide.steps || 0, totalSteps: slide.steps || 0, showAllAnimations: true, isExporting: true },
         createElement(SlideErrorBoundary, { slideIndex: index, slideTitle: slide.title },
           createElement(slide.component, { slideNumber: index + 1, totalSlides: slides.length })
         )
@@ -270,6 +289,7 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     },
 
     resolveId(id) {
+      if (id === PPTX_ENTRY) return "\0" + PPTX_ENTRY
       if (id === VIRTUAL_ENTRY_ID) return RESOLVED_VIRTUAL_ENTRY_ID
       if (id.startsWith(`${VIRTUAL_EXPORT_ID}?`)) return "\0" + id
       if (id === VIRTUAL_EMBED_ID) return RESOLVED_VIRTUAL_EMBED_ID
@@ -277,6 +297,7 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     },
 
     load(id) {
+      if (id === "\0" + PPTX_ENTRY) return getPptxEntry(root)
       if (id === RESOLVED_VIRTUAL_ENTRY_ID) return getEntryModule(root)
       if (id.startsWith(`${RESOLVED_VIRTUAL_EXPORT_ID}?`)) {
         const params = new URLSearchParams(id.slice(id.indexOf("?") + 1))
@@ -287,6 +308,11 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
     },
 
     configureServer(server) {
+      const pptxJobs = createPptxJobs({ cwd: root, getBaseUrl: () => captureBaseUrl(server) })
+      server.middlewares.use(pptxJobs.middleware)
+      server.httpServer?.once("close", () => {
+        void pptxJobs.close()
+      })
       const invalidateLoopConfig = () => {
         const entry = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_ENTRY_ID)
         if (entry) server.moduleGraph.invalidateModule(entry)
@@ -304,9 +330,7 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
         if (req.method !== "GET" || req.url !== "/__promptslide_pdf") return next()
         try {
           const { captureDeckPdfFromServer } = await import("../utils/export.mjs")
-          const address = server.httpServer.address()
-          const port = typeof address === "object" ? address.port : 0
-          const pdf = await captureDeckPdfFromServer(`http://127.0.0.1:${port}`)
+          const pdf = await captureDeckPdfFromServer(captureBaseUrl(server))
           res.setHeader("Content-Type", "application/pdf")
           res.setHeader("Content-Disposition", 'attachment; filename="slides.pdf"')
           res.end(pdf)
@@ -388,6 +412,13 @@ export function promptslidePlugin({ root: initialRoot } = {}) {
       // Pre-middleware: serve /embed route
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, "http://localhost")
+        if (url.searchParams.get("pptx") === "true") {
+          const html = await server.transformIndexHtml("/index.html", getPptxHtml(), req.url)
+          res.setHeader("Content-Type", "text/html")
+          res.statusCode = 200
+          res.end(html)
+          return
+        }
         if (url.pathname !== "/embed" && url.pathname !== "/embed/") return next()
 
         const html = await server.transformIndexHtml("/embed", getEmbedHtmlTemplate())

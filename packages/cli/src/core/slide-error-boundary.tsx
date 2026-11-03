@@ -32,7 +32,7 @@ export class SlideErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex h-full w-full flex-col items-center justify-center bg-red-950/20 p-12">
+        <div data-slide-error={this.state.error?.message || "Slide failed"} className="flex h-full w-full flex-col items-center justify-center bg-red-950/20 p-12">
           <div className="mb-4 text-lg font-semibold text-red-400">
             Slide {this.props.slideIndex + 1} Error
             {this.props.slideTitle && (
