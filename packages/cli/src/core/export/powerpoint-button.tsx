@@ -315,9 +315,12 @@ export function DownloadMenu({
           }
           break
         }
-        await new Promise(done =>
-          setTimeout(done, Math.max(500, Math.min(5000, result.pollAfterMs || 500)))
-        )
+        const pollAfterMs = result.pollAfterMs
+        const delay =
+          typeof pollAfterMs === "number" && Number.isFinite(pollAfterMs)
+            ? Math.max(500, Math.min(5000, pollAfterMs))
+            : 500
+        await new Promise(done => setTimeout(done, delay))
       }
     } catch (cause) {
       if (current()) setError(cause instanceof Error ? cause.message : "PowerPoint export failed")

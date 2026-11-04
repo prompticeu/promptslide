@@ -24,13 +24,15 @@ import {DownloadMenu} from ${JSON.stringify(join(root, "packages/cli/src/core/ex
 window.calls=[];
 const json=value=>new Response(JSON.stringify(value),{headers:{'Content-Type':'application/json'}});
 const transport=name=>async(path,init={})=>{
-  window.calls.push({name,path,method:init.method||'GET'});
+  window.calls.push({name,path,method:init.method||'GET',time:performance.now()});
   if(path==='')return json({supported:true,token:'test'});
   if(path==='/pptx'){
     if(name==='old')await new Promise(done=>setTimeout(done,200));
     return json({jobId:name});
   }
   if(init.method==='DELETE')return json({status:'cancelled'});
+  const polls=window.calls.filter(call=>call.name===name&&call.path==='/'+name&&call.method==='GET').length;
+  if(name==='new'&&polls===1)return json({jobId:name,status:'running',pollAfterMs:'unknown'});
   return json({jobId:name,status:'succeeded',hasFile:false});
 };
 const old=transport('old'),next=transport('new');
@@ -74,6 +76,14 @@ try {
   assert.ok(await page.getByRole("button", { name: "Close export", exact: true }).isEnabled())
   const calls = await page.evaluate(() => window.calls)
   assert.ok(calls.some(call => call.name === "new" && call.path === "/pptx"))
+  const polls = calls.filter(
+    call => call.name === "new" && call.path === "/new" && call.method === "GET"
+  )
+  assert.equal(polls.length, 2)
+  assert.ok(
+    polls[1].time - polls[0].time >= 450,
+    "Malformed polling intervals must retain the 500ms floor"
+  )
   assert.ok(
     !calls.some(call => call.name === "old" && call.path === "/old" && call.method === "GET")
   )
