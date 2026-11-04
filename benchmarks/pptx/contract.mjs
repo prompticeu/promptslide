@@ -1,6 +1,7 @@
 // Export contract integration checks: real React states, native adapters and strict decisions.
 import assert from "node:assert/strict"
 import { mkdtemp, mkdir, writeFile, symlink, rm } from "node:fs/promises"
+import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { resolve, join } from "node:path"
 
@@ -121,13 +122,58 @@ try {
   assert.equal(roundedClip.report.metrics.rasterFallbackObjects, 0)
   assert.equal(roundedClip.report.metrics.editableTextCharacters, "Rounded clipping".length)
   checks.push("rounded-canvas-solid-intersection-retains-native-content")
+  await mkdir(join(cwd, "public"))
+  await writeFile(
+    join(cwd, "public/tiny.svg"),
+    '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><circle cx="4" cy="4" r="3" fill="blue"/></svg>'
+  )
+  await save(
+    '<img src="/missing-hidden.png" style={{display:"none"}}/><img loading="lazy" src="/tiny.svg" style={{width:320,height:160}}/>'
+  )
+  const svgImage = await run({})
+  const svgZip = await JSZip.loadAsync(svgImage.pptx)
+  const pngs = Object.keys(svgZip.files).filter(name => /^ppt\/media\/.*\.png$/.test(name))
+  assert.ok(pngs.length)
+  const png = await svgZip.file(pngs[0]).async("nodebuffer")
+  assert.ok(
+    png.readUInt32BE(16) >= 640 && png.readUInt32BE(20) >= 640,
+    "SVG compatibility PNG must match displayed size at raster scale"
+  )
+  checks.push("hidden-broken-image-ignored", "lazy-svg-image-ready", "svg-compatibility-resolution")
+  await save('<img src="/missing-visible.png"/>')
+  await assert.rejects(run({}), error => {
+    assert.match(error.message, /ASSET_UNAVAILABLE: A slide image could not be loaded/)
+    assert.equal(error.report.status, "failed")
+    return true
+  })
+  checks.push("missing-image-actionable-error")
+  const stalled = createServer((req, res) => res.end("<html><body>Loading</body></html>"))
+  await new Promise(done => stalled.listen(0, "127.0.0.1", done))
+  try {
+    await assert.rejects(
+      run({ baseUrl: `http://127.0.0.1:${stalled.address().port}`, timeout: 1 }),
+      error => {
+        assert.equal(error.report.status, "failed")
+        assert.equal(error.report.issues.at(-1).code, "EXPORT_TIMEOUT")
+        assert.match(error.message, /--timeout/)
+        return true
+      }
+    )
+  } finally {
+    await new Promise(done => stalled.close(done))
+  }
+  checks.push("timeout-reported-as-failure")
   const captures = await Promise.all([getCaptureServer(cwd), getCaptureServer(cwd)])
   assert.notEqual(captures[0].baseUrl, captures[1].baseUrl)
   await Promise.all(captures.map(server => server.close()))
   checks.push("concurrent-capture-ports")
   const controller = new AbortController()
   controller.abort()
-  await assert.rejects(run({ signal: controller.signal }))
+  await assert.rejects(run({ signal: controller.signal }), error => {
+    assert.equal(error.report.status, "cancelled")
+    assert.equal(error.report.issues.at(-1).code, "CANCELLED")
+    return true
+  })
   checks.push("abort-before-launch")
   await writeFile(
     join(out, "contract-qa.json"),

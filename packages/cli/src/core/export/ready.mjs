@@ -26,7 +26,13 @@ export async function preparePdfDocument(root) {
       if (url && !url.startsWith("#")) images.add(url)
     }
   }
-  await Promise.all([...fonts].map(([descriptor, text]) => document.fonts.load(descriptor, text)))
+  try {
+    await Promise.all([...fonts].map(([descriptor, text]) => document.fonts.load(descriptor, text)))
+  } catch {
+    throw new Error(
+      "A slide font could not be loaded. Check its source or network connection before exporting."
+    )
+  }
   await document.fonts.ready
   await Promise.all(
     [...root.querySelectorAll("img")].map(async image => {

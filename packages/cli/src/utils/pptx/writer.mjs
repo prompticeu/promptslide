@@ -488,6 +488,27 @@ export async function writePresentation(
     const relationPart = `ppt/slides/_rels/slide${i + 1}.xml.rels`,
       relDoc = parseXml(await zip.file(relationPart).async("string"))
     const animations = []
+    // A native reveal targets the top-level owner. Only group objects that
+    // share one reveal; mixed/static owners must keep their independent timing.
+    const retargetGroup = (members, groupId) => {
+      if (buildMode !== "native") return true
+      const ids = members.map(member =>
+        Number(children(member, NS.p, "cNvPr")[0].getAttribute("id"))
+      )
+      const effects = animations.filter(effect => ids.includes(effect.id))
+      if (!effects.length) return true
+      if (
+        effects.length !== members.length ||
+        effects.some(
+          effect => effect.step !== effects[0].step || effect.animation !== effects[0].animation
+        )
+      )
+        return false
+      for (let index = animations.length - 1; index >= 0; index--)
+        if (ids.includes(animations[index].id)) animations.splice(index, 1)
+      animations.push({ ...effects[0], id: groupId })
+      return true
+    }
     // Chart/table scaffolding can reuse non-visual IDs. No timings/connectors
     // reference these yet, so assign a unique stable slide-local sequence now.
     children(tree, NS.p, "cNvPr").forEach((property, index) =>
@@ -790,6 +811,7 @@ export async function writePresentation(
         width: Math.max(...boxes.map(b => b.x + b.width)) - x,
         height: Math.max(...boxes.map(b => b.y + b.height)) - y
       }
+      if (!retargetGroup(members, nextId)) continue
       const wrapper = fragment(doc, groupXml(nextId++, name, "", box))
       tree.insertBefore(wrapper, members[0])
       for (const member of members) wrapper.appendChild(member)
@@ -825,6 +847,13 @@ export async function writePresentation(
           width: Math.max(...boxes.map(b => b.x + b.width)) - x,
           height: Math.max(...boxes.map(b => b.y + b.height)) - y
         }
+      if (
+        !retargetGroup(
+          owners.map(owner => owner.child),
+          nextId
+        )
+      )
+        continue
       const wrapper = fragment(doc, groupXml(nextId++, name, "", box))
       tree.insertBefore(wrapper, owners[0].child)
       for (const owner of owners) wrapper.appendChild(owner.child)

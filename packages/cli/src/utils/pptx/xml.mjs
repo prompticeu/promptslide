@@ -86,6 +86,9 @@ export async function validatePackage(zip) {
         if (ids.has(id)) throw new Error(`Duplicate shape ID in ${part}`)
         ids.add(id)
       }
+      for (const target of children(doc, NS.p, "spTgt"))
+        if (!ids.has(target.getAttribute("spid")))
+          throw new Error(`Missing animation target in ${part}`)
     }
     if (part === "[Content_Types].xml")
       for (const over of children(doc, NS.ct, "Override"))

@@ -149,3 +149,39 @@ test("rowspans use measured row heights and scaled intrinsic images retain physi
   assert.equal(Number(size.getAttribute("cx")), 1905000)
   assert.equal(Number(size.getAttribute("cy")), 1905000)
 })
+
+test("native reveals target grouped owners and preserve mixed-step independence", async () => {
+  for (const mode of ["uniform", "mixed", "static-member"])
+    for (const grouping of ["svg", "component", "nested"]) {
+      const shapes = [0, 1].map(index => ({
+        ...node("shape", { fill: { hex: "2563EB", alpha: 1 }, radius: 0 }),
+        id: `shape-${index}`,
+        box: { x: 100 + index * 100, y: 100, width: 80, height: 80 },
+        buildStep: index && mode === "mixed" ? 2 : index && mode === "static-member" ? 0 : 1,
+        animation: "fade",
+        ...(grouping !== "component" ? { svgGroup: "svg", svgGroupName: "SVG" } : {}),
+        ...(grouping !== "svg"
+          ? { componentGroups: [{ id: "component", depth: 0, name: "Component" }] }
+          : {})
+      }))
+      const { buffer } = await writePresentation([{ slideId: "reveals", nodes: shapes }], {
+        fonts: mockFonts,
+        buildMode: "native"
+      })
+      const zip = await JSZip.loadAsync(buffer)
+      await validatePackage(zip)
+      const doc = parseXml(await zip.file("ppt/slides/slide1.xml").async("string"))
+      const tree = children(doc, NS.p, "spTree")[0]
+      const owners = [...tree.childNodes].filter(
+        child => child.nodeType === 1 && ["sp", "grpSp"].includes(child.localName)
+      )
+      const ids = new Set(owners.map(owner => children(owner, NS.p, "cNvPr")[0].getAttribute("id")))
+      const targets = new Set(children(doc, NS.p, "spTgt").map(t => t.getAttribute("spid")))
+      assert.equal(owners.length, mode === "uniform" ? 1 : 2)
+      assert.equal(targets.size, mode === "mixed" ? 2 : 1)
+      assert.ok(
+        [...targets].every(id => ids.has(id)),
+        `${mode}/${grouping}: reveal must target a top-level owner`
+      )
+    }
+})

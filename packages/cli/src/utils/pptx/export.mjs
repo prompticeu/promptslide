@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto"
-import { readFile, readdir, realpath } from "node:fs/promises"
+import { readFile, readdir, realpath, stat } from "node:fs/promises"
 import { join, resolve, relative } from "node:path"
 
 import { chromium } from "playwright"
 
-import { getCaptureServer, ensureChromium } from "../export.mjs"
+import { getCaptureServer, launchChromium } from "../export.mjs"
 import { installFontRetries } from "./font-network.mjs"
 import { decodeFont, FontResolver } from "./fonts.mjs"
 import { DEFAULT_LIMITS, validateOptions, assertNotAborted, unionArea } from "./options.mjs"
@@ -13,32 +13,41 @@ import { prepareTextFonts } from "./text-planning.mjs"
 import { writePresentation } from "./writer.mjs"
 
 const hash = value => createHash("sha256").update(value).digest("hex")
+// Snapshot metadata avoids reading large media twice. Include ctime as well as
+// mtime/size so same-size writes with a restored mtime still invalidate capture.
 export async function projectRevision(cwd) {
-  const digest = createHash("sha256"),
-    files = []
-  async function walk(dir, depth = 0) {
+  const digest = createHash("sha256")
+  async function walk(path, ancestors = new Set(), depth = 0) {
     if (depth > 20) throw new Error("Source directory nesting limit exceeded")
-    let entries
+    let target, info
     try {
-      entries = await readdir(dir, { withFileTypes: true })
-    } catch {
-      return
+      target = await realpath(path)
+      info = await stat(target, { bigint: true })
+    } catch (error) {
+      if (depth === 0 && error.code === "ENOENT") return
+      throw error
     }
-    for (const e of entries) {
-      if (e.name === "node_modules" || e.name.startsWith(".")) continue
-      const path = join(dir, e.name)
-      if (e.isDirectory()) await walk(path, depth + 1)
-      else if (e.isFile()) files.push(path)
-      else if (e.isSymbolicLink())
-        throw new Error("Source/asset symlinks are unsupported for a consistent export snapshot")
+    digest.update(
+      JSON.stringify([
+        relative(cwd, path),
+        target,
+        String(info.size),
+        String(info.mtimeNs),
+        String(info.ctimeNs),
+        String(info.ino),
+        String(info.dev)
+      ])
+    )
+    if (!info.isDirectory()) return
+    if (ancestors.has(target)) throw new Error("Source/asset symlink cycle detected")
+    const nested = new Set([...ancestors, target])
+    for (const name of (await readdir(path)).sort()) {
+      if (name === "node_modules" || name.startsWith(".")) continue
+      await walk(join(path, name), nested, depth + 1)
     }
   }
   await walk(join(cwd, "src"))
   await walk(join(cwd, "public"))
-  for (const file of files.sort()) {
-    digest.update(relative(cwd, file))
-    digest.update(await readFile(file))
-  }
   return digest.digest("hex")
 }
 
@@ -115,16 +124,37 @@ async function resolvePictures(page, scene, scale, signal, pixels) {
           )
         ) {
           try {
-            const png = await page.evaluate(elementId => {
-              const image = [...document.querySelectorAll("[data-ps-pptx-object]")].find(
-                e => e.getAttribute("data-ps-pptx-object") === elementId
+            const width = Math.max(
+              1,
+              Math.ceil(
+                node.payload.naturalWidth *
+                  Math.max(
+                    1,
+                    (node.box.width * scale) / node.payload.naturalWidth,
+                    (node.box.height * scale) / node.payload.naturalHeight
+                  )
               )
-              const canvas = document.createElement("canvas")
-              canvas.width = image.naturalWidth
-              canvas.height = image.naturalHeight
-              canvas.getContext("2d").drawImage(image, 0, 0)
-              return canvas.toDataURL("image/png")
-            }, node.source.elementId)
+            )
+            const height = Math.max(
+              1,
+              Math.ceil((width * node.payload.naturalHeight) / node.payload.naturalWidth)
+            )
+            pixels.count += width * height
+            if (pixels.count > DEFAULT_LIMITS.decodedPixels)
+              throw new Error("LIMIT_EXCEEDED: SVG compatibility image size")
+            const png = await page.evaluate(
+              ({ elementId, width: pixelWidth, height: pixelHeight }) => {
+                const image = [...document.querySelectorAll("[data-ps-pptx-object]")].find(
+                  e => e.getAttribute("data-ps-pptx-object") === elementId
+                )
+                const canvas = document.createElement("canvas")
+                canvas.width = pixelWidth
+                canvas.height = pixelHeight
+                canvas.getContext("2d").drawImage(image, 0, 0, pixelWidth, pixelHeight)
+                return canvas.toDataURL("image/png")
+              },
+              { elementId: node.source.elementId, width, height }
+            )
             node.payload.svgData = svg
             node.payload.data = png
             node.payload.assetHash = hash(bytes)
@@ -300,10 +330,9 @@ export async function exportDeckPptx({
       headless: true,
       ...(browserExecutable ? { executablePath: browserExecutable } : {})
     }
-    if (!browserExecutable) await ensureChromium(chromium, abort)
     server = baseUrl ? { baseUrl, close: async () => {} } : await getCaptureServer(cwd, studioPort)
     assertNotAborted(abort)
-    browser = await chromium.launch(launch)
+    browser = await launchChromium(chromium, launch, abort)
     assertNotAborted(abort)
     page = await browser.newPage({
       viewport: { width: 1280, height: 720 },
@@ -548,15 +577,22 @@ export async function exportDeckPptx({
     onProgress({ phase: "completed", completed: total, total })
     return { pptx: rejected ? undefined : result.buffer, report }
   } catch (error) {
-    report.status = abort.aborted ? "cancelled" : "failed"
+    const timedOut = timeout.aborted && abort.reason === timeout.reason
+    const failure = timedOut
+      ? new Error(
+          `EXPORT_TIMEOUT: Export exceeded ${options.timeout} seconds. Try a higher --timeout value (maximum 600 seconds) or reduce slide complexity.`,
+          { cause: error }
+        )
+      : error
+    report.status = abort.aborted && !timedOut ? "cancelled" : "failed"
     report.issues.push({
-      code: abort.aborted ? "CANCELLED" : String(error.message).split(":")[0],
+      code: abort.aborted && !timedOut ? "CANCELLED" : String(failure.message).split(":")[0],
       severity: "error",
-      message: error.message
+      message: failure.message
     })
     report.timings.totalMs = Math.round(performance.now() - started)
-    error.report = report
-    throw error
+    failure.report = report
+    throw failure
   } finally {
     signal?.removeEventListener("abort", cancel)
     timeout.removeEventListener("abort", cancel)

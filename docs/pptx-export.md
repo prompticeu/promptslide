@@ -71,7 +71,7 @@ export const theme = {
 }
 ```
 
-Restricted or unavailable faces remain editable with an installed-font dependency and a warning. `--font-policy=require-installed` explicitly chooses an installed-font workflow. Recipients need matching fonts. Local font paths must resolve inside the project; source/asset symlinks are rejected.
+Restricted or unavailable faces remain editable with an installed-font dependency and a warning. `--font-policy=require-installed` explicitly chooses an installed-font workflow. Recipients need matching fonts. Local font paths must resolve inside the project. Source/asset symlinks are followed with cycle and nesting checks.
 
 Font coverage is checked against the text being exported. Distinct source subsets and static weights receive distinct embedded identities. Mixed browser fallback faces are retained per text cluster where their files are available; an unresolved cluster uses a reported localized graphic. Font bytes are captured before downloaded faces are released to Chromium, avoiding a readiness race between layout and embedding.
 
@@ -95,10 +95,12 @@ Balanced mode downloads the deck and reports compatibility issues. Strict core m
 
 Reports contain source IDs, slide states, output object IDs/representations, localized fallback bounds/reasons, editable character and native object counts, font hashes, timings, source revision and the rendering browser. Studio results expire after 15 minutes, with one active export and at most four retained jobs. Its job API accepts loopback requests, or same-origin Tailscale peers when Studio is explicitly bound to its Tailscale IP. Public/wildcard bindings retain loopback-only export access. Requests remain protected with an in-memory session token. Cancellation removes result access and closes the worker browser.
 
-Limits: 100 source slides, 500 expanded states, 100,000 scene nodes, 10,000 segments per path, 10,000 points per chart, 10,000 cells per table, 256 gradient stops, 50 MB per asset, 50 million decoded image pixels and 250 MB output. Exports reject changing source snapshots and malformed packages. CLI exit codes: `0` completed, `1` runtime/validation failure, `2` strict rejection, `130` cancellation. Existing output files are replaced only after a successful export.
+Limits: 100 source slides, 500 expanded states, 100,000 scene nodes, 10,000 segments per path, 10,000 points per chart, 10,000 cells per table, 256 gradient stops, 50 MB per asset, 50 million decoded image pixels and 250 MB output. Exports reject changing source snapshots and malformed packages. Snapshot checks include resolved paths, file size, nanosecond modification/change times and file identity, avoiding full reads of large media files. Timeouts report `EXPORT_TIMEOUT` as a failure, separately from user cancellation. CLI exit codes: `0` completed, `1` runtime/validation failure, `2` strict rejection, `130` cancellation. Existing output files are replaced only after a successful export.
 
 ## Validation and limitations
 
 The focused [export regression suite](../benchmarks/pptx/README.md) covers font coverage, native geometry, clipping, opacity, cancellation, job access, and PDF rendering. Generated decks and research archives stay local.
 
 Near-1:1 is a target. Desktop PowerPoint edit/save/reopen and macOS PDF viewer verification remain pending. Native elliptical glows use a reported strip approximation; LibreOffice can show seams. Unsupported paint remains a localized graphic. PDF gradient text can use a localized 2× graphic with selectable text underneath, and merged multipage PDFs do not retain structure tags.
+
+Font embedding targets PowerPoint. Embedded faces use distinct internal names so font subsets and weight variants cannot overwrite each other. Apps that ignore embedded fonts may substitute another face even when the original family is installed. Use `--font-policy=require-installed` when preserving installed family names is more important than embedding.

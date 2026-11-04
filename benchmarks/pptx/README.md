@@ -21,7 +21,7 @@ Run each script with `node benchmarks/pptx/<script>`:
 
 | Script | Checks |
 | --- | --- |
-| `contract.mjs` | 16 contracts: final/per-state/native reveals, strict rejection, native charts/tables, clipping, concurrent capture and abort |
+| `contract.mjs` | 21 contracts: final/per-state/native reveals, strict rejection, native charts/tables, clipping, SVG compatibility resolution, image readiness/errors, concurrent capture, timeout and abort |
 | `review-regressions.mjs` | 15 generic fixtures / 17 states: opacity, image sizing, reflection, SVG geometry, inline spacing, rowspans and nested reveals |
 | `cancellation-regression.mjs` | Cancel before delayed job creation and during download, then retry without stale downloads |
 | `font-reliability.mjs` | Font/stylesheet recovery and explicit permanent failure |

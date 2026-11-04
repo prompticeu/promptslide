@@ -62,7 +62,12 @@ function ExportView() {
         }
         await Promise.allSettled([...requests].map(([font, text]) => document.fonts.load(font, text)))
         await document.fonts.ready
-        await Promise.all([...document.querySelectorAll('[data-ps-pptx-root] img')].map(image => image.decode()))
+        await Promise.all([...document.querySelectorAll('[data-ps-pptx-root] img')].map(async image => {
+          if (!image.getClientRects().length || getComputedStyle(image).visibility !== 'visible') return
+          image.loading = 'eager'
+          try { await image.decode() }
+          catch { throw new Error('ASSET_UNAVAILABLE: A slide image could not be loaded. Check its source before exporting: ' + (image.currentSrc || image.getAttribute('src') || '(empty source)')) }
+        }))
         await frame(); await frame()
         const error = document.querySelector('[data-slide-error]')
         if (error) throw new Error(error.getAttribute('data-slide-error'))
