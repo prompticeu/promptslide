@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.21](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.20...promptslide-v0.3.21) (2026-11-04)
+
+
+### Features
+
+* support authenticated hosted PowerPoint export transports ([#114](https://github.com/prompticeu/promptslide/issues/114)) ([2a87d83](https://github.com/prompticeu/promptslide/commit/2a87d830d587aef2859f76013beb3f843ee19050))
+
 ## [0.3.20](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.19...promptslide-v0.3.20) (2026-11-04)
 
 
