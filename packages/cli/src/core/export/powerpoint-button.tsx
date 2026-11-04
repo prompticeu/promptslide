@@ -156,6 +156,14 @@ export function DownloadMenu({
     let current = true
     alive.current = true
     setToken("")
+    activeOperation.current = null
+    jobRef.current = null
+    setBusy(false)
+    setCancelling(false)
+    setJob(null)
+    setError("")
+    setOpen(false)
+    setMenuOpen(false)
     void exportRequest("", { signal: controller.signal })
       .then(async response => {
         if (response.ok && response.headers.get("content-type")?.includes("application/json")) {
