@@ -61,6 +61,9 @@ const fixtures = [
   '<h1>Transformed chart on a later page</h1><a href="https://example.com/" style={{position:"absolute",top:150,left:900}}>External link</a><div style={{position:"absolute",left:100,top:200,width:700,height:500,overflow:"hidden",border:"2px solid #334155",borderRadius:20}}><div style={{width:850,transform:"scale(.823)",transformOrigin:"top left"}}><div style={{height:280,background:"#dbeafe"}}>Upper panel</div><svg width="850" height="250" viewBox="0 0 300 112" preserveAspectRatio="none"><defs><linearGradient id="later-curve" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f97316" stopOpacity=".5"/><stop offset="1" stopColor="#f97316" stopOpacity=".03"/></linearGradient></defs><path d="M0 100C80 100 120 20 300 20L300 112H0Z" fill="url(#later-curve)"/><path d="M0 100C80 100 120 20 300 20" fill="none" stroke="#f97316" strokeWidth="2"/></svg><p>Lower panel remains visible</p></div></div>',
   '<div style={{position:"absolute",inset:0,background:"#0d0d0d",color:"white",padding:60}}><h1 style={{fontSize:52,width:1000,lineHeight:1.1}}>Keep this title <span style={{backgroundImage:"linear-gradient(120deg,#b93a0a,#f97b3d)",backgroundClip:"text",WebkitBackgroundClip:"text",color:"transparent",boxDecorationBreak:"clone",WebkitBoxDecorationBreak:"clone"}}>bright<br/>and fully visible?</span></h1><div style={{position:"absolute",left:250,top:137,width:180,height:28,background:"#123456",zIndex:10}}/></div>'
 ]
+fixtures.push(
+  '<h1>Masked vector dot grid</h1><div style={{position:"absolute",left:120,top:180,width:1000,transform:"scale(.84)",transformOrigin:"top left"}}><svg width="1000" height="500" viewBox="30 20 960 440" style={{overflow:"visible"}}><defs><pattern id="pdf-dots" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#2563eb" fillOpacity=".5"/></pattern><radialGradient id="pdf-dot-fade" r="62%"><stop offset="0" stopColor="white"/><stop offset="48%" stopColor="white"/><stop offset="1" stopColor="white" stopOpacity="0"/></radialGradient><mask id="pdf-dot-mask"><rect x="20" y="12" width="1200" height="580" fill="url(#pdf-dot-fade)"/></mask></defs><rect x="20" y="12" width="1200" height="580" fill="url(#pdf-dots)" mask="url(#pdf-dot-mask)"/></svg></div>'
+)
 const save = slides =>
   writeFile(
     join(cwd, "src/deck-config.tsx"),
@@ -114,7 +117,7 @@ try {
     env,
     encoding: "utf8"
   })
-  assert.match(info, /Pages:\s+6\b/)
+  assert.match(info, /Pages:\s+7\b/)
   assert.match(info, /Page size:\s+960 x 540 pts/)
   const text = execFileSync(join(tool, "pdftotext"), [join(out, "qualification.pdf"), "-"], {
     env,
@@ -132,6 +135,14 @@ try {
   })
   assert.match(fonts, /yes\s+yes\s+yes/)
   const merged = await pdfLib.PDFDocument.load(pdf)
+  const patternIssues = issues.filter(issue => issue.code === "PDF_PATTERN_EXPANDED")
+  assert.equal(patternIssues.length, 1)
+  assert.ok(patternIssues[0].dots > 2000)
+  assert.equal(
+    merged.getPages().at(-1).node.Resources().lookup(pdfLib.PDFName.of("Pattern")),
+    undefined,
+    "Dot grid must contain vector circles rather than repeating PDF tiles"
+  )
   const links = merged.getPages().flatMap(page =>
     (page.node.Annots()?.asArray() || []).map(ref => {
       const annotation = merged.context.lookup(ref)
@@ -247,7 +258,7 @@ try {
     )
   )
   console.log(
-    "PDF qualification: six complex pages, subset fonts, lazy assets, final animations, links, gradient text and four failure cases passed",
+    "PDF qualification: seven complex pages, subset fonts, lazy assets, final animations, links, gradient text and four failure cases passed",
     comparisons
   )
 } finally {

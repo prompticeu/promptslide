@@ -1,5 +1,18 @@
 // Localize Chromium's gradient-text soft masks to avoid viewer-specific clipping.
 export async function normalizePdfTextPaint(page, index, onIssue) {
+  const patterns = await page.evaluate(
+    active => window.__promptslidePdf.paint.normalizeDotPatterns(active),
+    index
+  )
+  for (const pattern of patterns)
+    onIssue({
+      code: "PDF_PATTERN_EXPANDED",
+      severity: "info",
+      page: index + 1,
+      dots: pattern.dots,
+      message:
+        "Masked dot pattern uses explicit vector circles with sampled fade opacity bounded to 1/255 per dot."
+    })
   const targets = await page.evaluate(
     active => window.__promptslidePdf.paint.gradientTextTargets(active),
     index

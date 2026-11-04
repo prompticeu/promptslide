@@ -1,4 +1,5 @@
 import { makeSubtreePreview } from "./measure.mjs"
+import { nativeDotPattern } from "./svg-pattern.mjs"
 
 let restore
 const rootAt = index => document.querySelectorAll(".pdf-slide")[index]
@@ -6,6 +7,76 @@ const targetIn = (root, id) =>
   [...root.querySelectorAll("[data-ps-pptx-object]")].find(
     element => element.getAttribute("data-ps-pptx-object") === id
   )
+
+// Some PDF viewers misrender repeating SVG pattern tiles under a mask. Reuse
+// the bounded native dot admission and write ordinary SVG circles instead.
+export function normalizeDotPatterns(index) {
+  const root = rootAt(index)
+  const canvas = document.createElement("canvas")
+  canvas.width = canvas.height = 1
+  const context = canvas.getContext("2d", { willReadFrequently: true })
+  const color = value => {
+    if (!CSS.supports("color", value)) return null
+    context.clearRect(0, 0, 1, 1)
+    context.fillStyle = value
+    context.fillRect(0, 0, 1, 1)
+    const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
+    return {
+      hex: [r, g, b]
+        .map(v => v.toString(16).padStart(2, "0"))
+        .join("")
+        .toUpperCase(),
+      alpha: a / 255
+    }
+  }
+  const converted = []
+  for (const element of root.querySelectorAll("svg rect")) {
+    const style = getComputedStyle(element)
+    if (
+      style.display === "none" ||
+      style.visibility !== "visible" ||
+      style.transform !== "none" ||
+      style.rotate !== "none" ||
+      style.scale !== "none" ||
+      style.translate !== "none" ||
+      !element.getClientRects().length
+    )
+      continue
+    const dots = []
+    if (
+      !nativeDotPattern(element, {
+        style: target => getComputedStyle(target),
+        color,
+        emit: (_, kind, payload, box) => dots.push({ kind, payload, box }),
+        issue: () => {},
+        rootBox: { x: 0, y: 0 },
+        opacity: 1
+      })
+    )
+      continue
+    const matrix = element.getScreenCTM()
+    const inverse = matrix.inverse()
+    const scale = Math.hypot(matrix.a, matrix.b)
+    const group = document.createElementNS("http://www.w3.org/2000/svg", "g")
+    group.setAttribute("data-ps-pdf-dot-grid", "vector")
+    group.setAttribute("opacity", style.opacity)
+    for (const dot of dots) {
+      const screenX = dot.box.x + dot.box.width / 2
+      const screenY = dot.box.y + dot.box.height / 2
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle")
+      circle.setAttribute("cx", inverse.a * screenX + inverse.c * screenY + inverse.e)
+      circle.setAttribute("cy", inverse.b * screenX + inverse.d * screenY + inverse.f)
+      circle.setAttribute("r", dot.box.width / (2 * scale))
+      circle.style.setProperty("fill", `#${dot.payload.fill.hex}`, "important")
+      circle.style.setProperty("fill-opacity", String(dot.payload.fill.alpha), "important")
+      circle.style.setProperty("stroke", "none", "important")
+      group.appendChild(circle)
+    }
+    element.replaceWith(group)
+    converted.push({ dots: dots.length })
+  }
+  return converted
+}
 
 function stablePaintAncestors(element, root) {
   for (

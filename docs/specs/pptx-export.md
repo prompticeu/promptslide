@@ -56,6 +56,7 @@ Charts support bar/column/line/area/pie/doughnut/scatter. Pie/doughnut use one s
 - Use screen styles, exact 1280×720 pages, zero margins and deterministic final reveal states. Decode visible/lazy image assets; fail font/image/slide errors explicitly.
 - Print each slide at the viewport origin, re-settle animations after visibility changes, and merge native PDF pages with pdf-lib. Preserve selectable text, fonts, shapes, gradients and external link annotations without flattening whole slides.
 - For admitted gradient text, capture cropped 2× paint and retain low-opacity ordinary text for selection/search. Insert the graphic in the source stacking context so foreground objects still occlude it. Transformed/faded ancestor compositions stay on the native print path.
+- Expand admitted masked SVG dot patterns into explicit vector circles, reusing the bounded PPTX pattern conversion. Preserve dot geometry and sample fade opacity with a per-dot variation bound of 1/255; unsupported patterns stay on the native print path.
 - Server errors surface in the Download UI. Static deployments retain browser printing. Unchanged capture configuration is not rewritten, avoiding spurious Vite reloads.
 - Merged multipage PDFs do not retain accessibility structure tags. PDF viewer text/gradient rendering can differ; macOS verification remains pending.
 
