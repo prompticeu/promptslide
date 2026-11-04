@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.20](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.19...promptslide-v0.3.20) (2026-11-04)
+
+
+### Features
+
+* add editable PowerPoint export and improve PDF fidelity ([#111](https://github.com/prompticeu/promptslide/issues/111)) ([3709719](https://github.com/prompticeu/promptslide/commit/370971944aec49256236a14d6ec897854462de81))
+
 ## [0.3.19](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.18...promptslide-v0.3.19) (2026-10-23)
 
 
