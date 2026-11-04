@@ -2,6 +2,8 @@ import { Download, FileDown, FileText, X } from "lucide-react"
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
+import type { PptxExportRequest } from "./types"
+
 import { ToolbarAction } from "../toolbar-action"
 
 interface Issue {
@@ -20,6 +22,7 @@ interface Job {
   progress?: { phase: string; completed: number; total: number }
   issues?: Issue[]
   hasFile?: boolean
+  pollAfterMs?: number
 }
 
 const issueLabels: Record<string, [string, string]> = {
@@ -100,15 +103,20 @@ function download(bytes: Blob, filename: string) {
   link.click()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
+const localExportRequest: PptxExportRequest = (path, init) =>
+  fetch("/__promptslide_exports" + path, init)
+
 /** One download entry point; server capabilities determine the available formats. */
 export function DownloadMenu({
   disabled,
   onPdf,
-  hasRevealSteps = false
+  hasRevealSteps = false,
+  exportRequest = localExportRequest
 }: {
   disabled: boolean
   onPdf: () => void | Promise<void>
   hasRevealSteps?: boolean
+  exportRequest?: PptxExportRequest
 }) {
   const [token, setToken] = useState("")
   const [open, setOpen] = useState(false)
@@ -145,21 +153,32 @@ export function DownloadMenu({
   }, [menuOpen])
   useEffect(() => {
     const controller = new AbortController()
+    let current = true
     alive.current = true
-    void fetch("/__promptslide_exports", { signal: controller.signal })
+    setToken("")
+    activeOperation.current = null
+    jobRef.current = null
+    setBusy(false)
+    setCancelling(false)
+    setJob(null)
+    setError("")
+    setOpen(false)
+    setMenuOpen(false)
+    void exportRequest("", { signal: controller.signal })
       .then(async response => {
         if (response.ok && response.headers.get("content-type")?.includes("application/json")) {
           const value = await response.json()
-          if (alive.current && value.supported && typeof value.token === "string")
+          if (current && alive.current && value.supported && typeof value.token === "string")
             setToken(value.token)
         }
       })
       .catch(() => {})
     return () => {
+      current = false
       alive.current = false
       controller.abort()
     }
-  }, [])
+  }, [exportRequest])
   useEffect(() => {
     if (!token) return
     return () => {
@@ -168,7 +187,7 @@ export function DownloadMenu({
         operation.cancelled = true
         void operation.creation
           .then(id =>
-            fetch(`/__promptslide_exports/${id}`, {
+            exportRequest(`/${id}`, {
               method: "DELETE",
               headers: { "X-Promptslide-Export": token }
             })
@@ -176,7 +195,7 @@ export function DownloadMenu({
           .catch(() => {})
       }
     }
-  }, [token])
+  }, [token, exportRequest])
   useEffect(() => {
     if (!open) return
     const key = (event: KeyboardEvent) => {
@@ -208,7 +227,7 @@ export function DownloadMenu({
     return () => window.removeEventListener("keydown", key)
   }, [open, busy])
   const request = async (path: string, init: RequestInit = {}) => {
-    const response = await fetch("/__promptslide_exports" + path, {
+    const response = await exportRequest(path, {
       ...init,
       headers: { "X-Promptslide-Export": token, ...init.headers }
     })
@@ -296,7 +315,12 @@ export function DownloadMenu({
           }
           break
         }
-        await new Promise(done => setTimeout(done, 500))
+        const pollAfterMs = result.pollAfterMs
+        const delay =
+          typeof pollAfterMs === "number" && Number.isFinite(pollAfterMs)
+            ? Math.max(500, Math.min(5000, pollAfterMs))
+            : 500
+        await new Promise(done => setTimeout(done, delay))
       }
     } catch (cause) {
       if (current()) setError(cause instanceof Error ? cause.message : "PowerPoint export failed")

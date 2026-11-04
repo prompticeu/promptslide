@@ -53,3 +53,6 @@ export interface PptxFontConfig {
   weight?: number
   style?: "normal" | "italic"
 }
+
+/** Transport for the shared PowerPoint job API in an authenticated custom host. */
+export type PptxExportRequest = (path: string, init?: RequestInit) => Promise<Response>

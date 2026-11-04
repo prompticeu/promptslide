@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import type { Annotation, AnnotationTarget } from "./annotations"
+import type { PptxExportRequest } from "./export/types"
 import type { SlideTransitionType } from "./transitions"
 import type { LoopConfig, SlideConfig } from "./types"
 
@@ -144,6 +145,8 @@ function ListSlide({ slide, index, total }: { slide: SlideConfig; index: number;
 }
 
 interface SlideDeckProps {
+  /** Authenticated host transport; omitted in local Studio/static decks. */
+  pptxExportRequest?: PptxExportRequest
   slides: SlideConfig[]
   transition?: SlideTransitionType
   directionalTransition?: boolean
@@ -222,6 +225,7 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
 // =============================================================================
 
 export function SlideDeck({
+  pptxExportRequest,
   slides,
   transition,
   directionalTransition,
@@ -959,6 +963,7 @@ export function SlideDeck({
         <div className="mx-1 w-px bg-neutral-800" />
 
         <DownloadMenu
+          exportRequest={pptxExportRequest}
           disabled={isEditorOpen}
           onPdf={handleExportPdf}
           hasRevealSteps={slides.some(slide => slide.steps > 0)}

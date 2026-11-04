@@ -43,6 +43,8 @@ Use optional, unique slide IDs in `src/deck-config.ts` for stable URL links and 
 
 Run `npx promptslide to-pptx -o slides.pptx` or choose **Download → PowerPoint (.pptx)** in local Studio. Conversion runs locally and preserves editable text, native shapes, supported gradients and SVG paths, simple tables, and explicitly supplied chart data/workbooks. Complex effects use localized PNG graphics with source-specific compatibility issues in `slides.pptx.report.json`. Studio supports progress, cancellation and report downloads; static decks hide this local-server action.
 
+Hosted applications can supply `SlideDeck` with an optional `pptxExportRequest: PptxExportRequest` callback to reuse this download menu and export dialog. The callback receives a relative export path and `RequestInit`, and returns a `Response`; without it, Studio keeps using its local export server. The host must authenticate and authorize every request, including status, cancellation and downloads. The protocol is `GET ""` for `{ supported, token }`, `POST "/pptx"` for `{ jobId }`, `GET "/<jobId>"` for status/progress, `DELETE "/<jobId>"` for cancellation, and `GET "/<jobId>/file"` or `"/<jobId>/report"` for downloads. Status can include `pollAfterMs` (clamped to 500–5000 ms). Keep the callback identity stable and honor abort signals. When hosting untrusted slide code in an iframe, keep credentials in the parent application and forward only these export operations through a validated message channel.
+
 Use `--mode=strict` to return a report without a new PPTX if any graphic fallback or warning is present. `--profile=extended` additionally permits sampled transparent-gradient fills. `--builds=final|slides|native` selects the final state, one slide per reveal state, or native reveal animations. Morph requires final/per-state export. `--font-policy=embed-when-permitted|require-installed` chooses font embedding or an explicit installed-font workflow. Other options: `--report=<path>`, `--timeout=1..600`, `--port=<Studio port>`. Run `to-pptx --help` for syntax.
 
 Chromium is installed on first use when absent. `PROMPTSLIDE_CHROMIUM_PATH` selects an existing executable. Assets/fonts must be available to the browser. Permitted font bytes and variable instances are embedded with their original shaping tables; restricted/unavailable faces produce portability warnings. Static and instanced variable controls load successfully from embedded fonts in LibreOffice 26.2; target Office verification remains necessary. Optional `theme.pptx.fonts` accepts `{ family, path, weight?, style? }` entries pointing to project-local font files. `registerPptxExportAdapter` supports custom native components; `data-pptx-chart` supplies semantic chart data.
@@ -143,7 +145,6 @@ there is no separate playlist order.
 ## License
 
 MIT
-
 
 ### PDF fidelity
 
