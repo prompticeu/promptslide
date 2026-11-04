@@ -3,7 +3,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Download,
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
@@ -19,6 +18,7 @@ import type { LoopConfig, SlideConfig } from "./types"
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
 import { AnnotationOverlay, AnnotationPanel, useAnnotations } from "./annotations"
+import { DownloadMenu } from "./export/powerpoint-button"
 import { Inspector, type InspectorMode } from "./inspector"
 import {
   DEFAULT_LOOP_CONFIG,
@@ -683,8 +683,13 @@ export function SlideDeck({
   }, [isAnnotationMode, viewMode, requestInspector])
 
   const handleExportPdf = useCallback(async () => {
+    let response: Response | undefined
     try {
-      const response = await fetch("/__promptslide_pdf")
+      response = await fetch("/__promptslide_pdf")
+    } catch {
+      /* Static builds use the browser print fallback. */
+    }
+    if (response) {
       if (response.ok && response.headers.get("content-type")?.includes("application/pdf")) {
         const blob = await response.blob()
         const url = URL.createObjectURL(blob)
@@ -695,8 +700,11 @@ export function SlideDeck({
         setTimeout(() => URL.revokeObjectURL(url), 1000)
         return
       }
-    } catch {
-      /* Static builds use the browser print fallback. */
+      if (
+        response.status !== 404 &&
+        (!response.ok || response.headers.get("content-type")?.includes("application/json"))
+      )
+        throw new Error((await response.text()) || "PDF export failed. Please try again.")
     }
     const previousMode = viewMode
     setViewMode("list")
@@ -715,11 +723,12 @@ export function SlideDeck({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
-      if (target?.closest("input, textarea, [contenteditable='true']")) return
+      if (target?.closest("input, textarea, select, [role='dialog'], [contenteditable='true']"))
+        return
       if (e.altKey || e.ctrlKey || e.metaKey) return
       const key = e.key.toLowerCase()
-      if (e.repeat && "fvglcdt".includes(key)) return
-      if (isEditorOpen && ["f", "v", "g", "l", "c", "d"].includes(key)) return
+      if (e.repeat && "fvglct".includes(key)) return
+      if (isEditorOpen && ["f", "v", "g", "l", "c"].includes(key)) return
 
       if (loopStartScreen) return
       if (loopMenuOpen) {
@@ -773,12 +782,6 @@ export function SlideDeck({
         return
       }
 
-      if (key === "d" && !isPresentationMode) {
-        e.preventDefault()
-        void handleExportPdf()
-        return
-      }
-
       if (viewMode === "slide" && !isPresentationMode && key === "t") {
         e.preventDefault()
         setThumbnailRailOpen(!showThumbnailRail)
@@ -812,8 +815,7 @@ export function SlideDeck({
     isPresentationMode,
     setThumbnailRailOpen,
     showThumbnailRail,
-    toggleCommentMode,
-    handleExportPdf
+    toggleCommentMode
   ])
 
   const inspectorWidth = viewportWidth <= 850 ? 280 : 320
@@ -956,14 +958,11 @@ export function SlideDeck({
 
         <div className="mx-1 w-px bg-neutral-800" />
 
-        <ToolbarAction
-          onClick={handleExportPdf}
+        <DownloadMenu
           disabled={isEditorOpen}
-          label="Download PDF"
-          title="Download PDF (D)"
-        >
-          <Download className="h-4 w-4" />
-        </ToolbarAction>
+          onPdf={handleExportPdf}
+          hasRevealSteps={slides.some(slide => slide.steps > 0)}
+        />
         <div ref={loopMenuRef} className="relative flex">
           <button
             onClick={togglePresentationMode}
