@@ -22,6 +22,34 @@ function openBrowser(url) {
   } catch {}
 }
 
+export function accessTokenFromResponse(data) {
+  const payload = data?.data ?? data
+  const token = payload?.access_token || payload?.accessToken || payload?.token
+  if (typeof token !== "string" || !token.trim())
+    throw new Error("Registry authorization returned no access token. Login was not saved.")
+  return token
+}
+
+export function deviceRetryDelay(retryAfter, currentInterval, now = Date.now()) {
+  let requested = NaN
+  if (retryAfter !== null && retryAfter.trim()) {
+    requested = /^\d+(?:\.\d+)?$/.test(retryAfter.trim())
+      ? Number(retryAfter) * 1000
+      : Date.parse(retryAfter) - now
+  }
+  return Number.isFinite(requested) && requested >= 0
+    ? Math.max(currentInterval, requested)
+    : Math.max(60000, currentInterval * 2)
+}
+
+export function findLoginOrganization(organizations, selector) {
+  const organization = organizations.find(org =>
+    [org.id, org.slug, org.name].some(value => value === selector)
+  )
+  if (!organization) throw new Error(`Organization not found: ${selector}`)
+  return organization
+}
+
 export async function login(args) {
   console.log()
   console.log(`  ${bold("promptslide")} ${dim("login")}`)
@@ -32,6 +60,12 @@ export async function login(args) {
   const registryIdx = args.indexOf("--registry")
   if (registryIdx !== -1 && args[registryIdx + 1]) {
     registry = args[registryIdx + 1].replace(/\/$/, "")
+  }
+  const orgIdx = args.indexOf("--org")
+  const requestedOrganization = orgIdx === -1 ? null : args[orgIdx + 1]
+  if (orgIdx !== -1 && (!requestedOrganization || requestedOrganization.startsWith("--"))) {
+    console.error(`  ${red("Error:")} --org requires an organization slug or ID.`)
+    process.exit(1)
   }
 
   console.log(`  Registry: ${cyan(registry)}`)
@@ -61,7 +95,14 @@ export async function login(args) {
     process.exit(1)
   }
 
-  const { device_code, user_code, verification_uri_complete, verification_uri, interval: initialInterval, expires_in } = deviceData
+  const {
+    device_code,
+    user_code,
+    verification_uri_complete,
+    verification_uri,
+    interval: initialInterval,
+    expires_in
+  } = deviceData
   let pollInterval = (initialInterval || 5) * 1000
   const timeoutMs = (expires_in || 600) * 1000 // Default 10 min
 
@@ -82,7 +123,8 @@ export async function login(args) {
   let tokenData
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    await sleep(pollInterval)
+    await sleep(Math.min(pollInterval, deadline - Date.now()))
+    if (Date.now() >= deadline) break
 
     try {
       const res = await fetch(`${registry}/api/auth/device/token`, {
@@ -95,6 +137,14 @@ export async function login(args) {
         })
       })
 
+      if (res.status === 429) {
+        pollInterval = deviceRetryDelay(res.headers.get("retry-after"), pollInterval)
+        console.log(
+          `  ${dim(`Registry rate limit; retrying in ${Math.ceil(pollInterval / 1000)} seconds.`)}`
+        )
+        continue
+      }
+
       const data = await res.json()
 
       if (data.error === "authorization_pending") continue
@@ -105,6 +155,9 @@ export async function login(args) {
       if (data.error) {
         throw new Error(data.error_description || data.error)
       }
+
+      if (!res.ok) throw new Error(`Registry token request failed (${res.status}).`)
+      accessTokenFromResponse(data)
 
       tokenData = data
       break
@@ -120,7 +173,10 @@ export async function login(args) {
     process.exit(1)
   }
 
-  const accessToken = tokenData.access_token || tokenData.token
+  const accessToken = accessTokenFromResponse(tokenData)
+  // Device tokens are consumed once. Persist before any optional interactive
+  // organization selection so EOF or Ctrl+C cannot discard a valid session.
+  saveAuth({ registry, token: accessToken })
   console.log(`  ${green("✓")} Authenticated`)
 
   // Step 4: Fetch user's organizations and let them pick
@@ -131,12 +187,21 @@ export async function login(args) {
   try {
     const orgs = await fetchOrganizations({ registry, token: accessToken })
 
-    if (orgs.length === 0) {
+    if (requestedOrganization) {
+      const selected = findLoginOrganization(orgs, requestedOrganization)
+      organizationId = selected.id
+      organizationName = selected.name
+      organizationSlug = selected.slug
+    } else if (orgs.length === 0) {
       console.log(`  ${dim("No organizations found. Create one at your dashboard.")}`)
     } else if (orgs.length === 1) {
       organizationId = orgs[0].id
       organizationName = orgs[0].name
       organizationSlug = orgs[0].slug
+    } else if (!process.stdin.isTTY) {
+      console.log(
+        `  ${dim("Multiple organizations available. Use login --org <slug> or promptslide org to select one.")}`
+      )
     } else {
       console.log()
       console.log(`  ${bold("Select organization:")}`)
@@ -159,6 +224,15 @@ export async function login(args) {
       }
     }
   } catch (err) {
+    if (requestedOrganization) {
+      console.error(`  ${red("Error:")} Could not select organization: ${err.message}`)
+      console.error(
+        `  ${dim("Your token is saved. Run promptslide org to select an organization.")}`
+      )
+      closePrompts()
+      process.exitCode = 1
+      return
+    }
     console.log(`  ${dim("Could not fetch organizations: " + err.message)}`)
   }
 
