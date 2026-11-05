@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.22](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.21...promptslide-v0.3.22) (2026-11-05)
+
+
+### Features
+
+* export PowerPoint and prepare PDFs in the browser ([#116](https://github.com/prompticeu/promptslide/issues/116)) ([f1d26d3](https://github.com/prompticeu/promptslide/commit/f1d26d3cc1accd278dd47903b1eb686927273095))
+
 ## [0.3.21](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.20...promptslide-v0.3.21) (2026-11-04)
 
 
