@@ -15,7 +15,9 @@ export function svgLinearFill(element, matrix, { style, color }) {
   try {
     const url = new URL(match[1], document.baseURI)
     if (url.origin !== location.origin || url.pathname !== location.pathname) return null
-    gradient = document.getElementById(decodeURIComponent(url.hash.slice(1)))
+    const id = decodeURIComponent(url.hash.slice(1))
+    const scope = element.closest("[data-ps-browser-export-root], [data-ps-pptx-root]")
+    gradient = scope?.querySelector(`#${CSS.escape(id)}`) || document.getElementById(id)
   } catch {
     return null
   }

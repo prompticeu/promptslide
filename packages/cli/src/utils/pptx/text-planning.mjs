@@ -1,6 +1,6 @@
 // Resolve visible text before image capture, so missing glyph coverage can use
 // the original DOM as a localized fallback rather than failing in the writer.
-export async function prepareTextFonts(scene, fonts, page) {
+export async function prepareTextFonts(scene, fonts, page, scopeSelector) {
   const captures = []
   for (const node of scene.nodes) {
     if (node.kind !== "text" && node.kind !== "table") continue
@@ -55,12 +55,14 @@ export async function prepareTextFonts(scene, fonts, page) {
     // A subtree capture also contains its source background and descendants.
     // Remove their earlier native objects so translucent paint is not doubled.
     const absorbed = await page.evaluate(
-      ({ nodes, captureIds }) => {
+      ({ nodes, captureIds, rootSelector }) => {
+        const scope = rootSelector ? document.querySelector(rootSelector) : document
+        if (!scope) throw new Error("Export root disappeared")
         const elements = new Map(
-          [...document.querySelectorAll("[data-ps-pptx-object]")].map(e => [
-            e.getAttribute("data-ps-pptx-object"),
-            e
-          ])
+          [
+            ...(scope.matches?.("[data-ps-pptx-object]") ? [scope] : []),
+            ...scope.querySelectorAll("[data-ps-pptx-object]")
+          ].map(e => [e.getAttribute("data-ps-pptx-object"), e])
         )
         const targets = nodes
           .filter(n => captureIds.includes(n.id))
@@ -89,7 +91,8 @@ export async function prepareTextFonts(scene, fonts, page) {
       },
       {
         nodes: scene.nodes.map(({ id, source }) => ({ id, source })),
-        captureIds: captures.map(n => n.id)
+        captureIds: captures.map(n => n.id),
+        rootSelector: scopeSelector
       }
     )
     scene.nodes = scene.nodes.filter(node => !absorbed.includes(node.id))

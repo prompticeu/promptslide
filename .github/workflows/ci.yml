@@ -27,3 +27,5 @@ jobs:
 
       - run: bun run build
         working-directory: packages/cli
+
+      - run: node benchmarks/pptx/browser-build.mjs

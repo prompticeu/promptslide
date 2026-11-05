@@ -19,6 +19,7 @@ import type { LoopConfig, SlideConfig } from "./types"
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
 import { AnnotationOverlay, AnnotationPanel, useAnnotations } from "./annotations"
+import { createBrowserExportRequest } from "./export/browser-request"
 import { DownloadMenu } from "./export/powerpoint-button"
 import { Inspector, type InspectorMode } from "./inspector"
 import {
@@ -32,6 +33,7 @@ import { LoopSettings } from "./loop/loop-settings"
 import { useLoopPlayback } from "./loop/use-loop-playback"
 import { SlideErrorBoundary } from "./slide-error-boundary"
 import { SlideRenderer } from "./slide-renderer"
+import { useTheme } from "./theme-context"
 import { ToolbarAction } from "./toolbar-action"
 import { useSlideNavigation } from "./use-slide-navigation"
 import { cn } from "./utils"
@@ -147,6 +149,8 @@ function ListSlide({ slide, index, total }: { slide: SlideConfig; index: number;
 interface SlideDeckProps {
   /** Authenticated host transport; omitted in local Studio/static decks. */
   pptxExportRequest?: PptxExportRequest
+  /** Run the same native export engine locally in the viewer’s browser. */
+  pptxExport?: "browser"
   slides: SlideConfig[]
   transition?: SlideTransitionType
   directionalTransition?: boolean
@@ -226,6 +230,7 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
 
 export function SlideDeck({
   pptxExportRequest,
+  pptxExport,
   slides,
   transition,
   directionalTransition,
@@ -236,6 +241,21 @@ export function SlideDeck({
   onAnnotationDelete,
   onAnnotationUpdate
 }: SlideDeckProps) {
+  const exportTheme = useTheme()
+  const browserExport = useMemo(
+    () =>
+      pptxExport === "browser"
+        ? createBrowserExportRequest(async options => {
+            const { renderBrowserPptx } = await import("./export/browser-renderer")
+            return renderBrowserPptx(slides, exportTheme, options)
+          })
+        : undefined,
+    [pptxExport, slides, exportTheme]
+  )
+  useEffect(() => {
+    browserExport?.activate()
+    return () => browserExport?.dispose()
+  }, [browserExport])
   // Check for export mode via URL params
   const [exportParams] = useState(() => {
     if (typeof window === "undefined") return null
@@ -963,7 +983,7 @@ export function SlideDeck({
         <div className="mx-1 w-px bg-neutral-800" />
 
         <DownloadMenu
-          exportRequest={pptxExportRequest}
+          exportRequest={browserExport?.request || pptxExportRequest}
           disabled={isEditorOpen}
           onPdf={handleExportPdf}
           hasRevealSteps={slides.some(slide => slide.steps > 0)}

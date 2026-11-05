@@ -17,9 +17,9 @@ The converter runs locally with Chromium. Its first use installs Playwright Chro
 | Source                                                                   | PowerPoint representation                                                                                                                     |
 | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | CSS boxes, solid fills, borders, rounded corners, circles                | Native preset/custom shapes, including measured positions and sizes                                                                           |
-| Supported SVG paths and Lucide icons                                     | Native editable freeforms, custom dashes and ordinary SVG text; unsupported effects use localized graphics                             |
-| Ordinary sRGB linear gradients                                           | Native gradient fills with directions and stops, including supported background-clipped text                                                                                               |
-| Centered `circle farthest-corner` radial gradients                       | Native path shading; qualified single-hue elliptical glows use native gradient groups; other cases use reported PNG paint fallbacks                                                     |
+| Supported SVG paths and Lucide icons                                     | Native editable freeforms, custom dashes and ordinary SVG text; unsupported effects use localized graphics                                    |
+| Ordinary sRGB linear gradients                                           | Native gradient fills with directions and stops, including supported background-clipped text                                                  |
+| Centered `circle farthest-corner` radial gradients                       | Native path shading; qualified single-hue elliptical glows use native gradient groups; other cases use reported PNG paint fallbacks           |
 | Opaque categorical conic fills on centered circles                       | A bounded group of native editable sectors; continuous, transparent, off-center or transformed conic fills use reported PNG fallbacks         |
 | Transparent gradients                                                    | Sampled native stops, explicitly reported as an approximation                                                                                 |
 | Text                                                                     | Editable rich runs in independently positioned, browser-measured lines; native bullet/number markers                                          |
@@ -104,3 +104,19 @@ The focused [export regression suite](../benchmarks/pptx/README.md) covers font 
 Near-1:1 is a target. Desktop PowerPoint edit/save/reopen and macOS PDF viewer verification remain pending. Native elliptical glows use a reported strip approximation; LibreOffice can show seams. Unsupported paint remains a localized graphic. PDF gradient text can use a localized 2× graphic with selectable text underneath, and merged multipage PDFs do not retain structure tags.
 
 Font embedding targets PowerPoint. Embedded faces use distinct internal names so font subsets and weight variants cannot overwrite each other. Apps that ignore embedded fonts may substitute another face even when the original family is installed. Use `--font-policy=require-installed` when preserving installed family names is more important than embedding.
+
+## Browser-only hosts
+
+Enable the same download dialog in a static or embedded viewer with:
+
+```tsx
+<SlideDeck slides={slides} pptxExport="browser" />
+```
+
+The conversion engine is loaded on demand from `promptslide/browser`. It shares the scene extractor, geometry/OOXML writer, chart workbooks, font coverage checks, WOFF/WOFF2 decoder and variable-font instancing with the CLI. Conversion runs locally; no export server, virtual machine, hosted compute or result storage is required. Local Studio retains its existing server-backed export when this opt-in is absent.
+
+The browser renderer mounts one offscreen 1280 × 720 slide at a time and releases it on success, failure or cancellation. Progress, native reveals, per-state exports, compatibility notes and report downloads use the existing UI. Limits match the CLI; the browser has no access to operating-system font files. Use accessible `@font-face` declarations or URL-based font sources to embed fonts. Cross-origin assets require CORS and are fetched without credentials. Missing font files are reported; unreadable images fail the export. The report includes any localized graphics and font dependencies.
+
+For custom renderers, `import { exportBrowserPptx } from "promptslide/browser"` accepts a manifest and an asynchronous render callback returning a root in the current document. Keep that root mounted until the next render call, render at the design dimensions, settle fonts/images and disable animation before returning it. The SDK `SlideDeck` integration handles this preparation automatically. The host must support ES2022 and WebAssembly; unsupported browser capture is rejected with an actionable message.
+
+Run `PROMPTSLIDE_CHROMIUM_PATH=/path/to/chromium node benchmarks/pptx/browser-qualification.mjs` after building the SDK. `PROMPTSLIDE_TEST_BROWSER=firefox` selects Firefox, and `PROMPTSLIDE_TEST_FONT_DIR` can override the local DejaVu fixture directory. This exercises the actual browser engine, native tables/charts/reveals, font embedding, raster effects, cancellation and a 50-slide export. Generated files stay in ignored artifacts. Desktop PowerPoint qualification remains separate.

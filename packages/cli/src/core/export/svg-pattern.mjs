@@ -10,7 +10,9 @@ export function nativeDotPattern(e, { style, color, emit, issue, rootBox, opacit
       const url = new URL(match[1], document.baseURI)
       if (url.origin !== location.origin || url.pathname !== location.pathname || !url.hash)
         return null
-      return document.getElementById(decodeURIComponent(url.hash.slice(1)))
+      const id = decodeURIComponent(url.hash.slice(1))
+      const scope = e.closest("[data-ps-browser-export-root], [data-ps-pptx-root]")
+      return scope?.querySelector(`#${CSS.escape(id)}`) || document.getElementById(id)
     } catch {
       return null
     }

@@ -1,4 +1,7 @@
-import { posix } from "node:path"
+import { Buffer } from "buffer"
+
+import path from "path-browserify"
+const posix = { ...path, relative: (from, to) => path.relative("/" + from, "/" + to) }
 
 async function canonicalizeChartParts(zip) {
   const chartParts = Object.keys(zip.files)
@@ -20,9 +23,9 @@ async function canonicalizeChartParts(zip) {
   if (!names.size) return
   const parts = []
   for (const name of Object.keys(zip.files).filter(n => !zip.files[n].dir)) {
-    let bytes = await zip.file(name).async("nodebuffer")
+    let bytes = await zip.file(name).async("uint8array")
     if (name.endsWith(".rels")) {
-      const doc = parseXml(bytes.toString())
+      const doc = parseXml(new TextDecoder().decode(bytes))
       const originalBase =
         name === "_rels/.rels"
           ? ""
@@ -52,7 +55,7 @@ async function canonicalizeChartParts(zip) {
       }
       bytes = Buffer.from(serialize(doc))
     } else if (name === "[Content_Types].xml") {
-      const doc = parseXml(bytes.toString())
+      const doc = parseXml(new TextDecoder().decode(bytes))
       for (const type of children(doc, NS.ct, "Override"))
         if (names.has(type.getAttribute("PartName").slice(1)))
           type.setAttribute("PartName", "/" + names.get(type.getAttribute("PartName").slice(1)))
@@ -80,7 +83,7 @@ async function repairWorkbook(zip, chart, part) {
   const workbookPart = posix.normalize(
     posix.join(posix.dirname(part), relationship.getAttribute("Target"))
   )
-  const book = await JSZip.loadAsync(await zip.file(workbookPart).async("nodebuffer"))
+  const book = await JSZip.loadAsync(await zip.file(workbookPart).async("uint8array"))
   const sheet = parseXml(await book.file("xl/worksheets/sheet1.xml").async("string"))
   const cells = new Map(children(sheet, NS.s, "c").map(cell => [cell.getAttribute("r"), cell]))
   for (const reference of children(chart, NS.c, "numRef")) {
@@ -106,9 +109,9 @@ async function repairWorkbook(zip, chart, part) {
     date = new Date("2000-01-01T00:00:00Z")
   for (const name of Object.keys(book.files).sort()) {
     if (book.files[name].dir) continue
-    let bytes = await book.file(name).async("nodebuffer")
+    let bytes = await book.file(name).async("uint8array")
     if (name === "docProps/core.xml") {
-      const doc = parseXml(bytes.toString())
+      const doc = parseXml(new TextDecoder().decode(bytes))
       for (const local of ["created", "modified"])
         for (const node of children(doc, "http://purl.org/dc/terms/", local))
           node.textContent = "2000-01-01T00:00:00Z"
@@ -116,7 +119,7 @@ async function repairWorkbook(zip, chart, part) {
     }
     stable.file(name, bytes, { date, createFolders: false })
   }
-  zip.file(workbookPart, await stable.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }))
+  zip.file(workbookPart, await stable.generateAsync({ type: "uint8array", compression: "DEFLATE" }))
 }
 
 /** Keep generated notes internally consistent, or omit unused notes entirely. */
@@ -145,7 +148,7 @@ async function normalizeNotes(zip, hasNotes) {
     // A dedicated notes theme keeps notes inheritance independent of the slide
     // master, matching the package structure emitted by PowerPoint.
     const themePart = "ppt/theme/theme2.xml"
-    zip.file(themePart, await zip.file("ppt/theme/theme1.xml").async("nodebuffer"))
+    zip.file(themePart, await zip.file("ppt/theme/theme1.xml").async("uint8array"))
     const relPart = "ppt/notesMasters/_rels/notesMaster1.xml.rels"
     const rels = parseXml(await zip.file(relPart).async("string"))
     for (const rel of children(rels, NS.rel, "Relationship"))
