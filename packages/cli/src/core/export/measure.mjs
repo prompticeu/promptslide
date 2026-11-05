@@ -1720,10 +1720,10 @@ export async function extractScene(root, { slideId, adapters = [], signal } = {}
       if (rule.type === CSSRule.IMPORT_RULE) scan(rule.styleSheet)
       if (rule.type === CSSRule.FONT_FACE_RULE)
         fontFaces.push({
-          family: rule.style.fontFamily.replace(/^['"]|['"]$/g, ""),
-          weight: rule.style.fontWeight || "400",
-          style: rule.style.fontStyle || "normal",
-          urls: [...rule.style.src.matchAll(/url\(["']?([^"')]+)["']?\)/g)].map(
+          family: rule.style.getPropertyValue("font-family").replace(/^['"]|['"]$/g, ""),
+          weight: rule.style.getPropertyValue("font-weight") || "400",
+          style: rule.style.getPropertyValue("font-style") || "normal",
+          urls: [...rule.style.getPropertyValue("src").matchAll(/url\(["']?([^"')]+)["']?\)/g)].map(
             m => new URL(m[1], sheet.href || document.baseURI).href
           )
         })

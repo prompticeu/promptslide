@@ -212,7 +212,14 @@ function timingXml(entries) {
 /** Native writer. Only unsupported objects arrive here as measured image fallbacks. */
 export async function writePresentation(
   frames,
-  { fonts, theme = {}, buildMode = "final", signal, onProgress = () => {} } = {}
+  {
+    fonts,
+    theme = {},
+    buildMode = "final",
+    signal,
+    onProgress = () => {},
+    outputType = "nodebuffer"
+  } = {}
 ) {
   const deck = new pptxgen()
   deck.defineLayout({ name: "PROMPTSLIDE", width: 1280 / 96, height: 720 / 96 })
@@ -474,9 +481,10 @@ export async function writePresentation(
     }
     native.push(replacements)
     onProgress({ phase: "converting", completed: index + 1, total: frames.length })
+    if (outputType === "uint8array") await new Promise(resolve => setTimeout(resolve, 0))
   }
   assertNotAborted(signal)
-  const zip = await JSZip.loadAsync(await deck.write({ outputType: "nodebuffer" }))
+  const zip = await JSZip.loadAsync(await deck.write({ outputType: "uint8array" }))
   await normalizeScaffold(zip, { hasNotes: frames.some(frame => Boolean(frame.notes?.trim())) })
   const objectMap = []
   for (let i = 0; i < frames.length; i++) {
@@ -899,15 +907,18 @@ export async function writePresentation(
   const normalized = new JSZip()
   for (const name of Object.keys(zip.files).sort())
     if (!zip.files[name].dir)
-      normalized.file(name, await zip.file(name).async("nodebuffer"), {
+      normalized.file(name, await zip.file(name).async("uint8array"), {
         date: new Date("2000-01-01T00:00:00Z"),
         createFolders: false
       })
-  const buffer = await normalized.generateAsync({
-    type: "nodebuffer",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 }
-  })
+  const buffer = await normalized.generateAsync(
+    {
+      type: outputType,
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 }
+    },
+    () => assertNotAborted(signal)
+  )
   if (buffer.length > DEFAULT_LIMITS.outputBytes)
     throw new Error("LIMIT_EXCEEDED: PowerPoint output size")
   return {

@@ -34,6 +34,7 @@ export function createViteConfig({ cwd, mode = "development", editor = true }) {
       dedupe: ["react", "react-dom"],
       alias: {
         "@": resolve(cwd, "src"),
+        "promptslide/browser": fileURLToPath(new URL("../../dist/browser.js", import.meta.url)),
         promptslide: promptslidePath,
         // CSS @import "tailwindcss" → resolved from CLI package
         tailwindcss: tailwindPath
@@ -54,7 +55,7 @@ export function createViteConfig({ cwd, mode = "development", editor = true }) {
     },
     css: {
       postcss: {
-        plugins: [tailwindcss()]
+        plugins: [tailwindcss({ base: cwd })]
       }
     }
   }

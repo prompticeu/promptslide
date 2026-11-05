@@ -34,7 +34,15 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./src/commands/*": "./src/commands/*"
+    "./src/commands/*": "./src/commands/*",
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
+    "./pdf-browser": {
+      "types": "./dist/pdf-browser.d.ts",
+      "import": "./dist/pdf-browser.js"
+    }
   },
   "scripts": {
     "build": "tsup",
@@ -42,13 +50,17 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "@noble/hashes": "1.8.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@vitejs/plugin-react": "^4.5.2",
     "@xmldom/xmldom": "0.9.12",
+    "buffer": "6.0.3",
     "clsx": "^2.1.1",
+    "fflate": "0.8.2",
     "harfbuzzjs": "1.6.4",
     "jszip": "3.10.1",
     "lucide-react": "^0.552.0",
+    "path-browserify": "1.0.1",
     "pdf-lib": "1.17.1",
     "playwright": "^1.50.0",
     "postcss": "^8.5.6",

@@ -2,7 +2,8 @@ import { makeSubtreePreview } from "./measure.mjs"
 import { nativeDotPattern } from "./svg-pattern.mjs"
 
 let restore
-const rootAt = index => document.querySelectorAll(".pdf-slide")[index]
+const rootAt = index =>
+  index instanceof Element ? index : document.querySelectorAll(".pdf-slide")[index]
 const targetIn = (root, id) =>
   [...root.querySelectorAll("[data-ps-pptx-object]")].find(
     element => element.getAttribute("data-ps-pptx-object") === id
