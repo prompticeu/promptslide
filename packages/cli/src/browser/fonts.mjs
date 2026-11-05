@@ -59,9 +59,10 @@ export async function browserFonts(root, { sources = [], signal, onIssue, policy
     if (seen.size > 80) throw new Error("LIMIT_EXCEEDED: font faces")
     try {
       const { bytes, type } = await assetBytes(url, { signal })
-      total += bytes.length
+      const decoded = await decodeFont(bytes)
+      total += Math.max(bytes.length, decoded.length)
       if (total > 50 * 1024 * 1024) throw new Error("LIMIT_EXCEEDED: fonts")
-      assets.push({ ...face, bytes: await decodeFont(bytes) })
+      assets.push({ ...face, bytes: decoded })
       if (face.family)
         embeddedCss.push(
           `@font-face{font-family:${JSON.stringify(face.family)};font-style:${face.style || "normal"};font-weight:${face.weightRange || face.weight || 400};${face.unicodeRange ? "unicode-range:" + face.unicodeRange + ";" : ""}src:url("${dataUrl(bytes, type)}")}`

@@ -37,10 +37,7 @@ export function browserEngines() {
         if (!source.includes(marker))
           throw new Error("Unexpected HarfBuzz WASM locator; review browser adapter")
         return {
-          contents: source.replace(
-            marker,
-            '(()=>{throw new Error("HarfBuzz requires embedded WASM bytes")})()'
-          ),
+          contents: source.replace(marker, '"embedded:harfbuzz.wasm"'),
           loader: "js"
         }
       })

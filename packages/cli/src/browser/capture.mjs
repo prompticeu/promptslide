@@ -45,11 +45,16 @@ export async function captureFallback(root, node, { fontCss = "", signal, scale 
   )
   if (node.payload.scope !== "paint" && !target) throw new Error("Fallback source disappeared")
   const urls = new Map()
+  let assetTotal = 0
   async function inline(url) {
     if (!urls.has(url))
       urls.set(
         url,
-        assetBytes(url, { signal }).then(({ bytes, type }) => dataUrl(bytes, type))
+        assetBytes(url, { signal }).then(({ bytes, type }) => {
+          assetTotal += bytes.length
+          if (assetTotal > 50 * 1024 * 1024) throw new Error("LIMIT_EXCEEDED: fallback assets")
+          return dataUrl(bytes, type)
+        })
       )
     return urls.get(url)
   }
@@ -231,8 +236,17 @@ export async function resolvePictures(root, scene, options) {
       else {
         const img = await image(dataUrl(bytes, type)),
           canvas = document.createElement("canvas")
-        canvas.width = Math.ceil(node.payload.naturalWidth || img.naturalWidth)
-        canvas.height = Math.ceil(node.payload.naturalHeight || img.naturalHeight)
+        const naturalWidth = node.payload.naturalWidth || img.naturalWidth
+        const naturalHeight = node.payload.naturalHeight || img.naturalHeight
+        const scale = /svg/.test(type)
+          ? Math.max(
+              1,
+              (node.box.width * options.scale) / naturalWidth,
+              (node.box.height * options.scale) / naturalHeight
+            )
+          : 1
+        canvas.width = Math.max(1, Math.ceil(naturalWidth * scale))
+        canvas.height = Math.max(1, Math.ceil(naturalHeight * scale))
         if (canvas.width * canvas.height > MAX_PIXELS)
           throw new Error("LIMIT_EXCEEDED: image pixels")
         canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height)

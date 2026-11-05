@@ -97,10 +97,24 @@ export async function exportBrowserPptx({
           }),
           abort
         )
+        measuredRoot = root
+        root.setAttribute("data-ps-browser-export-root", scopeId)
         const scene = await abortable(
           extractScene(root, { slideId: meta.id, adapters, signal: abort }),
           abort
         )
+        await abortable(
+          new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+          abort
+        )
+        const settled = await abortable(
+          extractScene(root, { slideId: meta.id, adapters, signal: abort }),
+          abort
+        )
+        if (JSON.stringify(scene.nodes) !== JSON.stringify(settled.nodes))
+          throw new Error(
+            "UNSTABLE_CONTENT: Slide changed during measurement; retry after its content settles"
+          )
         nodeCount += scene.nodes.reduce(
           (count, n) =>
             count +
@@ -115,8 +129,6 @@ export async function exportBrowserPptx({
           0
         )
         if (nodeCount > DEFAULT_LIMITS.nodes) throw new Error("LIMIT_EXCEEDED: scene nodes")
-        measuredRoot = root
-        root.setAttribute("data-ps-browser-export-root", scopeId)
         await abortable(
           prepareTextFonts(
             scene,
@@ -137,9 +149,11 @@ export async function exportBrowserPptx({
         )
         for (const node of scene.nodes)
           if (node.kind === "fallback" || node.kind === "picture")
-            pixels +=
+            pixels += Math.max(
+              (node.payload.naturalWidth || 0) * (node.payload.naturalHeight || 0),
               Math.ceil(node.box.width * options.rasterScale) *
-              Math.ceil(node.box.height * options.rasterScale)
+                Math.ceil(node.box.height * options.rasterScale)
+            )
         if (pixels > DEFAULT_LIMITS.decodedPixels)
           throw new Error("LIMIT_EXCEEDED: decoded image pixels")
         const frame = { ...scene, ...meta, slideId: meta.id, stateId: `${meta.id}:${step}`, step }
