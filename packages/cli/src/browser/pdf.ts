@@ -8,7 +8,11 @@ import { assetBytes, dataUrl } from "./assets.mjs"
 import { captureFallback } from "./capture.mjs"
 
 export interface BrowserPdfIssue {
-  code: "PDF_PATTERN_EXPANDED" | "PDF_GRADIENT_TEXT_GRAPHIC" | "PDF_PRINT_SCALE_NORMALIZED"
+  code:
+    | "PDF_PATTERN_EXPANDED"
+    | "PDF_GRADIENT_TEXT_GRAPHIC"
+    | "PDF_PRINT_SCALE_NORMALIZED"
+    | "PDF_FONT_UNAVAILABLE"
   page: number
   message: string
 }
@@ -84,6 +88,11 @@ function normalizePrintScales(slide: HTMLElement): number {
 
 /** Embed only the font faces needed to paint the gradient text in an SVG image. */
 async function captureFontCss(elements: Element[], signal: AbortSignal) {
+  const normalizeFamily = (family: string) =>
+    family
+      .trim()
+      .replace(/^['"]|['"]$/g, "")
+      .toLowerCase()
   const families = new Set(
     elements.flatMap(element =>
       [element, ...element.querySelectorAll("*")].flatMap(node =>
@@ -130,7 +139,17 @@ async function captureFontCss(elements: Element[], signal: AbortSignal) {
     try {
       text = [...sheet.cssRules].map(rule => rule.cssText).join("\n")
     } catch {
-      if (sheet.href) await stylesheet(sheet.href)
+      if (sheet.href) {
+        try {
+          await stylesheet(sheet.href)
+        } catch (error) {
+          signal.throwIfAborted()
+          if (error instanceof Error && /LIMIT_EXCEEDED|Too many PDF/.test(error.message))
+            throw error
+          // A readable slide must not fail because an unrelated host stylesheet
+          // cannot be fetched with CORS. Missing used faces are reported below.
+        }
+      }
       continue
     }
     await parse(text, sheet.href || document.baseURI)
@@ -159,7 +178,19 @@ async function captureFontCss(elements: Element[], signal: AbortSignal) {
     }
     result.push(css)
   }
-  return result.join("\n")
+  const captured = new Set(
+    faces.map(face => {
+      const sheet = new CSSStyleSheet()
+      sheet.replaceSync(face.css)
+      return normalizeFamily((sheet.cssRules[0] as CSSFontFaceRule).style.fontFamily)
+    })
+  )
+  const missing = new Set(
+    [...document.fonts]
+      .map(face => normalizeFamily(face.family))
+      .filter(family => families.has(family) && !captured.has(family))
+  )
+  return { css: result.join("\n"), missing }
 }
 
 /**
@@ -190,6 +221,7 @@ export async function prepareBrowserPdf(
       : [...root.querySelectorAll<HTMLElement>(".pdf-slide")]
     if (!slides.length) throw new Error("There are no PDF slides to print")
     let fontCss: string | undefined
+    let missingFonts = new Set<string>()
     for (const [index, slide] of slides.entries()) {
       signal.throwIfAborted()
       if (normalizePrintScales(slide))
@@ -208,7 +240,30 @@ export async function prepareBrowserPdf(
         })
       const targets = pdfPaint.gradientTextTargets(slide) as Array<{ id: string }>
       if (!targets.length) continue
-      if (fontCss === undefined) fontCss = await captureFontCss(slides, signal)
+      if (fontCss === undefined) {
+        const fonts = await captureFontCss(slides, signal)
+        fontCss = fonts.css
+        missingFonts = fonts.missing
+      }
+      const usedFonts = new Set(
+        [slide, ...slide.querySelectorAll("*")].flatMap(element =>
+          getComputedStyle(element)
+            .fontFamily.split(",")
+            .map(family =>
+              family
+                .trim()
+                .replace(/^['"]|['"]$/g, "")
+                .toLowerCase()
+            )
+        )
+      )
+      for (const family of missingFonts)
+        if (usedFonts.has(family))
+          options.onIssue?.({
+            code: "PDF_FONT_UNAVAILABLE",
+            page: index + 1,
+            message: `Font bytes for ${family} could not be read for gradient text; its graphic may use a fallback font.`
+          })
       for (const target of targets) {
         const capture = await captureFallback(
           slide,
