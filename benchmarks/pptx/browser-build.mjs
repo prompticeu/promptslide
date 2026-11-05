@@ -12,7 +12,10 @@ try {
   await mkdir(join(temporary, "node_modules"))
   await symlink(join(root, "packages/cli"), join(temporary, "node_modules/promptslide"), "dir")
   const entry = join(temporary, "index.mjs")
-  await writeFile(entry, 'export {exportBrowserPptx} from "promptslide/browser"')
+  await writeFile(
+    entry,
+    'export {exportBrowserPptx} from "promptslide/browser"; export {prepareBrowserPdf} from "promptslide/pdf-browser"'
+  )
   const result = await build({
     root: temporary,
     configFile: false,
@@ -23,11 +26,13 @@ try {
     .flatMap(value => value.output)
     .filter(value => value.type === "chunk")
   assert.ok(bundles.some(value => value.exports.includes("exportBrowserPptx")))
+  assert.ok(bundles.some(value => value.exports.includes("prepareBrowserPdf")))
+  const emitted = new Set(bundles.map(bundle => bundle.fileName))
   for (const bundle of bundles)
     assert.ok(
       bundle.imports
         .concat(bundle.dynamicImports)
-        .every(path => path.startsWith("./") || path.endsWith(".mjs") || path.endsWith(".js")),
+        .every(path => emitted.has(path.replace(/^\.\//, ""))),
       "Browser bundle must have no Node or external runtime dependencies"
     )
   console.log("Public browser entry bundles successfully with Vite; no Node runtime dependencies")

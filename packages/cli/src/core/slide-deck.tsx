@@ -1,3 +1,5 @@
+import type { ReactNode, ReactPortal } from "react"
+
 import { LayoutGroup } from "framer-motion"
 import {
   ChevronDown,
@@ -10,8 +12,10 @@ import {
   Settings2
 } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { createPortal, flushSync } from "react-dom"
 
 import type { Annotation, AnnotationTarget } from "./annotations"
+import type { BrowserExportMount } from "./export/browser-renderer"
 import type { PptxExportRequest } from "./export/types"
 import type { SlideTransitionType } from "./transitions"
 import type { LoopConfig, SlideConfig } from "./types"
@@ -19,6 +23,7 @@ import type { LoopConfig, SlideConfig } from "./types"
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
 import { AnnotationOverlay, AnnotationPanel, useAnnotations } from "./annotations"
+import { abortable } from "./export/abort"
 import { createBrowserExportRequest } from "./export/browser-request"
 import { DownloadMenu } from "./export/powerpoint-button"
 import { Inspector, type InspectorMode } from "./inspector"
@@ -228,9 +233,35 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
 // COMPONENT
 // =============================================================================
 
-export function SlideDeck({
+/** The export portal remains inside the host’s router, locale and data providers. */
+export function SlideDeck(props: SlideDeckProps) {
+  const [portal, setPortal] = useState<ReactPortal | null>(null)
+  const mounted = useRef(true)
+  useLayoutEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  const mountExport = useCallback((children: ReactNode, container: HTMLElement) => {
+    if (!mounted.current) {
+      if (children !== null) throw new DOMException("Export viewer was closed", "AbortError")
+      return
+    }
+    flushSync(() => setPortal(children === null ? null : createPortal(children, container)))
+  }, [])
+  return (
+    <>
+      <SlideDeckView {...props} mountExport={mountExport} />
+      {portal}
+    </>
+  )
+}
+
+function SlideDeckView({
   pptxExportRequest,
   pptxExport,
+  mountExport,
   slides,
   transition,
   directionalTransition,
@@ -240,17 +271,30 @@ export function SlideDeck({
   onAnnotationAdd,
   onAnnotationDelete,
   onAnnotationUpdate
-}: SlideDeckProps) {
+}: SlideDeckProps & { mountExport: BrowserExportMount }) {
   const exportTheme = useTheme()
+  const exportInputs = useRef({ slides, exportTheme, mountExport })
+  useLayoutEffect(() => {
+    exportInputs.current = { slides, exportTheme, mountExport }
+  }, [slides, exportTheme, mountExport])
   const browserExport = useMemo(
     () =>
       pptxExport === "browser"
         ? createBrowserExportRequest(async options => {
-            const { renderBrowserPptx } = await import("./export/browser-renderer")
-            return renderBrowserPptx(slides, exportTheme, options)
+            const snapshot = exportInputs.current
+            const { renderBrowserPptx } = await abortable(
+              import("./export/browser-renderer"),
+              options.signal
+            )
+            return renderBrowserPptx(
+              [...snapshot.slides],
+              snapshot.exportTheme,
+              options,
+              snapshot.mountExport
+            )
           })
         : undefined,
-    [pptxExport, slides, exportTheme]
+    [pptxExport]
   )
   useEffect(() => {
     browserExport?.activate()

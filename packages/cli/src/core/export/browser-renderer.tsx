@@ -1,3 +1,5 @@
+import type { ReactNode } from "react"
+
 import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
 
@@ -9,6 +11,8 @@ import { SlideErrorBoundary } from "../slide-error-boundary"
 import { SlideThemeProvider } from "../theme-context"
 import { abortable } from "./abort"
 import { getPptxExportAdapters } from "./adapters"
+
+export type BrowserExportMount = (children: ReactNode, container: HTMLElement) => void
 
 const frame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
 async function ready(root: HTMLElement, signal: AbortSignal) {
@@ -45,7 +49,8 @@ async function ready(root: HTMLElement, signal: AbortSignal) {
 export async function renderBrowserPptx(
   slides: SlideConfig[],
   theme: ThemeConfig | null,
-  options: Pick<BrowserPptxOptions, "mode" | "buildMode" | "signal" | "onProgress">
+  options: Pick<BrowserPptxOptions, "mode" | "buildMode" | "signal" | "onProgress">,
+  mount?: BrowserExportMount
 ) {
   options.signal?.throwIfAborted()
   const { exportBrowserPptx } = await abortable(import("promptslide/browser"), options.signal)
@@ -63,7 +68,21 @@ export async function renderBrowserPptx(
     pointerEvents: "none"
   })
   document.body.appendChild(container)
-  const reactRoot = createRoot(container)
+  const reactRoot = mount ? undefined : createRoot(container)
+  const update = (children: ReactNode) => {
+    if (mount) mount(children, container)
+    else flushSync(() => reactRoot!.render(children))
+  }
+  const usedIds = new Set(slides.flatMap(slide => (slide.id ? [slide.id] : [])))
+  const manifest = slides.map((slide, index) => {
+    let id = slide.id
+    if (!id) {
+      id = `legacy-${index + 1}`
+      while (usedIds.has(id)) id += "-legacy"
+      usedIds.add(id)
+    }
+    return { id, steps: slide.steps || 0, title: slide.title, notes: slide.notes }
+  })
   try {
     return await exportBrowserPptx({
       ...options,
@@ -71,44 +90,37 @@ export async function renderBrowserPptx(
       adapters: getPptxExportAdapters(),
       fontSources: theme?.pptx?.fonts?.map(font => ({
         ...font,
-        url: font.path.replace(/^public\//, "/")
+        url: font.path.replace(/^public\//, "")
       })),
-      manifest: slides.map((s, index) => ({
-        id: s.id || `legacy-${index + 1}`,
-        steps: s.steps || 0,
-        title: s.title,
-        notes: s.notes
-      })),
+      manifest,
       render: async (index, step, showAll, signal) => {
         const slide = slides[index]!,
           Component = slide.component
-        flushSync(() =>
-          reactRoot.render(
-            <SlideThemeProvider theme={theme || {}}>
-              <div
-                key={`${index}:${step}`}
-                data-ps-pptx-root
-                style={{
-                  position: "relative",
-                  width: 1280,
-                  height: 720,
-                  overflow: "hidden",
-                  background: "black"
-                }}
+        update(
+          <SlideThemeProvider theme={theme || {}}>
+            <div
+              key={`${index}:${step}`}
+              data-ps-pptx-root
+              style={{
+                position: "relative",
+                width: 1280,
+                height: 720,
+                overflow: "hidden",
+                background: "black"
+              }}
+            >
+              <AnimationProvider
+                currentStep={step}
+                totalSteps={slide.steps || 0}
+                showAllAnimations={showAll}
+                isExporting
               >
-                <AnimationProvider
-                  currentStep={step}
-                  totalSteps={slide.steps || 0}
-                  showAllAnimations={showAll}
-                  isExporting
-                >
-                  <SlideErrorBoundary slideIndex={index} slideTitle={slide.title}>
-                    <Component slideNumber={index + 1} totalSlides={slides.length} />
-                  </SlideErrorBoundary>
-                </AnimationProvider>
-              </div>
-            </SlideThemeProvider>
-          )
+                <SlideErrorBoundary slideIndex={index} slideTitle={slide.title}>
+                  <Component slideNumber={index + 1} totalSlides={slides.length} />
+                </SlideErrorBoundary>
+              </AnimationProvider>
+            </div>
+          </SlideThemeProvider>
         )
         const root = container.querySelector<HTMLElement>("[data-ps-pptx-root]")!
         await abortable(ready(root, signal), signal)
@@ -116,7 +128,8 @@ export async function renderBrowserPptx(
       }
     })
   } finally {
-    reactRoot.unmount()
+    if (mount) mount(null, container)
+    else reactRoot!.unmount()
     container.remove()
   }
 }

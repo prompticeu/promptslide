@@ -1,4 +1,4 @@
-import { assetBytes, dataUrl } from "./assets.mjs"
+import { assetBytes, dataUrl, imageDimensions } from "./assets.mjs"
 
 const MAX_PIXELS = 50_000_000
 let supported
@@ -58,11 +58,15 @@ export async function captureFallback(root, node, { fontCss = "", signal, scale 
       )
     return urls.get(url)
   }
-  async function styleText(css) {
+  async function styleText(css, resources = true) {
     let value = [...css].map(p => `${p}:${css.getPropertyValue(p)};`).join("")
     // External resources cannot be fetched inside an SVG image document.
     for (const match of [...value.matchAll(/url\("([^"]+)"\)/g)]) {
       const url = match[1]
+      if (!resources) {
+        value = value.replaceAll(match[0], "none")
+        continue
+      }
       if (url.startsWith("#")) continue
       const absolute = new URL(url, document.baseURI)
       if (absolute.hash && absolute.href.split("#")[0] === document.URL.split("#")[0])
@@ -80,17 +84,43 @@ export async function captureFallback(root, node, { fontCss = "", signal, scale 
     const retained =
       node.payload.scope !== "paint" &&
       (source === target || target.contains(source) || definitions.has(source))
-    // Retain ancestors for transforms, clipping and group effects, but hide their paint.
-    copy.setAttribute("style", await styleText(css))
+    const visible = retained && css.display !== "none" && css.visibility === "visible"
+    const ancestor = node.payload.scope !== "paint" && source.contains(target)
+    // Hidden siblings retain layout, but must not fetch unrelated resources.
+    copy.setAttribute("style", await styleText(css, visible || ancestor || definitions.has(source)))
     copy.style.setProperty("animation", "none", "important")
     copy.style.setProperty("transition", "none", "important")
     if (!retained) copy.style.setProperty("visibility", "hidden", "important")
-    if (source instanceof HTMLImageElement && source.currentSrc)
-      copy.setAttribute("src", await inline(source.currentSrc))
+    if (source instanceof HTMLImageElement) {
+      copy.setAttribute("loading", "eager")
+      copy.setAttribute(
+        "src",
+        visible && source.currentSrc
+          ? await inline(source.currentSrc)
+          : "data:image/svg+xml," +
+              encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" width="${source.naturalWidth || source.width || 1}" height="${source.naturalHeight || source.height || 1}"/>`
+              )
+      )
+    }
+    if (source instanceof SVGElement && source.tagName.toLowerCase() === "image") {
+      const href =
+        source.getAttribute("href") || source.getAttributeNS("http://www.w3.org/1999/xlink", "href")
+      if (visible && href && !href.startsWith("#") && !href.startsWith("data:")) {
+        const uri = await inline(new URL(href, document.baseURI).href)
+        copy.setAttribute("href", uri)
+        copy.removeAttributeNS("http://www.w3.org/1999/xlink", "href")
+      } else if (!visible) {
+        copy.removeAttribute("href")
+        copy.removeAttributeNS("http://www.w3.org/1999/xlink", "href")
+      }
+    }
     copy.removeAttribute("srcset")
     for (const attribute of [...copy.attributes])
       if (/^on/i.test(attribute.name)) copy.removeAttribute(attribute.name)
-    if (source instanceof HTMLCanvasElement) {
+    if (source instanceof HTMLCanvasElement && visible) {
+      if (source.width * source.height > MAX_PIXELS)
+        throw new Error("LIMIT_EXCEEDED: source canvas pixels")
       const replacement = document.createElement("img")
       try {
         replacement.src = source.toDataURL()
@@ -100,9 +130,9 @@ export async function captureFallback(root, node, { fontCss = "", signal, scale 
       replacement.setAttribute("style", copy.getAttribute("style"))
       copy.replaceWith(replacement)
     }
-    if (source instanceof HTMLVideoElement && retained)
+    if (source instanceof HTMLVideoElement && visible)
       throw new Error("UNSUPPORTED_CONTENT: Export video as a poster image")
-    if (retained && !(source instanceof SVGElement))
+    if (visible && !(source instanceof SVGElement))
       for (const pseudo of ["::before", "::after"]) {
         const pseudoCss = getComputedStyle(source, pseudo),
           content = pseudoCss.content
@@ -119,6 +149,9 @@ export async function captureFallback(root, node, { fontCss = "", signal, scale 
   }
   Object.assign(clone.style, {
     position: "relative",
+    inset: "auto",
+    insetInline: "auto",
+    insetBlock: "auto",
     left: "0",
     top: "0",
     width: "1280px",
@@ -216,6 +249,12 @@ export async function captureFallback(root, node, { fontCss = "", signal, scale 
 }
 
 export async function resolvePictures(root, scene, options) {
+  const budget = options.mediaBudget || { bytes: 0 }
+  const retain = bytes => {
+    budget.bytes += bytes
+    if (budget.bytes > 50 * 1024 * 1024) throw new Error("LIMIT_EXCEEDED: retained picture bytes")
+  }
+  const dataSize = value => Math.ceil((value.length - value.indexOf(",") - 1) * 0.75)
   for (const node of [...scene.nodes]) {
     options.signal?.throwIfAborted()
     if (node.kind === "fallback") {
@@ -223,6 +262,7 @@ export async function resolvePictures(root, scene, options) {
       if (!capture) scene.nodes.splice(scene.nodes.indexOf(node), 1)
       else {
         node.box = capture.box
+        retain(dataSize(capture.data))
         node.payload.data = capture.data
         if (node.payload.scope === "subtree") node.opacity = 1
       }
@@ -230,11 +270,21 @@ export async function resolvePictures(root, scene, options) {
       if (node.payload.naturalWidth * node.payload.naturalHeight > MAX_PIXELS)
         throw new Error("LIMIT_EXCEEDED: image pixels")
       const { bytes, type } = await assetBytes(node.payload.url, options)
+      const header = imageDimensions(bytes)
+      if (header && header.width * header.height > MAX_PIXELS)
+        throw new Error("LIMIT_EXCEEDED: decoded picture pixels")
+      retain(bytes.length)
       if (!/^image\/(png|jpeg|gif|svg\+xml|webp|avif)/.test(type))
         throw new Error("ASSET_UNAVAILABLE: Unsupported image type")
-      if (/png|jpeg|gif/.test(type)) node.payload.data = dataUrl(bytes, type)
+      const original = dataUrl(bytes, type)
+      const decoded = await image(original)
+      if (decoded.naturalWidth * decoded.naturalHeight > MAX_PIXELS)
+        throw new Error("LIMIT_EXCEEDED: decoded picture pixels")
+      node.payload.naturalWidth = decoded.naturalWidth
+      node.payload.naturalHeight = decoded.naturalHeight
+      if (/png|jpeg|gif/.test(type)) node.payload.data = original
       else {
-        const img = await image(dataUrl(bytes, type)),
+        const img = decoded,
           canvas = document.createElement("canvas")
         const naturalWidth = node.payload.naturalWidth || img.naturalWidth
         const naturalHeight = node.payload.naturalHeight || img.naturalHeight
@@ -250,7 +300,9 @@ export async function resolvePictures(root, scene, options) {
         if (canvas.width * canvas.height > MAX_PIXELS)
           throw new Error("LIMIT_EXCEEDED: image pixels")
         canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height)
-        node.payload.data = canvas.toDataURL()
+        const converted = canvas.toDataURL()
+        retain(dataSize(converted))
+        node.payload.data = converted
         if (
           /svg/.test(type) &&
           !/<(?:script|foreignObject)\b|\bon\w+\s*=|(?:href|src)\s*=\s*["'](?:https?:|javascript:)|url\(\s*["']?https?:/i.test(

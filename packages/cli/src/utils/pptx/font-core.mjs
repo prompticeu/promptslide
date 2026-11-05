@@ -169,15 +169,23 @@ export async function decodeFont(input) {
     if (bytes.length < 44) throw new Error("Invalid WOFF")
     const tables = new Map(),
       count = bytes.readUInt16BE(12)
-    if (count > 200) throw new Error("Invalid WOFF table count")
+    if (count > 200 || 44 + count * 20 > bytes.length)
+      throw new Error("Invalid WOFF table directory")
+    let tableBytes = 12 + count * 16
+    const entries = []
     for (let i = 0; i < count; i++) {
       const at = 44 + 20 * i,
         tag = bytes.toString("ascii", at, at + 4),
         offset = bytes.readUInt32BE(at + 4),
         compressed = bytes.readUInt32BE(at + 8),
         length = bytes.readUInt32BE(at + 12)
+      tableBytes += Math.ceil(length / 4) * 4
+      if (tableBytes > MAX_FONT) throw new Error("Decoded font exceeds asset size limit")
       if (length > MAX_FONT || offset + compressed > bytes.length)
         throw new Error("Invalid WOFF table")
+      entries.push({ tag, offset, compressed, length })
+    }
+    for (const { tag, offset, compressed, length } of entries) {
       const data = bytes.subarray(offset, offset + compressed)
       tables.set(
         tag,
@@ -518,6 +526,7 @@ export class FontResolver {
           result.family = info.family.slice(0, 48) + " PS " + hash(bytes).slice(0, 12)
           bytes = renameFont(bytes, result.family, info.weight >= 600, info.italic)
         }
+        info = fontInfo(bytes)
         const id = hash(bytes)
         const eot = fontToEot(bytes)
         const variant =

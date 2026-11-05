@@ -60,6 +60,7 @@ export async function exportBrowserPptx({
     timings: {}
   }
   const frames = []
+  const mediaBudget = { bytes: 0 }
   let fontState,
     nodeCount = 0,
     pixels = 0
@@ -87,16 +88,8 @@ export async function exportBrowserPptx({
           throw new Error(
             "Native animation does not support Morph; use final visible state or one slide per state"
           )
-        fontState = await abortable(
-          browserFonts(root, {
-            sources: fontSources,
-            signal: abort,
-            policy: options.fontPolicy,
-            onIssue: i => report.issues.push(i),
-            state: fontState
-          }),
-          abort
-        )
+        if (measuredRoot && measuredRoot !== root)
+          measuredRoot.removeAttribute("data-ps-browser-export-root")
         measuredRoot = root
         root.setAttribute("data-ps-browser-export-root", scopeId)
         const scene = await abortable(
@@ -115,6 +108,28 @@ export async function exportBrowserPptx({
           throw new Error(
             "UNSTABLE_CONTENT: Slide changed during measurement; retry after its content settles"
           )
+        fontState = await abortable(
+          browserFonts(root, {
+            sources: fontSources,
+            families: [
+              theme.fonts?.body,
+              ...scene.nodes.flatMap(node =>
+                node.kind === "text"
+                  ? node.payload.lines.flatMap(line => line.runs.map(run => run.font.family))
+                  : node.kind === "table"
+                    ? node.payload.rows.flatMap(row => row.map(cell => cell.family))
+                    : node.kind === "chart"
+                      ? [node.payload.fontFamily]
+                      : []
+              )
+            ].filter(Boolean),
+            signal: abort,
+            policy: options.fontPolicy,
+            onIssue: i => report.issues.push(i),
+            state: fontState
+          }),
+          abort
+        )
         nodeCount += scene.nodes.reduce(
           (count, n) =>
             count +
@@ -142,6 +157,7 @@ export async function exportBrowserPptx({
         await abortable(
           resolvePictures(root, scene, {
             fontCss: fontState.css,
+            mediaBudget,
             signal: abort,
             scale: options.rasterScale
           }),

@@ -17,7 +17,7 @@ export default defineConfig(async () => {
       external: ["react", "react-dom", "framer-motion", "promptslide/browser"]
     },
     {
-      entry: { browser: "src/browser/index.ts" },
+      entry: { browser: "src/browser/index.ts", "pdf-browser": "src/browser/pdf.ts" },
       format: ["esm"],
       platform: "browser",
       target: "es2020",

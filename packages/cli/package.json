@@ -38,6 +38,10 @@
     "./browser": {
       "types": "./dist/browser.d.ts",
       "import": "./dist/browser.js"
+    },
+    "./pdf-browser": {
+      "types": "./dist/pdf-browser.d.ts",
+      "import": "./dist/pdf-browser.js"
     }
   },
   "scripts": {
