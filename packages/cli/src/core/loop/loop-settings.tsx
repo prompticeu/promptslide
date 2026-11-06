@@ -33,12 +33,12 @@ function DurationInput({
   id?: string
 }) {
   return (
-    <span className="inline-flex w-20 shrink-0 items-center gap-1 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 focus-within:border-orange-500 focus-within:outline-2 focus-within:outline-orange-500/30">
+    <span className="inline-flex h-11 w-20 shrink-0 items-center gap-1 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 focus-within:border-orange-500 focus-within:outline-2 focus-within:outline-orange-500/30">
       <Input
         key={value}
         id={id}
         aria-label={label}
-        className="min-w-0 w-full border-0 p-0 bg-transparent py-2 text-right text-sm tabular-nums text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="h-full min-w-0 w-full border-0 p-0 bg-transparent text-right text-sm tabular-nums text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         style={{ colorScheme: "dark" }}
         type="number"
         min="0.1"
