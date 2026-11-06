@@ -52,7 +52,8 @@
     background-color 0.12s,
     color 0.12s;
 }
-.ps-panel button:disabled {
+.ps-panel button:disabled,
+.ps-panel button[data-disabled] {
   opacity: 0.32;
   cursor: default;
 }
@@ -85,12 +86,6 @@
   border-radius: 5px;
   padding: 5px 8px;
   font-weight: 500;
-  background: transparent;
-  color: #a3a3a3;
-}
-.ps-tabs button[aria-selected="true"] {
-  background: #262626;
-  color: #fafafa;
 }
 
 .ps-panel-body {

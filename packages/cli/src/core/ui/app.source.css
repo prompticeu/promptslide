@@ -224,10 +224,28 @@
     color: #a3a3a3;
     background: transparent;
     font-size: 12px;
+    cursor: pointer;
+    transition:
+      background-color 120ms,
+      color 120ms;
   }
   .ps-tab[data-active] {
     color: white;
     background: #262626;
+  }
+  @media (hover: hover) {
+    .ps-tab:hover:enabled:not([data-disabled]) {
+      color: white;
+      background: #262626;
+    }
+    .ps-tab[data-active]:hover:enabled:not([data-disabled]) {
+      background: #333333;
+    }
+  }
+  .ps-tab:disabled,
+  .ps-tab[data-disabled] {
+    opacity: 0.35;
+    cursor: default;
   }
   .ps-range-control {
     display: flex;
