@@ -38,8 +38,9 @@ function DurationInput({
         key={value}
         id={id}
         aria-label={label}
-        className="h-full min-w-0 w-full border-0 p-0 bg-transparent text-right text-sm tabular-nums text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-        style={{ colorScheme: "dark" }}
+        className="h-full min-w-0 w-full border-0 p-0 bg-transparent text-right text-sm tabular-nums text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        // The wrapper shows focus around the complete field, including its unit.
+        style={{ colorScheme: "dark", outline: "none" }}
         type="number"
         min="0.1"
         max="3600"
