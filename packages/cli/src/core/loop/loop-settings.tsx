@@ -33,7 +33,7 @@ function DurationInput({
   id?: string
 }) {
   return (
-    <span className="inline-flex h-11 w-20 shrink-0 items-center gap-1 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 focus-within:border-orange-500 focus-within:outline-2 focus-within:outline-orange-500/30">
+    <span className="inline-flex h-8 w-20 shrink-0 items-center gap-1 rounded-md border border-neutral-700 bg-neutral-950 px-2.5 focus-within:border-orange-500 focus-within:outline-2 focus-within:outline-orange-500/30">
       <Input
         key={value}
         id={id}
