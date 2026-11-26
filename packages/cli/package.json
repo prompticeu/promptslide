@@ -45,16 +45,19 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "node scripts/build-ui.mjs && tsup",
     "test": "node --test test/*.test.mjs",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "build:ui": "node scripts/build-ui.mjs"
   },
   "dependencies": {
+    "@base-ui/react": "^1.9.0",
     "@noble/hashes": "1.8.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@vitejs/plugin-react": "^4.5.2",
     "@xmldom/xmldom": "0.9.12",
     "buffer": "6.0.3",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "fflate": "0.8.2",
     "harfbuzzjs": "1.6.4",

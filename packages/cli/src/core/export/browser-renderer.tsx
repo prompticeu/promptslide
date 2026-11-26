@@ -52,6 +52,7 @@ export async function renderBrowserPptx(
   options: Pick<BrowserPptxOptions, "mode" | "buildMode" | "signal" | "onProgress">,
   mount?: BrowserExportMount
 ) {
+  const resolvedTheme: ThemeConfig = theme ?? { name: "PromptSlide" }
   options.signal?.throwIfAborted()
   const { exportBrowserPptx } = await abortable(import("promptslide/browser"), options.signal)
   options.signal?.throwIfAborted()
@@ -86,7 +87,7 @@ export async function renderBrowserPptx(
   try {
     return await exportBrowserPptx({
       ...options,
-      theme: theme || {},
+      theme: resolvedTheme,
       adapters: getPptxExportAdapters(),
       fontSources: theme?.pptx?.fonts?.map(font => ({
         ...font,
@@ -97,7 +98,7 @@ export async function renderBrowserPptx(
         const slide = slides[index]!,
           Component = slide.component
         update(
-          <SlideThemeProvider theme={theme || {}}>
+          <SlideThemeProvider theme={resolvedTheme}>
             <div
               key={`${index}:${step}`}
               data-ps-pptx-root

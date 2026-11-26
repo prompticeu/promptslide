@@ -1,13 +1,11 @@
-import type { ReactNode } from "react"
-
 import { X } from "lucide-react"
-import { useId } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 
+import { Button } from "./ui/button"
+import { TabsRoot, TabsList, TabsTrigger, TabsPanel } from "./ui/tabs"
 import { cn } from "./utils"
-
 export type InspectorMode = "slide" | "editor" | "comments"
-
-/** Core-owned docking and navigation; development tools portal into the editor slot. */
+/** Stable, controlled panels let the source editor veto navigation with unsaved drafts. */
 export function Inspector({
   mode,
   visible,
@@ -29,10 +27,13 @@ export function Inspector({
   slideSettings: ReactNode
   comments: ReactNode
 }) {
-  const prefix = useId()
-  const tabs: { id: InspectorMode; label: string }[] = [
+  const [visited, setVisited] = useState<Set<InspectorMode>>(() => new Set())
+  useEffect(() => {
+    if (mode) setVisited(previous => (previous.has(mode) ? previous : new Set([...previous, mode])))
+  }, [mode])
+  const tabs = [
     { id: "slide", label: "Slide" },
-    ...(editorAvailable ? [{ id: "editor" as const, label: "Elements" }] : []),
+    ...(editorAvailable ? [{ id: "editor", label: "Elements" }] : []),
     { id: "comments", label: "Comments" }
   ]
   const closeLabel =
@@ -53,85 +54,37 @@ export function Inspector({
         overlay && !visible && "translate-x-full"
       )}
       style={{ width: visible ? width : 0, maxWidth: overlay ? "90vw" : undefined }}
-      onKeyDown={event => {
-        // Native button activation must not also advance the presentation.
-        if (
-          (event.key === " " || event.key === "Enter") &&
-          (event.target as HTMLElement).closest("button")
-        )
-          event.stopPropagation()
-      }}
     >
-      <div className="flex h-full min-h-0 w-full flex-col border-l border-neutral-800">
+      <TabsRoot
+        value={mode ?? ""}
+        onValueChange={next => {
+          if (next === "slide" || next === "editor" || next === "comments") onSelect(next)
+        }}
+        className="flex h-full min-h-0 w-full flex-col border-l border-neutral-800"
+      >
         <div
           data-ps-inspector-header
           className="flex shrink-0 items-center gap-1 border-b border-neutral-800 px-2 py-2"
         >
-          <div
-            role="tablist"
+          <TabsList
             aria-label="Inspector sections"
-            className="flex min-w-0 flex-1 gap-1"
-            onKeyDown={event => {
-              if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return
-              event.preventDefault()
-              event.stopPropagation()
-              const buttons = Array.from(
-                event.currentTarget.querySelectorAll<HTMLButtonElement>("button")
-              )
-              const index = buttons.indexOf(event.target as HTMLButtonElement)
-              const next =
-                event.key === "Home"
-                  ? 0
-                  : event.key === "End"
-                    ? buttons.length - 1
-                    : (index + (event.key === "ArrowRight" ? 1 : -1) + buttons.length) %
-                      buttons.length
-              buttons[next]?.focus()
-            }}
+            activateOnFocus={false}
+            className="min-w-0 flex-1"
           >
             {tabs.map(tab => (
-              <button
-                key={tab.id}
-                id={`${prefix}-tab-${tab.id}`}
-                role="tab"
-                aria-selected={mode === tab.id}
-                aria-controls={`${prefix}-panel-${tab.id}`}
-                tabIndex={mode === tab.id ? 0 : -1}
-                className={cn(
-                  "rounded-md px-2 py-1.5 text-xs font-medium hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-orange-500",
-                  mode === tab.id ? "bg-neutral-800 text-white" : "text-neutral-400"
-                )}
-                onClick={() => onSelect(tab.id)}
-              >
+              <TabsTrigger key={tab.id} value={tab.id}>
                 {tab.label}
-              </button>
+              </TabsTrigger>
             ))}
-          </div>
-          <button
-            onClick={onClose}
-            aria-label={closeLabel}
-            title={closeLabel}
-            className="shrink-0 rounded-md p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white focus-visible:outline-2 focus-visible:outline-orange-500"
-          >
+          </TabsList>
+          <Button size="icon" onClick={onClose} aria-label={closeLabel} title={closeLabel}>
             <X size={16} />
-          </button>
+          </Button>
         </div>
-        <div
-          id={`${prefix}-panel-slide`}
-          role="tabpanel"
-          aria-labelledby={`${prefix}-tab-slide`}
-          hidden={mode !== "slide"}
-          className="min-h-0 flex-1"
-        >
-          {slideSettings}
-        </div>
-        <div
-          id={`${prefix}-panel-editor`}
-          role="tabpanel"
-          aria-labelledby={`${prefix}-tab-editor`}
-          hidden={mode !== "editor"}
-          className="min-h-0 flex-1"
-        >
+        <TabsPanel value="slide" keepMounted className="min-h-0 flex-1">
+          {visited.has("slide") && slideSettings}
+        </TabsPanel>
+        <TabsPanel value="editor" keepMounted className="min-h-0 flex-1">
           <div
             data-ps-editor-panel
             data-open={mode === "editor" && visible}
@@ -139,17 +92,11 @@ export function Inspector({
             inert={mode !== "editor" || !visible}
             className="h-full w-full"
           />
-        </div>
-        <div
-          id={`${prefix}-panel-comments`}
-          role="tabpanel"
-          aria-labelledby={`${prefix}-tab-comments`}
-          hidden={mode !== "comments"}
-          className="min-h-0 flex-1"
-        >
-          {comments}
-        </div>
-      </div>
+        </TabsPanel>
+        <TabsPanel value="comments" keepMounted className="min-h-0 flex-1">
+          {visited.has("comments") && comments}
+        </TabsPanel>
+      </TabsRoot>
     </aside>
   )
 }

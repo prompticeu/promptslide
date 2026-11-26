@@ -1,0 +1,90 @@
+/* Deliberately self-contained probe skin, adapted from Registry's base-nova.
+   No dependency on an author's Tailwind config, colors, reset, or fonts. */
+@scope ([data-ps-probe]) {
+  :scope {
+    --ps-primary: #ff6b35;
+    --ps-background: #0a0a0a;
+    --ps-foreground: #fafafa;
+    --ps-border: #404040;
+    font:
+      13px/1.5 ui-sans-serif,
+      system-ui,
+      sans-serif;
+    color: var(--ps-foreground);
+    background: var(--ps-background);
+    color-scheme: dark;
+  }
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+  }
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
+  :scope.ps-probe-button,
+  .ps-probe-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    height: 32px;
+    gap: 6px;
+    padding: 0 10px;
+    color: #a3a3a3;
+    background: transparent;
+  }
+  :scope.ps-probe-icon,
+  .ps-probe-icon {
+    width: 32px;
+    padding: 0;
+  }
+  :scope.ps-probe-selected,
+  .ps-probe-selected {
+    color: var(--ps-primary);
+    border-color: #ff6b3580;
+    background: #ff6b3526;
+  }
+  :scope.ps-probe-button:hover,
+  .ps-probe-button:hover {
+    background: #262626;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ps-primary);
+    outline-offset: 2px;
+  }
+  :scope.ps-probe-checkbox,
+  .ps-probe-checkbox {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--ps-border);
+    border-radius: 5px;
+  }
+  :scope.ps-probe-checkbox[data-checked],
+  .ps-probe-checkbox[data-checked] {
+    background: var(--ps-primary);
+    color: white;
+  }
+  :scope.ps-probe-popup,
+  .ps-probe-popup {
+    min-width: 180px;
+    padding: 6px;
+    border: 1px solid var(--ps-border);
+    border-radius: 8px;
+  }
+  [role^="menuitem"] {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 8px;
+    border-radius: 4px;
+  }
+  [role^="menuitem"][data-highlighted] {
+    background: #262626;
+  }
+}

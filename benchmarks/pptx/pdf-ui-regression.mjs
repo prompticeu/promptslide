@@ -1,7 +1,9 @@
 import assert from "node:assert/strict"
+import { createRequire } from "node:module"
 import { resolve } from "node:path"
-
-import { chromium } from "playwright"
+const { chromium } = createRequire(new URL("../../packages/cli/package.json", import.meta.url))(
+  "playwright"
+)
 
 import { getCaptureServer } from "../../packages/cli/src/utils/export.mjs"
 const server = await getCaptureServer(resolve(import.meta.dirname, "../.."))

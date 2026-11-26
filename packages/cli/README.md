@@ -148,6 +148,10 @@ there is no separate playlist order.
 
 MIT
 
+## Application controls
+
+`SlideDeck` includes its own isolated application styles for the toolbar, menus, inspector and comments. SDK consumers do not need an application stylesheet, Tailwind plugin or shadcn configuration. Your slides retain their existing theme and CSS. The visual source editor is available only in local Studio; published decks include the presentation viewer without the source editing tools. Framework contributors should read the [application UI guide](../../docs/application-ui.md).
+
 ### PDF fidelity
 
 `promptslide to-pdf -o slides.pdf` and Studio's Download → PDF use Chromium at the 1280×720 presentation size with screen styles and final reveal states. Text remains selectable; Chromium handles PDF font subsets and vector drawing. Slides print individually and are combined as native PDF pages, avoiding Chromium pagination clipping defects. External links survive assembly; structure tagging is not retained in merged multipage files. Font/stylesheet retries, explicit font loading, visible image decoding, offscreen lazy-image loading and deterministic animation settling run before capture. Missing visible assets and slide crashes fail export instead of producing an incomplete PDF. Custom CSS finite animations settle at their end; infinite animations pause at time zero. Arbitrary asynchronous components still need to render stable content before capture. Static deployments retain browser printing, whose output depends on the browser's print settings. `PROMPTSLIDE_CHROMIUM_PATH` selects a custom installed Chromium for both PDF and PowerPoint.

@@ -1,5 +1,7 @@
 import React from "react"
 
+import { ApplicationRoot } from "./ui/application-root"
+
 interface SlideErrorBoundaryProps {
   slideIndex: number
   slideTitle?: string
@@ -32,16 +34,25 @@ export class SlideErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div data-slide-error={this.state.error?.message || "Slide failed"} className="flex h-full w-full flex-col items-center justify-center bg-red-950/20 p-12">
-          <div className="mb-4 text-lg font-semibold text-red-400">
-            Slide {this.props.slideIndex + 1} Error
-            {this.props.slideTitle && (
-              <span className="ml-2 font-normal text-red-400/70">({this.props.slideTitle})</span>
-            )}
-          </div>
-          <div className="max-w-2xl text-center font-mono text-sm break-words text-red-300/80">
-            {this.state.error?.message ?? "Unknown error"}
-          </div>
+        <div
+          data-slide-error={this.state.error?.message || "Slide failed"}
+          style={{ width: "100%", height: "100%" }}
+        >
+          <ApplicationRoot>
+            <div className="flex h-full w-full flex-col items-center justify-center bg-red-950/20 p-12">
+              <div className="mb-4 text-lg font-semibold text-red-400">
+                Slide {this.props.slideIndex + 1} Error
+                {this.props.slideTitle && (
+                  <span className="ml-2 font-normal text-red-400/70">
+                    ({this.props.slideTitle})
+                  </span>
+                )}
+              </div>
+              <div className="max-w-2xl text-center font-mono text-sm break-words text-red-300/80">
+                {this.state.error?.message ?? "Unknown error"}
+              </div>
+            </div>
+          </ApplicationRoot>
         </div>
       )
     }

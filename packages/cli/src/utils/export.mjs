@@ -31,29 +31,42 @@ export async function isPlaywrightAvailable() {
  */
 export async function launchChromium(chromium, options = {}, signal) {
   if (signal?.aborted) throw signal.reason
+  const launchOptions = { headless: true, ...options }
   try {
-    return await chromium.launch({ headless: true, ...options })
-  } catch (err) {
-    if (!options.executablePath && err.message?.includes("Executable doesn't exist")) {
-      const pwIndex = fileURLToPath(import.meta.resolve("playwright"))
-      const cliPath = join(dirname(pwIndex), "cli.js")
-      await new Promise((resolveInstall, rejectInstall) => {
-        const child = spawn(process.execPath, [cliPath, "install", "chromium"], {
-          stdio: "inherit",
-          signal
-        })
-        child.once("error", rejectInstall)
-        child.once("exit", code =>
-          code === 0
-            ? resolveInstall()
-            : rejectInstall(new Error(`Chromium installation failed (${code})`))
-        )
-      })
+    return await chromium.launch(launchOptions)
+  } catch (error) {
+    if (
+      options.executablePath ||
+      options.channel ||
+      !error.message?.includes("Executable doesn't exist")
+    )
+      throw error
+    if (signal?.aborted) throw signal.reason
+    // Use installed Chrome before downloading a bundled browser. Explicit host
+    // executable/channel choices must still fail rather than silently switch.
+    try {
+      return await chromium.launch({ ...launchOptions, channel: "chrome" })
+    } catch (chromeError) {
       if (signal?.aborted) throw signal.reason
-      return await chromium.launch({ headless: true, ...options })
-    } else {
-      throw err
+      if (!/Executable doesn't exist|not found at/.test(chromeError.message ?? ""))
+        throw chromeError
     }
+    const pwIndex = fileURLToPath(import.meta.resolve("playwright"))
+    const cliPath = join(dirname(pwIndex), "cli.js")
+    await new Promise((resolveInstall, rejectInstall) => {
+      const child = spawn(process.execPath, [cliPath, "install", "chromium"], {
+        stdio: "inherit",
+        signal
+      })
+      child.once("error", rejectInstall)
+      child.once("exit", code =>
+        code === 0
+          ? resolveInstall()
+          : rejectInstall(new Error(`Chromium installation failed (${code})`))
+      )
+    })
+    if (signal?.aborted) throw signal.reason
+    return await chromium.launch(launchOptions)
   }
 }
 

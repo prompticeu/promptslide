@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "react"
 
 import type { Annotation } from "./types"
 
+import { Button } from "../ui/button"
+import { Textarea } from "../ui/input"
+
 interface AnnotationPanelProps {
   embedded?: boolean
   annotations: Annotation[]
@@ -38,14 +41,15 @@ export function AnnotationPanel({
     >
       {!embedded && (
         <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
-          <button
+          <Button
+            variant="unstyled"
             onClick={onClose}
             className="rounded p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white"
             aria-label="Hide comments"
             title="Hide comments (C)"
           >
             <PanelRightClose className="h-4 w-4" />
-          </button>
+          </Button>
           <span className="text-right text-sm font-semibold">Comments ({total})</span>
         </div>
       )}
@@ -204,7 +208,8 @@ function AnnotationItem({
       }`}
     >
       <div className="absolute top-2 right-2 z-10 flex gap-0.5 rounded-full border border-neutral-700 bg-neutral-900/70 p-0.5 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-        <button
+        <Button
+          variant="unstyled"
           type="button"
           title="Edit comment"
           aria-label="Edit comment"
@@ -216,8 +221,9 @@ function AnnotationItem({
           className="rounded-full p-1 text-neutral-400 hover:bg-white/[0.08] hover:text-white"
         >
           <Pencil className="h-3.5 w-3.5" />
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="unstyled"
           type="button"
           title={annotation.status === "open" ? "Resolve comment" : "Reopen comment"}
           aria-label={annotation.status === "open" ? "Resolve comment" : "Reopen comment"}
@@ -233,8 +239,9 @@ function AnnotationItem({
           ) : (
             <RotateCcw className="h-3.5 w-3.5" />
           )}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="unstyled"
           type="button"
           title="Delete comment"
           aria-label="Delete comment"
@@ -245,7 +252,7 @@ function AnnotationItem({
           className="rounded-full p-1 text-neutral-400 hover:bg-white/[0.08] hover:text-white"
         >
           <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
       <div className="flex items-start gap-2.5">
         <div
@@ -260,7 +267,7 @@ function AnnotationItem({
         <div className="min-w-0 flex-1 pr-4">
           {isEditing ? (
             <div>
-              <textarea
+              <Textarea
                 ref={editRef}
                 value={draft}
                 onClick={e => e.stopPropagation()}
@@ -274,7 +281,8 @@ function AnnotationItem({
                 maxLength={4096}
               />
               <div className="mt-1 flex gap-2 text-xs">
-                <button
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={e => {
                     e.stopPropagation()
@@ -284,8 +292,9 @@ function AnnotationItem({
                   className="text-[#FF6B35] disabled:opacity-40"
                 >
                   Save
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="unstyled"
                   type="button"
                   onClick={e => {
                     e.stopPropagation()
@@ -294,7 +303,7 @@ function AnnotationItem({
                   className="text-neutral-400"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
           ) : (

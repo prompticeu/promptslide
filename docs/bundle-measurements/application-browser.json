@@ -1,0 +1,16 @@
+{
+  "checks": [
+    "Hostile body margin/padding/fonts, semantic tokens and !important broad control rules stay out of application UI",
+    "Menu arrows/Escape restore focus inside Shadow DOM; checkbox Space does not advance slides; selected action and checkmark retain orange/white",
+    "Contrasting live slide theme and universal !important font rules leave controls, open menus and tooltips unchanged",
+    "Separate editor root shares the application theme and portal host; Save/Discard/Keep editing guard preserves buffered text",
+    "Annotation overlay resolves light-DOM targets; deferred non-modal comment form retains its application theme and persists a comment",
+    "Mobile annotation popover stays at application size beside the scaled canvas and fits the viewport",
+    "Mobile inspector fits viewport; published presentation enters/exits fullscreen with portal host inside the fullscreen element",
+    "Download PDF completes through the actual Studio endpoint using installed Chrome fallback",
+    "Authored heading styles match live canvas and standalone export; PDF renders with original theme and excludes editor controls",
+    "Published SDK controls render and open menus in a plain Vite consumer with no stylesheet, Tailwind plugin or shadcn configuration",
+    "Static SDK print fallback uses the original 1920x1080 page and 1.5x slide canvas scale"
+  ],
+  "errors": []
+}

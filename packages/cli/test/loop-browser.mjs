@@ -1,6 +1,14 @@
 // Run explicitly: node packages/cli/test/loop-browser.mjs
 import assert from "node:assert/strict"
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs"
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -10,9 +18,10 @@ import { createServer, preview } from "vite"
 
 import { build } from "../src/commands/build.mjs"
 import { createViteConfig } from "../src/vite/config.mjs"
+import { installApplicationQueries } from "./application-browser-helpers.mjs"
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../../..")
-const root = mkdtempSync(join(tmpdir(), "promptslide-loop-browser-"))
+const root = realpathSync(mkdtempSync(join(tmpdir(), "promptslide-loop-browser-")))
 const errors = []
 let studio, production, browser
 const config = {
@@ -73,6 +82,7 @@ export default function App() {
   const studioUrl = studio.resolvedUrls.local[0]
   browser = await chromium.launch({ headless: true, channel: "chrome" })
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
+  await installApplicationQueries(page)
   page.on("pageerror", error => errors.push(error.message))
   await page.goto(studioUrl)
   // One inspector owns all panels; leaving the editor respects its draft guard.
@@ -101,10 +111,10 @@ export default function App() {
   await page.getByRole("button", { name: "Done editing", exact: true }).click()
   await confirm.getByRole("button", { name: "Discard changes", exact: true }).click()
   await page.waitForFunction(
-    () => document.querySelector("[data-ps-inspector]")?.getAttribute("aria-hidden") === "true"
+    () => window.psQuery("[data-ps-inspector]")?.getAttribute("aria-hidden") === "true"
   )
   await page.getByRole("button", { name: "Presentation options" }).click()
-  await page.getByRole("button", { name: "Configure loop…" }).click()
+  await page.getByRole("menuitem", { name: "Configure loop…" }).click()
   await page.getByRole("region", { name: "Slide settings", exact: true }).waitFor()
   assert.equal(await page.getByRole("dialog").count(), 0)
   assert.equal(await page.getByLabel("Default duration in seconds").inputValue(), "0.3")
@@ -140,7 +150,7 @@ export default function App() {
   await inspector.getByRole("tab", { name: "Comments", exact: true }).click()
   await confirm.getByRole("button", { name: "Save changes", exact: true }).click()
   await page.waitForFunction(
-    () => document.querySelector('[role="tab"][aria-selected="true"]')?.textContent === "Comments"
+    () => window.psQuery('[role="tab"][aria-selected="true"]')?.textContent === "Comments"
   )
   assert.match(readFileSync(join(root, "src/App.tsx"), "utf8"), /Saved inspector heading/)
   await inspector.getByRole("tab", { name: "Slide", exact: true }).click()
@@ -185,13 +195,14 @@ export default function App() {
   const fresh = await browser.newPage()
   await fresh.goto(studioUrl)
   await fresh.getByRole("button", { name: "Presentation options" }).click()
-  await fresh.getByRole("button", { name: "Configure loop…" }).click()
+  await fresh.getByRole("menuitem", { name: "Configure loop…" }).click()
   await fresh.getByRole("button", { name: "Step 2", exact: true }).click()
   assert.equal(await fresh.getByLabel("Step 2 duration in seconds").inputValue(), "0.7")
   await fresh.close()
   // A blur without a new focus target must not remove menu options before click.
   await page.getByRole("button", { name: "View options", exact: true }).click()
-  await page.evaluate(() => document.activeElement.blur())
+  await page.getByRole("menu", { name: "View options", exact: true }).waitFor()
+  await page.evaluate(() => window.psActive()?.blur())
   assert.equal(await page.getByRole("menu", { name: "View options" }).isVisible(), true)
   await page.getByRole("menuitemradio", { name: "List view", exact: true }).click()
   assert.match(
@@ -200,17 +211,20 @@ export default function App() {
   )
   await page.getByRole("button", { name: "View options", exact: true }).click()
   await page.getByRole("button", { name: "Comment", exact: true }).focus()
+  await page.getByRole("menu", { name: "View options", exact: true }).waitFor({ state: "hidden" })
   assert.equal(await page.getByRole("menu", { name: "View options" }).count(), 0)
   await page.getByRole("button", { name: "View options", exact: true }).click()
   await page.getByRole("menuitemradio", { name: "Presentation view", exact: true }).click()
   await page.getByRole("button", { name: "View options", exact: true }).click()
-  await page.evaluate(() => document.activeElement.blur())
+  await page.getByRole("menu", { name: "View options", exact: true }).waitFor()
+  await page.evaluate(() => window.psActive()?.blur())
   await page.getByRole("button", { name: "View options", exact: true }).click()
   assert.equal(await page.getByRole("menu", { name: "View options" }).count(), 0)
 
   // SDK hosts often construct equivalent config objects on every parent render.
   const sdk = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
   sdk.on("pageerror", error => errors.push(error.message))
+  await installApplicationQueries(sdk)
   await sdk.goto(studioUrl + "?sdk")
   await sdk.getByRole("button", { name: "Slide settings", exact: true }).click()
   const sdkDuration = sdk.getByLabel("Initial view duration in seconds")
@@ -223,12 +237,12 @@ export default function App() {
   const projectFile = readFileSync(join(root, "loop-config.json"), "utf8")
   const storageBefore = await sdk.evaluate(() => JSON.stringify(localStorage))
   await sdk.getByRole("button", { name: "Start loop", exact: true }).click()
-  await sdk.locator('[data-loop-running="true"]').waitFor()
+  await sdk.locator('[data-ps-slide][data-loop-running="true"]').waitFor()
   await sdk.keyboard.press("Space")
   await sdk.getByText("Loop paused", { exact: false }).waitFor()
   await sdk.evaluate(() => window.__rerender())
   await sdk.waitForTimeout(100)
-  assert.equal(await sdk.locator('[data-loop-running="true"]').count(), 1)
+  assert.equal(await sdk.locator('[data-ps-slide][data-loop-running="true"]').count(), 1)
   assert.equal(await sdk.getByText("Loop paused", { exact: false }).isVisible(), true)
   await sdk.keyboard.press("Escape")
   await sdk.waitForFunction(() => !document.fullscreenElement)
@@ -244,7 +258,7 @@ export default function App() {
   await sdkDuration.press("Tab")
   await sdk.evaluate(() => window.__setHostDuration(0.9))
   await sdk.waitForFunction(
-    () => document.querySelector('[aria-label="Default duration in seconds"]')?.value === "0.9"
+    () => window.psQuery('[aria-label="Default duration in seconds"]')?.value === "0.9"
   )
   assert.equal(await sdkDuration.inputValue(), "0.25")
   assert.equal(await sdk.getByText("Unsaved loop settings", { exact: true }).count(), 0)
@@ -276,12 +290,13 @@ export default function App() {
   production = await preview({ configFile: false, root, preview: { host: "127.0.0.1", port: 0 } })
   const productionUrl = production.resolvedUrls.local[0]
   const playback = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+  await installApplicationQueries(playback)
   playback.on("pageerror", error => errors.push(error.message))
   await playback.addInitScript(() => {
     window.__states = []
     let previous = ""
     new MutationObserver(() => {
-      const canvas = document.querySelector('[data-loop-running="true"]')
+      const canvas = window.psQuery('[data-ps-slide][data-loop-running="true"]')
       if (!canvas) return
       const item = [...canvas.querySelectorAll("[data-active]")].at(-1)
       if (!item) return
@@ -336,7 +351,7 @@ export default function App() {
   assert.equal(await playback.evaluate(() => window.__states.length), stopped)
   // Configure a one-slide loop and verify a new component instance each cycle.
   await playback.getByRole("button", { name: "Presentation options" }).click()
-  await playback.getByRole("button", { name: "Configure loop…" }).click()
+  await playback.getByRole("menuitem", { name: "Configure loop…" }).click()
   await playback.getByRole("button", { name: "Go to slide 3: Outro", exact: true }).click()
   await playback.getByLabel("Include current slide in loop").uncheck()
   await playback.getByRole("button", { name: "Start loop", exact: true }).click()
@@ -348,7 +363,7 @@ export default function App() {
   await playback.waitForFunction(() => !document.fullscreenElement)
   // A one-slide loop without click steps also remounts on every cycle.
   await playback.getByRole("button", { name: "Presentation options" }).click()
-  await playback.getByRole("button", { name: "Configure loop…" }).click()
+  await playback.getByRole("menuitem", { name: "Configure loop…" }).click()
   await playback.getByRole("button", { name: "Go to slide 1: Agents", exact: true }).click()
   await playback.getByLabel("Include current slide in loop").uncheck()
   await playback.getByRole("button", { name: "Go to slide 3: Outro", exact: true }).click()
@@ -356,12 +371,12 @@ export default function App() {
   await playback.getByRole("button", { name: "Start loop", exact: true }).click()
   await playback.waitForTimeout(400)
   const born = await playback
-    .locator('[data-loop-running="true"] [data-active="b"]')
+    .locator('[data-ps-slide][data-loop-running="true"] [data-active="b"]')
     .getAttribute("data-born")
   await playback.waitForTimeout(700)
   assert.notEqual(
     await playback
-      .locator('[data-loop-running="true"] [data-active="b"]')
+      .locator('[data-ps-slide][data-loop-running="true"] [data-active="b"]')
       .getAttribute("data-born"),
     born
   )
@@ -369,7 +384,7 @@ export default function App() {
   await playback.waitForFunction(() => !document.fullscreenElement)
   // Static save offers truthful browser-only persistence.
   await playback.getByRole("button", { name: "Presentation options" }).click()
-  await playback.getByRole("button", { name: "Configure loop…" }).click()
+  await playback.getByRole("menuitem", { name: "Configure loop…" }).click()
   await playback.getByRole("button", { name: "Save settings", exact: true }).click()
   await playback.getByText("Saved in this browser.", { exact: false }).waitFor()
   await playback.getByRole("button", { name: "Close slide settings" }).click()
@@ -378,9 +393,9 @@ export default function App() {
     document.documentElement.requestFullscreen = () => Promise.reject(new Error("Denied"))
   })
   await playback.getByRole("button", { name: "Presentation options" }).click()
-  await playback.getByRole("button", { name: "Auto-loop", exact: true }).click()
+  await playback.getByRole("menuitem", { name: "Auto-loop", exact: true }).click()
   await playback.getByRole("alert").filter({ hasText: "Full screen could not start" }).waitFor()
-  assert.equal(await playback.locator('[data-loop-running="true"]').count(), 0)
+  assert.equal(await playback.locator('[data-ps-slide][data-loop-running="true"]').count(), 0)
   assert.deepEqual(errors, [])
   console.log(
     JSON.stringify({

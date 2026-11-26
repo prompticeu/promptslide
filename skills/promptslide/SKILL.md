@@ -16,6 +16,10 @@ metadata:
 
 Create slide decks with AI coding agents. Each slide is a React component styled with Tailwind CSS, with built-in animations and PDF export.
 
+## Application controls and slide themes
+
+The viewer toolbar, inspector, loop settings, comments and development editor have their own application theme. Changing a deck's colors or fonts styles the authored slides; it does not recolor these controls. Do not import internal application UI wrappers into slides. When contributing to the PromptSlide framework itself, follow `docs/application-ui.md` for shared Base UI controls and regenerate the embedded UI stylesheet after changing application classes or styles.
+
 ## Detect Mode
 
 Check if a PromptSlide project already exists in the current directory:
