@@ -24,6 +24,7 @@ const Content = lazy(preloadMenu)
 export function DropdownMenu({
   open: controlledOpen,
   defaultOpen = false,
+  modal = false,
   onOpenChange,
   children,
   ...props
@@ -39,6 +40,7 @@ export function DropdownMenu({
     <OpenContext.Provider value={open}>
       <Menu.Root
         {...props}
+        modal={modal}
         open={open}
         onOpenChange={(next, details) => {
           setLocalOpen(next)

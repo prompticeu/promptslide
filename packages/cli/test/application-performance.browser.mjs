@@ -149,7 +149,7 @@ try {
   assert.ok(results.median.migration.firstMenuMs < 1500, "First deferred menu exceeded 1.5s")
   assert.ok(results.median.migration.firstSettingsMs < 1500, "First settings panel exceeded 1.5s")
   writeFileSync(
-    resolve("docs/bundle-measurements/performance.json"),
+    resolve(process.env.UI_PERFORMANCE_REPORT || "docs/bundle-measurements/performance.json"),
     JSON.stringify(results, null, 2) + "\n"
   )
   console.log(JSON.stringify(results.median, null, 2))

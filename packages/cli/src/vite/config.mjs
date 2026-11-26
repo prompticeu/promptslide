@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { createRequire } from "node:module"
 import { resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -18,6 +19,33 @@ const tailwindPath = resolve(dirname(require.resolve("tailwindcss")), "..")
 // Resolve promptslide core from source so Vite uses TS directly without a build step
 const promptslidePath = resolve(__dirname, "../core/index.ts")
 
+const applicationDependencies = [
+  "class-variance-authority",
+  ...[
+    "button",
+    "checkbox",
+    "menu",
+    "tooltip",
+    "tabs",
+    "dialog",
+    "popover",
+    "select",
+    "slider",
+    "input",
+    "field",
+    "collapsible"
+  ].map(name => `@base-ui/react/${name}`)
+]
+// These are owned by the CLI, not by each authored deck. Resolve them here so
+// fresh or linked installs can prebundle them before the editor first opens.
+const applicationAliases = Object.fromEntries(
+  applicationDependencies.map(id => {
+    const commonjs = require.resolve(id)
+    const module = commonjs.replace(/\.js$/, ".mjs")
+    return [id, existsSync(module) ? module : commonjs]
+  })
+)
+
 export function createViteConfig({ cwd, mode = "development", editor = true }) {
   return {
     configFile: false,
@@ -36,7 +64,9 @@ export function createViteConfig({ cwd, mode = "development", editor = true }) {
       // including when the CLI is installed or linked outside the deck root.
       dedupe: ["react", "react-dom"],
       alias: {
+        ...applicationAliases,
         "@": resolve(cwd, "src"),
+        "promptslide/browser": fileURLToPath(new URL("../../dist/browser.js", import.meta.url)),
         promptslide: promptslidePath,
         // CSS @import "tailwindcss" → resolved from CLI package
         tailwindcss: tailwindPath
@@ -53,21 +83,7 @@ export function createViteConfig({ cwd, mode = "development", editor = true }) {
         "framer-motion",
         "clsx",
         "tailwind-merge",
-        "class-variance-authority",
-        ...[
-          "button",
-          "checkbox",
-          "menu",
-          "tooltip",
-          "tabs",
-          "dialog",
-          "popover",
-          "select",
-          "slider",
-          "input",
-          "field",
-          "collapsible"
-        ].map(name => `@base-ui/react/${name}`)
+        ...applicationDependencies
       ]
     },
     css: {

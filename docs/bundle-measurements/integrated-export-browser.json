@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "checks": [
+    "capability",
+    "unified format menu",
+    "menu keyboard navigation",
+    "outside dismissal",
+    "PDF download",
+    "unsaved draft guard",
+    "automatic conversion quality",
+    "optional reveal controls",
+    "default export payload",
+    "download",
+    "report",
+    "cancel",
+    "focus restoration"
+  ],
+  "browser": "155.0.8059.85",
+  "url": "http://127.0.0.1:5192",
+  "errors": []
+}

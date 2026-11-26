@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs"
+import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 export function ensureTsConfig(cwd) {
@@ -25,11 +25,17 @@ export function ensureTsConfig(cwd) {
       baseUrl: ".",
       paths: {
         "@/*": ["./src/*"],
-        "promptslide": ["./node_modules/promptslide/src/core/index.ts"]
+        promptslide: ["./node_modules/promptslide/src/core/index.ts"]
       }
     },
     include: ["src"]
   }
 
-  writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2) + "\n")
+  const content = JSON.stringify(tsconfig, null, 2) + "\n"
+  try {
+    if (readFileSync(tsconfigPath, "utf8") === content) return
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error
+  }
+  writeFileSync(tsconfigPath, content)
 }

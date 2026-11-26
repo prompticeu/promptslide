@@ -1,6 +1,6 @@
 {
   "name": "promptslide",
-  "version": "0.3.18",
+  "version": "0.3.22",
   "description": "CLI and slide engine for PromptSlide presentations",
   "keywords": [
     "cli",
@@ -34,7 +34,15 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./src/commands/*": "./src/commands/*"
+    "./src/commands/*": "./src/commands/*",
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
+    "./pdf-browser": {
+      "types": "./dist/pdf-browser.d.ts",
+      "import": "./dist/pdf-browser.js"
+    }
   },
   "scripts": {
     "build": "node scripts/build-ui.mjs && tsup",
@@ -44,17 +52,29 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
+    "@noble/hashes": "1.8.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@vitejs/plugin-react": "^4.5.2",
+    "@xmldom/xmldom": "0.9.12",
+    "buffer": "6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "fflate": "0.8.2",
+    "harfbuzzjs": "1.6.4",
+    "jszip": "3.10.1",
     "lucide-react": "^0.552.0",
+    "path-browserify": "1.0.1",
+    "pdf-lib": "1.17.1",
     "playwright": "^1.50.0",
     "postcss": "^8.5.6",
+    "pptxgenjs": "4.0.1",
+    "subset-font": "2.9.0",
+    "svgpath": "2.6.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "wawoff2": "2.0.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

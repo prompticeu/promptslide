@@ -26,6 +26,10 @@ export function Select({
   const options = Children.toArray(children).filter(isValidElement<Option>)
   return (
     <Primitive.Root
+      items={options.map(option => ({
+        value: option.props.value ?? String(option.props.children ?? ""),
+        label: option.props.children
+      }))}
       value={value ?? ""}
       disabled={disabled}
       name={props.name}
@@ -42,7 +46,7 @@ export function Select({
         </Primitive.Icon>
       </Primitive.Trigger>
       <Primitive.Portal container={portal}>
-        <Primitive.Positioner style={{ zIndex: 160 }} sideOffset={4} alignItemWithTrigger={false}>
+        <Primitive.Positioner style={{ zIndex: 210 }} sideOffset={4} alignItemWithTrigger={false}>
           <Primitive.Popup className="ps-popup">
             <Primitive.List>
               {options.map((option, index) => (

@@ -7,6 +7,7 @@ interface AnimationContextValue {
   totalSteps: number
   /** When true, all animation steps should be visible (used for backward navigation) */
   showAllAnimations: boolean
+  isExporting?: boolean
 }
 
 const AnimationContext = createContext<AnimationContextValue>({
@@ -23,6 +24,8 @@ interface AnimationProviderProps {
   totalSteps: number
   /** When true, show all animations regardless of currentStep (for backward navigation) */
   showAllAnimations?: boolean
+  /** Render a deterministic still state without motion effects. */
+  isExporting?: boolean
 }
 
 /**
@@ -35,15 +38,17 @@ export function AnimationProvider({
   children,
   currentStep,
   totalSteps,
-  showAllAnimations = false
+  showAllAnimations = false,
+  isExporting = false
 }: AnimationProviderProps) {
   const value = useMemo(
     () => ({
       currentStep,
       totalSteps,
-      showAllAnimations
+      showAllAnimations,
+      isExporting
     }),
-    [currentStep, totalSteps, showAllAnimations]
+    [currentStep, totalSteps, showAllAnimations, isExporting]
   )
 
   return <AnimationContext.Provider value={value}>{children}</AnimationContext.Provider>

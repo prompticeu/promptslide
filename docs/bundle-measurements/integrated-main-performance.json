@@ -1,0 +1,84 @@
+{
+  "conditions": {
+    "viewport": "390x844, mobile/touch",
+    "cpuSlowdown": 4,
+    "latencyMs": 150,
+    "downloadBytesPerSecond": 204800,
+    "uploadBytesPerSecond": 131072,
+    "compression": "Brotli quality 11, served over HTTP",
+    "cache": "fresh browser context and disabled HTTP cache for each sample",
+    "externalFonts": "font CSS fulfilled empty in both cases to isolate application JS/CSS",
+    "runs": 3
+  },
+  "samples": {
+    "baseline": [
+      {
+        "run": 1,
+        "startupMs": 1288.8999998569489,
+        "encodedJsCss": 132489,
+        "scriptMs": 141.49800000000002,
+        "firstMenuMs": 61.89999985694885,
+        "firstSettingsMs": 85.5
+      },
+      {
+        "run": 2,
+        "startupMs": 1283,
+        "encodedJsCss": 132489,
+        "scriptMs": 147.249,
+        "firstMenuMs": 55.200000047683716,
+        "firstSettingsMs": 87.59999990463257
+      },
+      {
+        "run": 3,
+        "startupMs": 1274.2000000476837,
+        "encodedJsCss": 132489,
+        "scriptMs": 139.49,
+        "firstMenuMs": 60.89999985694885,
+        "firstSettingsMs": 86.40000009536743
+      }
+    ],
+    "migration": [
+      {
+        "run": 1,
+        "startupMs": 1501.7999999523163,
+        "encodedJsCss": 166826,
+        "scriptMs": 196.94400000000002,
+        "firstMenuMs": 391.60000014305115,
+        "firstSettingsMs": 392.2999999523163
+      },
+      {
+        "run": 2,
+        "startupMs": 1533.4000000953674,
+        "encodedJsCss": 166826,
+        "scriptMs": 208.151,
+        "firstMenuMs": 391,
+        "firstSettingsMs": 391.7000000476837
+      },
+      {
+        "run": 3,
+        "startupMs": 1527.7000000476837,
+        "encodedJsCss": 166826,
+        "scriptMs": 204.687,
+        "firstMenuMs": 415.40000009536743,
+        "firstSettingsMs": 383.39999985694885
+      }
+    ]
+  },
+  "median": {
+    "baseline": {
+      "startupMs": 1283,
+      "encodedJsCss": 132489,
+      "scriptMs": 141.5,
+      "firstMenuMs": 60.9,
+      "firstSettingsMs": 86.4
+    },
+    "migration": {
+      "startupMs": 1527.7,
+      "encodedJsCss": 166826,
+      "scriptMs": 204.7,
+      "firstMenuMs": 391.6,
+      "firstSettingsMs": 391.7
+    }
+  },
+  "errors": []
+}

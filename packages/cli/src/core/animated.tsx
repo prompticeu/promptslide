@@ -76,10 +76,22 @@ export function Animated({
   className,
   children
 }: AnimatedProps) {
-  const { currentStep, showAllAnimations } = useAnimationContext()
+  const { currentStep, showAllAnimations, isExporting } = useAnimationContext()
 
   // Show all animations when navigating backward, otherwise check step
   const isVisible = showAllAnimations || currentStep >= step
+
+  if (isExporting)
+    return (
+      <div
+        className={className}
+        data-ps-build-step={step}
+        data-ps-build-animation={animation}
+        style={{ visibility: isVisible ? "visible" : "hidden" }}
+      >
+        {children}
+      </div>
+    )
 
   return (
     <motion.div
@@ -120,12 +132,26 @@ export function AnimatedGroup({
   className,
   children
 }: AnimatedGroupProps) {
-  const { currentStep, showAllAnimations } = useAnimationContext()
+  const { currentStep, showAllAnimations, isExporting } = useAnimationContext()
 
   const childArray = Array.isArray(children) ? children : [children]
 
   // Show all animations when navigating backward, otherwise check step
   const isVisible = showAllAnimations || currentStep >= startStep
+
+  if (isExporting)
+    return (
+      <div
+        className={className}
+        data-ps-build-step={startStep}
+        data-ps-build-animation={animation}
+        style={{ visibility: isVisible ? "visible" : "hidden" }}
+      >
+        {childArray.map((child, index) => (
+          <div key={index}>{child}</div>
+        ))}
+      </div>
+    )
 
   const containerVariants: Variants = {
     hidden: {},

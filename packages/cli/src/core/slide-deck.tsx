@@ -1,9 +1,10 @@
+import type { ReactNode, ReactPortal } from "react"
+
 import { LayoutGroup } from "framer-motion"
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Download,
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
@@ -20,14 +21,20 @@ import {
   useRef,
   useState
 } from "react"
+import { createPortal, flushSync } from "react-dom"
 
 import type { Annotation, AnnotationTarget } from "./annotations"
+import type { BrowserExportMount } from "./export/browser-renderer"
+import type { PptxExportRequest } from "./export/types"
 import type { SlideTransitionType } from "./transitions"
 import type { LoopConfig, SlideConfig } from "./types"
 
 import { SLIDE_DIMENSIONS } from "./animation-config"
 import { AnimationProvider } from "./animation-context"
 import { AnnotationOverlay, useAnnotations } from "./annotations"
+import { abortable } from "./export/abort"
+import { createBrowserExportRequest } from "./export/browser-request"
+import { DownloadMenu } from "./export/powerpoint-button"
 import { Inspector, type InspectorMode } from "./inspector"
 import {
   DEFAULT_LOOP_CONFIG,
@@ -49,6 +56,7 @@ const AnnotationPanel = lazy(() =>
 import { useLoopPlayback } from "./loop/use-loop-playback"
 import { SlideErrorBoundary } from "./slide-error-boundary"
 import { SlideRenderer } from "./slide-renderer"
+import { useTheme } from "./theme-context"
 import { ToolbarAction } from "./toolbar-action"
 import { useSlideNavigation } from "./use-slide-navigation"
 import { cn } from "./utils"
@@ -183,6 +191,10 @@ function ListSlide({ slide, index, total }: { slide: SlideConfig; index: number;
 }
 
 interface SlideDeckProps {
+  /** Authenticated host transport; omitted in local Studio/static decks. */
+  pptxExportRequest?: PptxExportRequest
+  /** Run the same native export engine locally in the viewer’s browser. */
+  pptxExport?: "browser"
   slides: SlideConfig[]
   transition?: SlideTransitionType
   directionalTransition?: boolean
@@ -260,22 +272,41 @@ function SlideExportView({ slides, slideIndex }: { slides: SlideConfig[]; slideI
 // COMPONENT
 // =============================================================================
 
+/** Export portals retain the host's router, locale and data providers. */
 export function SlideDeck(props: SlideDeckProps) {
-  // Mount hooks only after the application root exists, so refs/observers see
-  // the actual viewport on their first layout effect. Exports need no chrome.
+  const [portal, setPortal] = useState<ReactPortal | null>(null)
+  const mounted = useRef(true)
+  useLayoutEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  const mountExport = useCallback((children: ReactNode, container: HTMLElement) => {
+    if (!mounted.current) {
+      if (children !== null) throw new DOMException("Export viewer was closed", "AbortError")
+      return
+    }
+    flushSync(() => setPortal(children === null ? null : createPortal(children, container)))
+  }, [])
+  // Start viewer hooks only once its application viewport/portal host exists.
+  // Direct export routes retain the original light-DOM rendering path.
   const exporting =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("export") === "true"
-  return exporting ? (
-    <SlideDeckViewer {...props} />
-  ) : (
-    <ApplicationRoot>
-      <SlideDeckViewer {...props} />
-    </ApplicationRoot>
+  const viewer = <SlideDeckViewer {...props} mountExport={mountExport} />
+  return (
+    <>
+      {exporting ? viewer : <ApplicationRoot>{viewer}</ApplicationRoot>}
+      {portal}
+    </>
   )
 }
 
 function SlideDeckViewer({
+  pptxExportRequest,
+  pptxExport,
+  mountExport,
   slides,
   transition,
   directionalTransition,
@@ -285,7 +316,35 @@ function SlideDeckViewer({
   onAnnotationAdd,
   onAnnotationDelete,
   onAnnotationUpdate
-}: SlideDeckProps) {
+}: SlideDeckProps & { mountExport: BrowserExportMount }) {
+  const exportTheme = useTheme()
+  const exportInputs = useRef({ slides, exportTheme, mountExport })
+  useLayoutEffect(() => {
+    exportInputs.current = { slides, exportTheme, mountExport }
+  }, [slides, exportTheme, mountExport])
+  const browserExport = useMemo(
+    () =>
+      pptxExport === "browser"
+        ? createBrowserExportRequest(async options => {
+            const snapshot = exportInputs.current
+            const { renderBrowserPptx } = await abortable(
+              import("./export/browser-renderer"),
+              options.signal
+            )
+            return renderBrowserPptx(
+              [...snapshot.slides],
+              snapshot.exportTheme,
+              options,
+              snapshot.mountExport
+            )
+          })
+        : undefined,
+    [pptxExport]
+  )
+  useEffect(() => {
+    browserExport?.activate()
+    return () => browserExport?.dispose()
+  }, [browserExport])
   // Check for export mode via URL params
   const [exportParams] = useState(() => {
     if (typeof window === "undefined") return null
@@ -394,7 +453,8 @@ function SlideDeckViewer({
   }, [activateInspector])
   const [isPresentationMode, setIsPresentationMode] = useState(false)
   const providedLoopConfig = useDefaultLoopConfig()
-  const defaultLoopConfig = suppliedLoopConfig ?? providedLoopConfig
+  const defaultLoopKey = JSON.stringify(suppliedLoopConfig ?? providedLoopConfig)
+  const defaultLoopConfig = useMemo<LoopConfig>(() => JSON.parse(defaultLoopKey), [defaultLoopKey])
   const storageKey = `promptslide:loop:${typeof location === "undefined" ? "" : location.pathname}:${JSON.stringify(slides.map(loopSlideKey))}`
   const [loopConfig, setLoopConfig] = useState<LoopConfig>(() =>
     loadLoopConfig(defaultLoopConfig, storageKey)
@@ -402,6 +462,7 @@ function SlideDeckViewer({
   const [loopDraft, setLoopDraft] = useState<LoopConfig>(() =>
     loadLoopConfig(defaultLoopConfig, storageKey)
   )
+  const [playbackConfig, setPlaybackConfig] = useState(loopConfig)
   const [isLooping, setIsLooping] = useState(false)
   const [loopMenuOpen, setLoopMenuOpen] = useState(false)
   const [loopError, setLoopError] = useState("")
@@ -412,6 +473,7 @@ function SlideDeckViewer({
     const config = loadLoopConfig(defaultLoopConfig, storageKey)
     setLoopConfig(config)
     setLoopDraft(config)
+    setPlaybackConfig(config)
     setIsLooping(false)
   }, [defaultLoopConfig, storageKey])
   const [viewportWidth, setViewportWidth] = useState(() =>
@@ -582,7 +644,7 @@ function SlideDeckViewer({
   })
 
   const playback = useLoopPlayback({
-    config: loopConfig,
+    config: playbackConfig,
     slides,
     currentSlide,
     animationStep,
@@ -606,9 +668,9 @@ function SlideDeckViewer({
     }
   }
   const saveLoopConfig = async (config: LoopConfig) => {
-    const savedInBrowser = rememberLoopConfig(config)
     if (onLoopConfigChange) {
       await onLoopConfigChange(config)
+      rememberLoopConfig(config)
       return "Loop settings saved."
     }
     try {
@@ -617,8 +679,10 @@ function SlideDeckViewer({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(config)
       })
-      if (response.status === 204)
+      if (response.status === 204) {
+        rememberLoopConfig(config)
         return "Saved to loop-config.json. Included in future builds and publishing."
+      }
       if (response.status !== 404 && response.status !== 405)
         throw new Error(
           "Studio could not save loop-config.json. Download the settings to keep a copy."
@@ -626,7 +690,7 @@ function SlideDeckViewer({
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("Studio")) throw error
     }
-    return savedInBrowser
+    return rememberLoopConfig(config)
       ? "Saved in this browser. Download settings and place loop-config.json in the project folder to share or publish them."
       : "Applied for this session. Browser storage is unavailable; download the settings to keep them."
   }
@@ -641,7 +705,7 @@ function SlideDeckViewer({
     try {
       // Request synchronously from the click, before any asynchronous work.
       if (!document.fullscreenElement) await document.documentElement.requestFullscreen()
-      rememberLoopConfig(config)
+      setPlaybackConfig(config)
       setLoopDraft(config)
       setViewMode("slide")
       setInspectorMode(null)
@@ -724,8 +788,13 @@ function SlideDeckViewer({
   }, [isAnnotationMode, viewMode, requestInspector])
 
   const handleExportPdf = useCallback(async () => {
+    let response: Response | undefined
     try {
-      const response = await fetch("/__promptslide_pdf")
+      response = await fetch("/__promptslide_pdf")
+    } catch {
+      /* Static builds use the browser print fallback. */
+    }
+    if (response) {
       if (response.ok && response.headers.get("content-type")?.includes("application/pdf")) {
         const blob = await response.blob()
         const url = URL.createObjectURL(blob)
@@ -736,8 +805,11 @@ function SlideDeckViewer({
         setTimeout(() => URL.revokeObjectURL(url), 1000)
         return
       }
-    } catch {
-      /* Static builds use the browser print fallback. */
+      if (
+        response.status !== 404 &&
+        (!response.ok || response.headers.get("content-type")?.includes("application/json"))
+      )
+        throw new Error((await response.text()) || "PDF export failed. Please try again.")
     }
     const previousMode = viewMode
     setViewMode("list")
@@ -758,7 +830,7 @@ function SlideDeckViewer({
       const target = eventElement(e)
       if (
         target?.closest(
-          "input, textarea, [contenteditable='true'], [role='menu'], [role='combobox'], [role='slider'], [role='dialog']"
+          "input, textarea, select, [contenteditable='true'], [role='menu'], [role='combobox'], [role='slider'], [role='dialog']"
         )
       )
         return
@@ -769,8 +841,8 @@ function SlideDeckViewer({
         return
       if (e.altKey || e.ctrlKey || e.metaKey) return
       const key = e.key.toLowerCase()
-      if (e.repeat && "fvglcdt".includes(key)) return
-      if (isEditorOpen && ["f", "v", "g", "l", "c", "d"].includes(key)) return
+      if (e.repeat && "fvglct".includes(key)) return
+      if (isEditorOpen && ["f", "v", "g", "l", "c"].includes(key)) return
 
       if (loopStartScreen) return
       if (loopMenuOpen) return
@@ -818,12 +890,6 @@ function SlideDeckViewer({
         return
       }
 
-      if (key === "d" && !isPresentationMode) {
-        e.preventDefault()
-        void handleExportPdf()
-        return
-      }
-
       if (viewMode === "slide" && !isPresentationMode && key === "t") {
         e.preventDefault()
         setThumbnailRailOpen(!showThumbnailRail)
@@ -857,8 +923,7 @@ function SlideDeckViewer({
     isPresentationMode,
     setThumbnailRailOpen,
     showThumbnailRail,
-    toggleCommentMode,
-    handleExportPdf
+    toggleCommentMode
   ])
 
   const inspectorWidth = viewportWidth <= 850 ? 280 : 320
@@ -981,14 +1046,12 @@ function SlideDeckViewer({
 
         <div className="mx-1 w-px bg-neutral-800" />
 
-        <ToolbarAction
-          onClick={handleExportPdf}
+        <DownloadMenu
+          exportRequest={browserExport?.request || pptxExportRequest}
           disabled={isEditorOpen}
-          label="Download PDF"
-          title="Download PDF (D)"
-        >
-          <Download className="h-4 w-4" />
-        </ToolbarAction>
+          onPdf={handleExportPdf}
+          hasRevealSteps={slides.some(slide => slide.steps > 0)}
+        />
         <DropdownMenu open={loopMenuOpen} onOpenChange={setLoopMenuOpen}>
           <div className="flex">
             <Button

@@ -3,6 +3,7 @@ import type { Transition } from "framer-motion"
 import { motion } from "framer-motion"
 
 import { MORPH_TRANSITION } from "./animation-config"
+import { useAnimationContext } from "./animation-context"
 
 // =============================================================================
 // TYPES
@@ -48,6 +49,13 @@ export function Morph({
   className,
   children
 }: MorphProps) {
+  const { isExporting } = useAnimationContext()
+  if (isExporting)
+    return (
+      <div className={className} data-ps-morph={layoutId}>
+        {children}
+      </div>
+    )
   return (
     <motion.div
       layout
@@ -71,6 +79,13 @@ export function MorphGroup({
   className,
   children
 }: MorphGroupProps) {
+  const { isExporting } = useAnimationContext()
+  if (isExporting)
+    return (
+      <div className={className} data-ps-morph={groupId}>
+        {children}
+      </div>
+    )
   return (
     <motion.div
       layout
@@ -104,6 +119,13 @@ export function MorphItem({
   children
 }: MorphItemProps) {
   const layoutId = prefix ? `${prefix}-${id}` : id
+  const { isExporting } = useAnimationContext()
+  if (isExporting)
+    return (
+      <div className={className} data-ps-morph={layoutId}>
+        {children}
+      </div>
+    )
 
   return (
     <motion.div
@@ -137,6 +159,13 @@ export function MorphText({
   className,
   children
 }: MorphTextProps) {
+  const { isExporting } = useAnimationContext()
+  if (isExporting)
+    return (
+      <Component className={className} data-ps-morph={layoutId}>
+        {children}
+      </Component>
+    )
   const MotionComponent = motion[Component]
 
   return (

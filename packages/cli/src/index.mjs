@@ -41,6 +41,7 @@ function printHelp() {
   console.log(`  ${bold("Tools:")}`)
   console.log(`    to-image ${dim("<slide>")} Export a slide as a PNG image`)
   console.log(`    to-pdf          Export the full deck as a PDF`)
+  console.log(`    to-pptx         Export editable PowerPoint with a compatibility report`)
   console.log()
   console.log(`  ${bold("Options:")}`)
   console.log(`    --help, -h      Show this help message`)
@@ -135,6 +136,11 @@ switch (command) {
   case "to-image": {
     const { toImage } = await import("./commands/to-image.mjs")
     await toImage(args)
+    break
+  }
+  case "to-pptx": {
+    const { toPptx } = await import("./commands/to-pptx.mjs")
+    await toPptx(args)
     break
   }
   case "to-pdf": {

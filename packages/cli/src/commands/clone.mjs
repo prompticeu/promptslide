@@ -179,7 +179,9 @@ export async function clone(args) {
     const registrySlideSlugs = collectRegistrySlideSlugs(resolved.items)
     const { available, missing } = partitionDeckSlides(item.meta.slides, registrySlideSlugs)
     if (missing.length > 0) {
-      console.log(`  ${yellow("!")} Skipped ${missing.length} slide(s) listed in the deck but not included in this version:`)
+      console.log(
+        `  ${yellow("!")} Skipped ${missing.length} slide(s) listed in the deck but not included in this version:`
+      )
       console.log(`    ${dim(missing.map(s => s.slug).join(", "))}`)
     }
     const slides = available.map(s => ({

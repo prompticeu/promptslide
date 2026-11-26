@@ -61,7 +61,6 @@ No server, no API, no sandbox. Just a local Vite project + your coding agent.
 | `G`           | Toggle grid view        |
 | `L`           | Toggle list view        |
 | `C`           | Toggle comments         |
-| `D`           | Download PDF            |
 | `T`           | Toggle slide thumbnails |
 | `Escape`      | Exit fullscreen         |
 
@@ -73,7 +72,9 @@ No server, no API, no sandbox. Just a local Vite project + your coding agent.
 
 Add a unique, stable `id` to each entry in `src/deck-config.ts` to keep links and annotations attached to the same slide when you reorder the deck. Existing decks without IDs still work and use numbered URL hashes. Studio remembers the current animation step across reloads in the same tab.
 
-Use `promptslide to-image src/slides/slide-title.tsx -o title.png` for a PNG or `promptslide to-pdf -o slides.pdf` for the full deck. These commands reuse the running Studio server when possible and otherwise start a temporary one. Studio's Download PDF button uses the same all-slides renderer.
+Use `promptslide to-image src/slides/slide-title.tsx -o title.png` for a PNG or `promptslide to-pdf -o slides.pdf` for the full deck. These commands reuse the running Studio server when possible and otherwise start a temporary one. Studio's **Download → PDF (.pdf)** action uses the same all-slides renderer. PDF export uses the presentation's screen styles at 1280×720, waits for fonts and visible image assets (including lazy images), and renders the final reveal state without animation. Transient font/stylesheet failures are retried; unresolved assets and slide errors stop export with a visible error. Static deployments retain browser printing.
+
+Use Studio's **Download → PowerPoint (.pptx)** action or `promptslide to-pptx -o slides.pptx` for editable PowerPoint export. Text, shapes, supported gradients, SVG paths and semantic tables/charts remain native where supported; complex effects use reported graphics. Strict mode rejects compatibility fallbacks. See [PowerPoint export](docs/pptx-export.md) for options, font embedding and the current fidelity/qualification boundaries.
 
 ## Tech Stack
 

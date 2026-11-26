@@ -1,0 +1,312 @@
+{
+  "baselineCommit": "9dd7a2cc4493ee01954d9313e3bc88539d000d64",
+  "method": "Fresh Node processes, NODE_ENV=production, same deck and CLI entry, Vite defaults plus manifest; gzip level 9 / Brotli quality 11; sum independently compressed files; initial graph excludes dynamic imports. Application shadow-root CSS is transported in JS and included in JS totals.",
+  "measurements": {
+    "baseline": {
+      "total": {
+        "js": {
+          "raw": 2957659,
+          "gzip": 1113041,
+          "brotli": 914804
+        },
+        "css": {
+          "raw": 57413,
+          "gzip": 10001,
+          "brotli": 8428
+        }
+      },
+      "initial": {
+        "js": {
+          "raw": 463904,
+          "gzip": 143988,
+          "brotli": 124061
+        },
+        "css": {
+          "raw": 57413,
+          "gzip": 10001,
+          "brotli": 8428
+        }
+      },
+      "assets": [
+        {
+          "file": "assets/index-B5O0oYPI.js",
+          "type": "js",
+          "raw": 463904,
+          "gzip": 143988,
+          "brotli": 124061
+        },
+        {
+          "file": "assets/browser-renderer-SDwLMgWt.js",
+          "type": "js",
+          "raw": 2657,
+          "gzip": 1441,
+          "brotli": 1244
+        },
+        {
+          "file": "assets/browser-BkO8CSTv.js",
+          "type": "js",
+          "raw": 1574380,
+          "gzip": 596084,
+          "brotli": 500250
+        },
+        {
+          "file": "assets/module-UELXCQAA-DSEXYPIh.js",
+          "type": "js",
+          "raw": 95,
+          "gzip": 108,
+          "brotli": 88
+        },
+        {
+          "file": "assets/subset-font-ZLE7N5K5-10ZsAMzh.js",
+          "type": "js",
+          "raw": 916623,
+          "gzip": 371420,
+          "brotli": 289161
+        },
+        {
+          "file": "assets/index-CRWruy31.css",
+          "type": "css",
+          "raw": 57413,
+          "gzip": 10001,
+          "brotli": 8428
+        }
+      ],
+      "editorModules": [],
+      "modules": 381,
+      "baseUiModules": 0
+    },
+    "migration": {
+      "total": {
+        "js": {
+          "raw": 3248055,
+          "gzip": 1214495,
+          "brotli": 1004390
+        },
+        "css": {
+          "raw": 57210,
+          "gzip": 9923,
+          "brotli": 8349
+        }
+      },
+      "initial": {
+        "js": {
+          "raw": 596693,
+          "gzip": 184696,
+          "brotli": 158477
+        },
+        "css": {
+          "raw": 57210,
+          "gzip": 9923,
+          "brotli": 8349
+        }
+      },
+      "assets": [
+        {
+          "file": "assets/index-DaZtvq8e.js",
+          "type": "js",
+          "raw": 596693,
+          "gzip": 184696,
+          "brotli": 158477
+        },
+        {
+          "file": "assets/loop-settings-BIuq8Tqc.js",
+          "type": "js",
+          "raw": 14909,
+          "gzip": 5959,
+          "brotli": 5383
+        },
+        {
+          "file": "assets/annotation-panel-6qEdjvdI.js",
+          "type": "js",
+          "raw": 8246,
+          "gzip": 2519,
+          "brotli": 2251
+        },
+        {
+          "file": "assets/rotate-ccw-BXEIYopR.js",
+          "type": "js",
+          "raw": 373,
+          "gzip": 288,
+          "brotli": 244
+        },
+        {
+          "file": "assets/browser-renderer-ddyvq2Zx.js",
+          "type": "js",
+          "raw": 2681,
+          "gzip": 1455,
+          "brotli": 1259
+        },
+        {
+          "file": "assets/annotation-form-BT7Py2s-.js",
+          "type": "js",
+          "raw": 10999,
+          "gzip": 4403,
+          "brotli": 3927
+        },
+        {
+          "file": "assets/input-CFPzrdMP.js",
+          "type": "js",
+          "raw": 2150,
+          "gzip": 1067,
+          "brotli": 971
+        },
+        {
+          "file": "assets/tooltip-content-TIXbv6HO.js",
+          "type": "js",
+          "raw": 2926,
+          "gzip": 1319,
+          "brotli": 1160
+        },
+        {
+          "file": "assets/powerpoint-dialog-BjpaOUiO.js",
+          "type": "js",
+          "raw": 44607,
+          "gzip": 15569,
+          "brotli": 13955
+        },
+        {
+          "file": "assets/disclosure-BiVcw7IZ.js",
+          "type": "js",
+          "raw": 12047,
+          "gzip": 4939,
+          "brotli": 4480
+        },
+        {
+          "file": "assets/useRegisterFieldControl-zHQEBqZR.js",
+          "type": "js",
+          "raw": 2435,
+          "gzip": 1117,
+          "brotli": 1018
+        },
+        {
+          "file": "assets/dropdown-menu-content-Y09qpIBS.js",
+          "type": "js",
+          "raw": 14010,
+          "gzip": 5163,
+          "brotli": 4685
+        },
+        {
+          "file": "assets/useTriggerSwitchTransition-BHg0ztlv.js",
+          "type": "js",
+          "raw": 589,
+          "gzip": 360,
+          "brotli": 314
+        },
+        {
+          "file": "assets/useHoverFloatingInteraction-C7mY5jGZ.js",
+          "type": "js",
+          "raw": 2488,
+          "gzip": 1149,
+          "brotli": 1040
+        },
+        {
+          "file": "assets/useAnchoredPopupScrollLock-BlyIPFwA.js",
+          "type": "js",
+          "raw": 14518,
+          "gzip": 5626,
+          "brotli": 5103
+        },
+        {
+          "file": "assets/usePositioner-YD7pvJZ4.js",
+          "type": "js",
+          "raw": 29111,
+          "gzip": 11508,
+          "brotli": 10422
+        },
+        {
+          "file": "assets/browser-lu95qlSP.js",
+          "type": "js",
+          "raw": 1572774,
+          "gzip": 595864,
+          "brotli": 500301
+        },
+        {
+          "file": "assets/module-UELXCQAA-DSEXYPIh.js",
+          "type": "js",
+          "raw": 95,
+          "gzip": 108,
+          "brotli": 88
+        },
+        {
+          "file": "assets/subset-font-U5Y2XCLE-BH0boN07.js",
+          "type": "js",
+          "raw": 916404,
+          "gzip": 371386,
+          "brotli": 289312
+        },
+        {
+          "file": "assets/index-Bv_PciPk.css",
+          "type": "css",
+          "raw": 57210,
+          "gzip": 9923,
+          "brotli": 8349
+        }
+      ],
+      "editorModules": [],
+      "modules": 682,
+      "baseUiModules": 267
+    }
+  },
+  "delta": {
+    "initial": {
+      "js": {
+        "raw": {
+          "bytes": 132789,
+          "percent": 28.62
+        },
+        "gzip": {
+          "bytes": 40708,
+          "percent": 28.27
+        },
+        "brotli": {
+          "bytes": 34416,
+          "percent": 27.74
+        }
+      },
+      "css": {
+        "raw": {
+          "bytes": -203,
+          "percent": -0.35
+        },
+        "gzip": {
+          "bytes": -78,
+          "percent": -0.78
+        },
+        "brotli": {
+          "bytes": -79,
+          "percent": -0.94
+        }
+      }
+    },
+    "total": {
+      "js": {
+        "raw": {
+          "bytes": 290396,
+          "percent": 9.82
+        },
+        "gzip": {
+          "bytes": 101454,
+          "percent": 9.12
+        },
+        "brotli": {
+          "bytes": 89586,
+          "percent": 9.79
+        }
+      },
+      "css": {
+        "raw": {
+          "bytes": -203,
+          "percent": -0.35
+        },
+        "gzip": {
+          "bytes": -78,
+          "percent": -0.78
+        },
+        "brotli": {
+          "bytes": -79,
+          "percent": -0.94
+        }
+      }
+    }
+  }
+}

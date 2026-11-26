@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.3.22](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.21...promptslide-v0.3.22) (2026-11-05)
+
+
+### Features
+
+* export PowerPoint and prepare PDFs in the browser ([#116](https://github.com/prompticeu/promptslide/issues/116)) ([f1d26d3](https://github.com/prompticeu/promptslide/commit/f1d26d3cc1accd278dd47903b1eb686927273095))
+
+## [0.3.21](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.20...promptslide-v0.3.21) (2026-11-04)
+
+
+### Features
+
+* support authenticated hosted PowerPoint export transports ([#114](https://github.com/prompticeu/promptslide/issues/114)) ([2a87d83](https://github.com/prompticeu/promptslide/commit/2a87d830d587aef2859f76013beb3f843ee19050))
+
+## [0.3.20](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.19...promptslide-v0.3.20) (2026-11-04)
+
+
+### Features
+
+* add editable PowerPoint export and improve PDF fidelity ([#111](https://github.com/prompticeu/promptslide/issues/111)) ([3709719](https://github.com/prompticeu/promptslide/commit/370971944aec49256236a14d6ec897854462de81))
+
+## [0.3.19](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.18...promptslide-v0.3.19) (2026-10-23)
+
+
+### Features
+
+* add timed autoplay loops and shared slide inspector ([#109](https://github.com/prompticeu/promptslide/issues/109)) ([6393775](https://github.com/prompticeu/promptslide/commit/63937759fd86b996fe69b0a76dd3e18adf0a8a86))
+
 ## [0.3.18](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.17...promptslide-v0.3.18) (2026-10-23)
 
 

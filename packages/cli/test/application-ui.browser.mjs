@@ -234,7 +234,8 @@ try {
   const liveStyles = await styles(page.locator("[data-ps-editor-canvas] h1"))
   await page.screenshot({ path: "/tmp/promptslide-application-isolation.png" })
   const downloading = page.waitForEvent("download")
-  await page.getByRole("button", { name: "Download PDF", exact: true }).click()
+  await page.getByRole("button", { name: "Download", exact: true }).click()
+  await page.getByRole("menuitem", { name: "PDF (.pdf)", exact: true }).click()
   const download = await downloading
   assert.equal(download.suggestedFilename(), "slides.pdf")
   assert.equal(await download.failure(), null)

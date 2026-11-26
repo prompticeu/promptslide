@@ -21,6 +21,10 @@ const repo = process.cwd(),
   script = fileURLToPath(import.meta.url)
 const out = resolve(process.env.UI_MIGRATION_OUT || "/tmp/promptslide-application-bundles")
 const variant = process.argv[2]
+const baselineRef = process.env.UI_MIGRATION_BASE || "6dc2f38"
+const reportPath = resolve(
+  process.env.UI_MIGRATION_REPORT || "docs/bundle-measurements/migration.json"
+)
 async function run(args, env = {}) {
   await new Promise((done, reject) => {
     const child = spawn(process.execPath, args, {
@@ -36,7 +40,7 @@ if (!variant) {
   const baseline = mkdtempSync(join(tmpdir(), "promptslide-ui-baseline-"))
   try {
     const archive = join(baseline, "snapshot.tar")
-    execFileSync("git", ["archive", "--format=tar", "-o", archive, "6dc2f38"], { cwd: repo })
+    execFileSync("git", ["archive", "--format=tar", "-o", archive, baselineRef], { cwd: repo })
     execFileSync("tar", ["-xf", archive, "-C", baseline])
     rmSync(archive)
     symlinkSync(join(repo, "node_modules"), join(baseline, "node_modules"), "dir")
@@ -45,6 +49,17 @@ if (!variant) {
       join(baseline, "packages/cli/node_modules"),
       "dir"
     )
+    // Current main includes optional browser export engines. Build that archived
+    // package so the baseline resolves its own engine artifacts as a real deck would.
+    const baselinePackage = JSON.parse(
+      readFileSync(join(baseline, "packages/cli/package.json"), "utf8")
+    )
+    if (baselinePackage.exports["./browser"])
+      execFileSync("bun", ["run", "build"], {
+        cwd: join(baseline, "packages/cli"),
+        stdio: "inherit",
+        env: { ...process.env, NODE_ENV: "production" }
+      })
     await run([script, "baseline"], { PS_MEASURE_DECK: baseline })
     await run([script, "migration"], { PS_MEASURE_DECK: repo })
   } finally {
@@ -74,17 +89,17 @@ if (!variant) {
       ])
     )
   const report = {
-    baselineCommit: "6dc2f38",
+    baselineCommit: execFileSync("git", ["rev-parse", baselineRef], {
+      cwd: repo,
+      encoding: "utf8"
+    }).trim(),
     method:
       "Fresh Node processes, NODE_ENV=production, same deck and CLI entry, Vite defaults plus manifest; gzip level 9 / Brotli quality 11; sum independently compressed files; initial graph excludes dynamic imports. Application shadow-root CSS is transported in JS and included in JS totals.",
     measurements,
     delta
   }
   mkdirSync(resolve("docs/bundle-measurements"), { recursive: true })
-  writeFileSync(
-    resolve("docs/bundle-measurements/migration.json"),
-    JSON.stringify(report, null, 2) + "\n"
-  )
+  writeFileSync(reportPath, JSON.stringify(report, null, 2) + "\n")
   console.log(
     JSON.stringify(
       { initial: measurements.migration.initial, total: measurements.migration.total, delta },

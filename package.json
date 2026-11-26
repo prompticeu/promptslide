@@ -7,8 +7,8 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "promptslide studio",
-    "build": "promptslide build",
+    "dev": "npm run build --workspace=promptslide && promptslide studio",
+    "build": "npm run build --workspace=promptslide && promptslide build",
     "preview": "promptslide preview",
     "lint": "oxlint",
     "test": "node --test packages/cli/test/*.test.mjs",
