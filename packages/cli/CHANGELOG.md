@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.23](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.22...promptslide-v0.3.23) (2026-11-26)
+
+
+### Features
+
+* isolate application controls with Base UI ([#118](https://github.com/prompticeu/promptslide/issues/118)) ([5ef0cc3](https://github.com/prompticeu/promptslide/commit/5ef0cc3f823caec7e8c02d10692be71c53ff6d21))
+
 ## [0.3.22](https://github.com/prompticeu/promptslide/compare/promptslide-v0.3.21...promptslide-v0.3.22) (2026-11-05)
 
 
